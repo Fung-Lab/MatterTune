@@ -139,9 +139,16 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
 
 class JMPBackboneModule(
     FinetuneModuleBase[
-        "torch_geometric.data.Data", "torch_geometric.data.Batch", JMPBackboneConfig
+        "torch_geometric.data.Data",
+        "torch_geometric.data.Batch",
+        JMPBackboneConfig,
     ]
 ):
+    @override
+    @classmethod
+    def hparams_cls(cls):
+        return JMPBackboneConfig
+
     @override
     @classmethod
     def ensure_dependencies(cls):
