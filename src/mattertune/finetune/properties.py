@@ -102,6 +102,9 @@ class PropertyConfigBase(C.Config, ABC):
             class.
         """
 
+    @abstractmethod
+    def property_type(self) -> Literal["system", "atom"]: ...
+
     def prepare_value_for_ase_calculator(self, value: float | np.ndarray):
         """Convert the property value to a format that can be used by the ASE calculator."""
         return value
@@ -117,6 +120,10 @@ class GraphPropertyConfig(PropertyConfigBase):
     @override
     def ase_calculator_property_name(self):
         return None
+
+    @override
+    def property_type(self):
+        return "system"
 
 
 class EnergyPropertyConfig(PropertyConfigBase):
@@ -142,6 +149,10 @@ class EnergyPropertyConfig(PropertyConfigBase):
         if isinstance(value, np.ndarray):
             return value.item()
         return value
+
+    @override
+    def property_type(self):
+        return "system"
 
 
 class ForcesPropertyConfig(PropertyConfigBase):
@@ -170,6 +181,10 @@ class ForcesPropertyConfig(PropertyConfigBase):
     @override
     def ase_calculator_property_name(self):
         return "forces"
+
+    @override
+    def property_type(self):
+        return "atom"
 
 
 class StressesPropertyConfig(PropertyConfigBase):
@@ -203,6 +218,10 @@ class StressesPropertyConfig(PropertyConfigBase):
         from ase.constraints import full_3x3_to_voigt_6_stress
 
         return full_3x3_to_voigt_6_stress(value)
+
+    @override
+    def property_type(self):
+        return "system"
 
 
 PropertyConfig: TypeAlias = Annotated[
