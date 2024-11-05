@@ -38,3 +38,5 @@ class XYZDataset(DatasetBase[XYZDatasetConfig]):
 
     def __len__(self) -> int:
         return len(self.atoms_list)
+
+

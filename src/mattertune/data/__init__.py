@@ -10,6 +10,5 @@ from .xyz import XYZDatasetConfig as XYZDatasetConfig
 
 DatasetConfig: TypeAlias = Annotated[
     DatasetConfigBase,
-    XYZDatasetConfig,
     data_registry.DynamicResolution(),
 ]
