@@ -52,7 +52,7 @@ class SGDConfig(C.Config):
     """Whether to use nestrov."""
 
 
-OptimizerConfig: nameAlias = Annotated[
+OptimizerConfig: TypeAlias = Annotated[
     AdamConfig | AdamWConfig | SGDConfig,
     C.Field(discriminator="name"),
 ]
