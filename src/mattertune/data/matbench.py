@@ -15,7 +15,6 @@ from .base import DatasetBase, DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
-
 @data_registry.register
 class MatbenchDatasetConfig(DatasetConfigBase):
     """Configuration for the Matbench dataset."""
@@ -46,35 +45,34 @@ class MatbenchDatasetConfig(DatasetConfigBase):
 class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
     def __init__(self, config: MatbenchDatasetConfig):
         super().__init__(config)
-        self._config = config
         self._initialize_benchmark()
         self._load_data()
 
     def _initialize_benchmark(self) -> None:
         """Initialize the Matbench benchmark and task."""
-        if self._config.task is None:
+        if self.config.task is None:
             mb = MatbenchBenchmark(autoload=False)
             all_tasks = list(mb.metadata.keys())
             raise ValueError(f"Please specify a task from {all_tasks}")
         else:
-            mb = MatbenchBenchmark(autoload=False, subset=[self._config.task])
+            mb = MatbenchBenchmark(autoload=False, subset=[self.config.task])
             self._task = mb.tasks[0]
             self._task.load()
 
     def _load_data(self) -> None:
         """Load and process the dataset split."""
-        fold = self._task.folds[self._config.fold_idx]
+        fold = self._task.folds[self.config.fold_idx]
 
-        if self._config.split == "test":
+        if self.config.split == "test":
             inputs = self._task.get_test_data(fold, include_target=False)
             self._atoms_list = self._convert_structures_to_atoms(inputs)
             log.info(f"Loaded test split with {len(self._atoms_list)} samples")
             return
 
         inputs_data, outputs_data = self._task.get_train_and_val_data(fold)
-        split_idx = int(len(inputs_data) * self._config.train_split_ratio)
+        split_idx = int(len(inputs_data) * self.config.train_split_ratio)
 
-        if self._config.split == "train":
+        if self.config.split == "train":
             inputs = inputs_data[:split_idx]
             outputs = outputs_data[:split_idx]
         else:  # validation
@@ -83,8 +81,8 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
 
         self._atoms_list = self._convert_structures_to_atoms(inputs, outputs)
         log.info(
-            f"Loaded {self._config.split} split with {len(self._atoms_list)} samples "
-            f"(fold {self._config.fold_idx})"
+            f"Loaded {self.config.split} split with {len(self._atoms_list)} samples "
+            f"(fold {self.config.fold_idx})"
         )
 
     def _convert_structures_to_atoms(
@@ -104,9 +102,9 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
         adapter = AseAtomsAdaptor()
         atoms_list = []
         prop_name = (
-            self._config.property_name
-            if self._config.property_name is not None
-            else self._config.task
+            self.config.property_name
+            if self.config.property_name is not None
+            else self.config.task
         )
         for i, structure in enumerate(structures):
             atoms = adapter.get_atoms(structure)
@@ -131,10 +129,10 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
         Returns:
             List of ASE Atoms objects from the test set.
         """
-        if self._config.split == "test":
+        if self.config.split == "test":
             return self._atoms_list
 
         test_inputs = self._task.get_test_data(
-            self._task.folds[self._config.fold_idx], include_target=False
+            self._task.folds[self.config.fold_idx], include_target=False
         )
         return self._convert_structures_to_atoms(test_inputs)

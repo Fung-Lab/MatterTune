@@ -44,8 +44,8 @@ def hparams():
 
     ## Data hparams
     hparams.data = MC.PerSplitDataConfig.draft()
-    hparams.data.train = MC.XYZDatasetConfig.draft()
-    hparams.data.train.src = "./data/water_ef_train.xyz"  ## 30 for training
+    hparams.data.train = MC.DBDatasetConfig.draft()
+    hparams.data.train.src = "./data/water_ef_train.db"  ## 30 for training
     hparams.data.validation = MC.XYZDatasetConfig.draft()
     hparams.data.validation.src = "./data/water_ef_val.xyz"  ## rest for validation
     hparams.data.batch_size = 128
@@ -65,9 +65,9 @@ def hparams():
         mode="min",
     )
     hparams.lightning_trainer_kwargs = {
-        "max_epochs": 2000,
+        "max_epochs": 2,
         "accelerator": "gpu",
-        "devices": [2, 3],
+        "devices": [2],
         "strategy": "ddp",
         "gradient_clip_algorithm": "value",
         "gradient_clip_val": 1.0,
@@ -97,13 +97,17 @@ atoms = ase.Atoms(
 )
 
 # Predict the properties
-potential = model.potential(lightning_trainer_kwargs=hp.lightning_trainer_kwargs)
+potential = model.potential(
+    lightning_trainer_kwargs=mattertune_hparams.lightning_trainer_kwargs
+)
 # %%
 properties = potential.predict([atoms], model.hparams.properties)
 print(properties)
 # %%
 # Set the calculator
-calculator = model.ase_calculator(lightning_trainer_kwargs=hp.lightning_trainer_kwargs)
+calculator = model.ase_calculator(
+    lightning_trainer_kwargs=mattertune_hparams.lightning_trainer_kwargs
+)
 atoms.calc = calculator
 
 # Calculate the energy

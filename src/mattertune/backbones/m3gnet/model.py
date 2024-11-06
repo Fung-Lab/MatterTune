@@ -62,7 +62,7 @@ def _default_elements():
     return DEFAULT_ELEMENTS
 
 
-class GraphComputerConfig(C.Config):
+class M3GNetGraphComputerConfig(C.Config):
     """Configuration for initialize a MatGL Atoms2Graph Convertor."""
 
     element_types: tuple[str, ...] = C.Field(default_factory=_default_elements)
@@ -83,7 +83,7 @@ class M3GNetBackboneConfig(FinetuneModuleBaseConfig):
     """The type of the backbone."""
     ckpt_path: str
     """The path to the pre-trained model checkpoint."""
-    graph_computer: GraphComputerConfig
+    graph_computer: M3GNetGraphComputerConfig
     """Configuration for the graph computer."""
 
     @override
