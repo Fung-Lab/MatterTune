@@ -315,6 +315,12 @@ class ORBBackboneModule(
         from orb_models.forcefield import atomic_system
 
         # This is the dataset transform; we can't use GPU here.
+        # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect
+        #   the `device` argument. We have a patch to fix this, and we have
+        #   a PR open to fix this upstream. Until that is merged, users
+        #   will need to install the patched version of `orb_models` from our fork:
+        #   `pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"`
+        #   PR: https://github.com/orbital-materials/orb-models/pull/35
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
             self.hparams.system._to_orb_system_config(),
