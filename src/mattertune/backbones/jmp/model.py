@@ -16,36 +16,14 @@ from typing_extensions import override
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...registry import backbone_registry
+from .util import get_activation_cls
 
 if TYPE_CHECKING:
     from ase import Atoms
-    # from torch_geometric.data import Batch, Data
-    # from torch_geometric.data.data import BaseData
+    from torch_geometric.data import Batch, Data
+    from torch_geometric.data.data import BaseData
 
 log = logging.getLogger(__name__)
-
-
-def _get_activation_cls(activation: str) -> type[nn.Module]:
-    """
-    Get the activation class from the activation name
-    """
-    activation = activation.lower()
-    if activation == "relu":
-        return nn.ReLU
-    elif activation == "silu" or activation == "swish":
-        return nn.SiLU
-    elif activation == "scaled_silu" or activation == "scaled_swish":
-        from jmp.models.gemnet.layers.base_layers import ScaledSiLU
-
-        return ScaledSiLU
-    elif activation == "tanh":
-        return nn.Tanh
-    elif activation == "sigmoid":
-        return nn.Sigmoid
-    elif activation == "identity":
-        return nn.Identity
-    else:
-        raise ValueError(f"Activation {activation} is not supported")
 
 
 class CutoffsConfig(C.Config):
@@ -137,13 +115,7 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
         return JMPBackboneModule
 
 
-class JMPBackboneModule(
-    FinetuneModuleBase[
-        "torch_geometric.data.Data",
-        "torch_geometric.data.Batch",
-        JMPBackboneConfig,
-    ]
-):
+class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     @classmethod
     def hparams_cls(cls):
@@ -171,7 +143,7 @@ class JMPBackboneModule(
         return False
 
     def _create_output_head(self, prop: props.PropertyConfig):
-        activation_cls = _get_activation_cls(self.backbone.hparams.activation)
+        activation_cls = get_activation_cls(self.backbone.hparams.activation)
         match prop:
             case props.EnergyPropertyConfig():
                 from jmp.nn.energy_head import EnergyTargetConfig
@@ -266,9 +238,8 @@ class JMPBackboneModule(
     @override
     def collate_fn(self, data_list):
         from torch_geometric.data import Batch
-        from torch_geometric.data.data import BaseData
 
-        return Batch.from_data_list(cast(list[BaseData], data_list))
+        return Batch.from_data_list(cast("list[BaseData]", data_list))
 
     @override
     def gpu_batch_transform(self, batch):
