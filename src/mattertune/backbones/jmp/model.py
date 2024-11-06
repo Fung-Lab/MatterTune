@@ -304,17 +304,14 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 def _get_fixed(atoms: Atoms):
     """Gets the fixed atom constraint mask from an Atoms object."""
     fixed = np.zeros(len(atoms), dtype=np.bool_)
-    if not hasattr(atoms, "constraints"):
+    if (constraints := getattr(atoms, "constraints", None)) is None:
         raise ValueError("Atoms object does not have a constraints attribute")
 
     from ase.constraints import FixAtoms
 
-    if (
-        constraint := next(
-            (c for c in atoms.constraints if isinstance(c, FixAtoms)), None
-        )
-    ) is None:
-        return fixed
+    for constraint in constraints:
+        if not isinstance(constraint, FixAtoms):
+            continue
+        fixed[constraint.index] = True
 
-    fixed[constraint.index] = True
     return fixed
