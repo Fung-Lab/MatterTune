@@ -20,6 +20,29 @@ log = logging.getLogger(__name__)
 
 
 class MatterTunePotential:
+    """
+    A wrapper class for handling predictions with trained neural network potentials.
+
+    This class provides an interface to make predictions using a trained neural network
+    potential model. It wraps a PyTorch Lightning module and handles the necessary setup
+    for making predictions on atomic systems.
+
+    lightning_module : FinetuneModuleBase
+        The trained PyTorch Lightning module that will be used for predictions.
+    lightning_trainer_kwargs : dict[str, Any] | None, optional
+        Additional keyword arguments to pass to the PyTorch Lightning Trainer.
+        Defaults to None.
+
+    Examples
+    --------
+    >>> from mattertune.wrappers import MatterTunePotential
+    >>> potential = MatterTunePotential(trained_model)  # OR `potential = trained_model.potential()`
+    >>> predictions = potential.predict(atoms_list)
+
+    The class provides a simplified interface for making predictions with trained models,
+    handling the necessary setup of trainers and dataloaders internally.
+    """
+
     def __init__(
         self,
         lightning_module: FinetuneModuleBase[Any, Any, FinetuneModuleBaseConfig],
