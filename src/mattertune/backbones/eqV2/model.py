@@ -44,6 +44,7 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
 
     atoms_to_graph: FAIRChemAtomsToGraphSystemConfig
     """Configuration for converting ASE Atoms to a graph."""
+    # TODO: Add functionality to load the atoms to graph config from the checkpoint
 
     @override
     @classmethod
