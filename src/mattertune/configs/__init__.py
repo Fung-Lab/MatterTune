@@ -5,11 +5,18 @@ __codegen__ = True
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones import ModelConfig as ModelConfig
+from mattertune.backbones.eqV2 import EqV2BackboneConfig as EqV2BackboneConfig
+from mattertune.backbones.eqV2.model import (
+    FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig,
+)
 from mattertune.backbones.jmp.model import CutoffsConfig as CutoffsConfig
 from mattertune.backbones.jmp.model import (
     JMPGraphComputerConfig as JMPGraphComputerConfig,
 )
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
+from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
+    GraphScalarTargetConfig as GraphScalarTargetConfig,
+)
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
