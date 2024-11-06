@@ -4,6 +4,7 @@ import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+import ase
 import torch
 from lightning.pytorch import Trainer
 from torch.utils.data import Dataset
@@ -12,8 +13,6 @@ from typing_extensions import override
 from ..finetune.properties import PropertyConfig
 
 if TYPE_CHECKING:
-    from ase import Atoms
-
     from ..finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig
 
 
@@ -31,8 +30,8 @@ class MatterTunePotential:
 
     def predict(
         self,
-        atoms_list: list[Atoms],
-        properties: Sequence[str | PropertyConfig],
+        atoms_list: list[ase.Atoms],
+        properties: Sequence[str | PropertyConfig] | None = None,
     ) -> list[dict[str, torch.Tensor]]:
         # Resolve `properties` to a list of `PropertyConfig` objects.
         properties = _resolve_properties(properties, self.lightning_module.hparams)
@@ -52,9 +51,13 @@ class MatterTunePotential:
 
 
 def _resolve_properties(
-    properties: Sequence[str | PropertyConfig],
+    properties: Sequence[str | PropertyConfig] | None,
     hparams: FinetuneModuleBaseConfig,
 ):
+    # If `None`, return all properties.
+    if properties is None:
+        return hparams.properties
+
     resolved_properties: list[PropertyConfig] = []
     for prop in properties:
         # If `PropertyConfig`, append it to the list.
@@ -107,11 +110,11 @@ def _create_trainer(
 
 
 def _atoms_list_to_dataloader(
-    atoms_list: list[Atoms],
+    atoms_list: list[ase.Atoms],
     lightning_module: FinetuneModuleBase,
 ):
     class AtomsDataset(Dataset):
-        def __init__(self, atoms_list: list[Atoms]):
+        def __init__(self, atoms_list: list[ase.Atoms]):
             self.atoms_list = atoms_list
 
         def __len__(self):
