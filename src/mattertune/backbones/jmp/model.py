@@ -155,13 +155,21 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                     self.backbone.hparams.emb_size_edge,
                     activation_cls,
                 )
-            case props.ForcesPropertyConfig(conservative=False):
+            case props.ForcesPropertyConfig():
+                assert (
+                    not prop.conservative
+                ), "Conservative forces are not supported for JMP (yet)"
+
                 from jmp.nn.force_head import ForceTargetConfig
 
                 return ForceTargetConfig().create_model(
                     self.backbone.hparams.emb_size_edge, activation_cls
                 )
-            case props.StressesPropertyConfig(conservative=False):
+            case props.StressesPropertyConfig():
+                assert (
+                    not prop.conservative
+                ), "Conservative stresses are not supported for JMP (yet)"
+
                 from jmp.nn.stress_head import StressTargetConfig
 
                 return StressTargetConfig().create_model(
