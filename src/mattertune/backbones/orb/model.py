@@ -68,14 +68,21 @@ class ORBBackboneModule(
     @override
     @classmethod
     def ensure_dependencies(cls):
-        # Make sure the jmp module is available
+        # Make sure the orb_models module is available
         if importlib.util.find_spec("orb_models") is None:
             raise ImportError(
                 "The orb_models module is not installed. Please install it by running"
-                " pip install orb_models."
+                ' pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"'
             )
+            # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect
+            #   the `device` argument. We have a patch to fix this, and we have
+            #   a PR open to fix this upstream. Until that is merged, users
+            #   will need to install the patched version of `orb_models` from our fork:
+            #   `pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"`
+            #   PR: https://github.com/orbital-materials/orb-models/pull/35
+            # FIXME: Remove this note once the PR is merged.
 
-        # Make sure torch-geometric is available
+        # Make sure pynanoflann is available
         if importlib.util.find_spec("pynanoflann") is None:
             raise ImportError(
                 "The pynanoflann module is not installed. Please install it by running"
