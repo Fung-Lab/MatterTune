@@ -175,6 +175,13 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                 return StressTargetConfig().create_model(
                     self.backbone.hparams.emb_size_edge, activation_cls
                 )
+            case props.GraphPropertyConfig():
+                from .prediction_heads.graph_scalar import GraphScalarTargetConfig
+
+                return GraphScalarTargetConfig(reduction=prop.reduction).create_model(
+                    self.backbone.hparams.emb_size_atom,
+                    activation_cls,
+                )
             case _:
                 raise ValueError(
                     f"Unsupported property config: {prop} for JMP"
