@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Literal
 
 from ase import Atoms
-from matbench.bench import MatbenchBenchmark
 from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 from typing_extensions import override
@@ -50,7 +49,10 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
 
     def _initialize_benchmark(self) -> None:
         """Initialize the Matbench benchmark and task."""
-        if self.config.task is None:
+
+        from matbench.bench import MatbenchBenchmark
+
+        if self._config.task is None:
             mb = MatbenchBenchmark(autoload=False)
             all_tasks = list(mb.metadata.keys())
             raise ValueError(f"Please specify a task from {all_tasks}")

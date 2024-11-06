@@ -14,6 +14,9 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
+from mattertune.backbones.orb import ORBBackboneConfig as ORBBackboneConfig
+from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 
 from . import jmp as jmp
 from . import m3gnet as m3gnet
+from . import orb as orb
