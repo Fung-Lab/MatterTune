@@ -33,6 +33,32 @@ class MatterTunePotential:
         atoms_list: list[ase.Atoms],
         properties: Sequence[str | PropertyConfig] | None = None,
     ) -> list[dict[str, torch.Tensor]]:
+        """
+        Predicts properties for a list of atomic systems using the trained model.
+
+        This method processes a list of atomic structures through the model and returns
+        predicted properties for each system.
+
+        Parameters
+        ----------
+        atoms_list : list[ase.Atoms]
+            List of atomic systems to predict properties for.
+        properties : Sequence[str | PropertyConfig] | None, optional
+            Properties to predict. Can be specified as strings or PropertyConfig objects.
+            If None, predicts all properties supported by the model.
+
+        Returns
+        -------
+        list[dict[str, torch.Tensor]]
+            List of dictionaries containing predicted properties for each system.
+            Each dictionary maps property names to torch.Tensor values.
+
+        Notes
+        -----
+        - Creates a temporary trainer instance for prediction
+        - Converts input atoms to a dataloader compatible with the model
+        - Returns raw prediction outputs from the model
+        """
         # Resolve `properties` to a list of `PropertyConfig` objects.
         properties = _resolve_properties(properties, self.lightning_module.hparams)
 
