@@ -2,34 +2,9 @@ from __future__ import annotations
 
 __codegen__ = True
 
-from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
-from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
-from mattertune.backbones import ModelConfig as ModelConfig
-from mattertune.backbones.eqV2 import EqV2BackboneConfig as EqV2BackboneConfig
-from mattertune.backbones.eqV2.model import (
-    FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig,
+from mattertune.finetune.base import (
+    FinetuneModuleBaseConfig as FinetuneModuleBaseConfig,
 )
-from mattertune.backbones.jmp.model import CutoffsConfig as CutoffsConfig
-from mattertune.backbones.jmp.model import (
-    JMPGraphComputerConfig as JMPGraphComputerConfig,
-)
-from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
-from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
-    GraphScalarTargetConfig as GraphScalarTargetConfig,
-)
-from mattertune.backbones.m3gnet import (
-    M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
-)
-from mattertune.backbones.orb import ORBBackboneConfig as ORBBackboneConfig
-from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
-from mattertune.data import DatasetConfig as DatasetConfig
-from mattertune.data import DatasetConfigBase as DatasetConfigBase
-from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
-from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
-from mattertune.data.db import DBDatasetConfig as DBDatasetConfig
-from mattertune.data.matbench import MatbenchDatasetConfig as MatbenchDatasetConfig
-from mattertune.data.mp import MPDatasetConfig as MPDatasetConfig
-from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 from mattertune.finetune.base import LRSchedulerConfig as LRSchedulerConfig
 from mattertune.finetune.base import OptimizerConfig as OptimizerConfig
 from mattertune.finetune.base import PropertyConfig as PropertyConfig
@@ -47,7 +22,9 @@ from mattertune.finetune.lr_scheduler import (
     ReduceOnPlateauConfig as ReduceOnPlateauConfig,
 )
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
+from mattertune.finetune.main import DatasetConfig as DatasetConfig
 from mattertune.finetune.main import MatterTunerConfig as MatterTunerConfig
+from mattertune.finetune.main import ModelConfig as ModelConfig
 from mattertune.finetune.main import PerSplitDataConfig as PerSplitDataConfig
 from mattertune.finetune.optimizer import AdamConfig as AdamConfig
 from mattertune.finetune.optimizer import AdamWConfig as AdamWConfig
@@ -59,10 +36,10 @@ from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigB
 from mattertune.finetune.properties import (
     StressesPropertyConfig as StressesPropertyConfig,
 )
-from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 
-from . import backbones as backbones
-from . import data as data
-from . import finetune as finetune
-from . import registry as registry
-from . import wrappers as wrappers
+from . import base as base
+from . import loss as loss
+from . import lr_scheduler as lr_scheduler
+from . import main as main
+from . import optimizer as optimizer
+from . import properties as properties

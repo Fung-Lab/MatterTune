@@ -4,12 +4,10 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Literal
 
 import nshconfig as C
-import nshtrainer as nt
 import nshutils.typecheck as tc
 import torch
 import torch.nn as nn
 from einops import rearrange
-from torch_scatter import scatter
 from typing_extensions import TypedDict, override
 
 if TYPE_CHECKING:
@@ -51,6 +49,8 @@ class GraphScalarOutputHead(nn.Module):
     ):
         super().__init__()
 
+        import nshtrainer as nt
+
         self.hparams = hparams
         del hparams
 
@@ -69,6 +69,8 @@ class GraphScalarOutputHead(nn.Module):
         tc.tassert(tc.Float[torch.Tensor, "n d_model"], per_atom_scalars)
         per_atom_scalars = self.out_mlp_node(per_atom_scalars)
         tc.tassert(tc.Float[torch.Tensor, "n 1"], per_atom_scalars)
+
+        from torch_scatter import scatter
 
         # Reduce to system-level
         per_system_scalars = scatter(
