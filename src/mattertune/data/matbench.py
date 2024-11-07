@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Literal
 
-from ase import Atoms
+import ase
 from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
+from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
-from .base import DatasetBase, DatasetConfigBase
+from .base import DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class MatbenchDatasetConfig(DatasetConfigBase):
         return MatbenchDataset(self)
 
 
-class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
+class MatbenchDataset(Dataset[ase.Atoms]):
     def __init__(self, config: MatbenchDatasetConfig):
         super().__init__()
         self.config = config
@@ -92,7 +92,7 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
         self,
         structures: list[Structure],
         property_values: list[float] | None = None,
-    ) -> list[Atoms]:
+    ) -> list[ase.Atoms]:
         """Convert pymatgen structures to ASE atoms.
 
         Args:
@@ -100,7 +100,7 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
             property_values: Optional list of property values to add to atoms.info.
 
         Returns:
-            List of ASE Atoms objects.
+            List of ASE ase.Atoms objects.
         """
         adapter = AseAtomsAdaptor()
         atoms_list = []
@@ -118,7 +118,7 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
         return atoms_list
 
     @override
-    def __getitem__(self, idx: int) -> Atoms:
+    def __getitem__(self, idx: int) -> ase.Atoms:
         """Get an item from the dataset by index."""
         return self._atoms_list[idx]
 
@@ -126,11 +126,11 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
         """Get the total number of items in the dataset."""
         return len(self._atoms_list)
 
-    def get_test_data(self) -> list[Atoms]:
+    def get_test_data(self) -> list[ase.Atoms]:
         """Load the test data for the current task and fold.
 
         Returns:
-            List of ASE Atoms objects from the test set.
+            List of ASE ase.Atoms objects from the test set.
         """
         if self.config.split == "test":
             return self._atoms_list
