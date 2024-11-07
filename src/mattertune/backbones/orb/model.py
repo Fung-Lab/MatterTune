@@ -13,39 +13,13 @@ from typing_extensions import assert_never, override
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...registry import backbone_registry
+from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
     from orb_models.forcefield.base import AtomGraphs
 
 
 log = logging.getLogger(__name__)
-
-
-def _voigt_6_to_full_3x3_stress_torch(stress_vector: torch.Tensor) -> torch.Tensor:
-    """
-    Form a 3x3 stress matrix from a 6 component vector in Voigt notation
-
-    Args:
-        stress_vector: Tensor of shape (B, 6) where B is the batch size
-
-    Returns:
-        Tensor of shape (B, 3, 3)
-    """
-    # Unpack the components
-    s1, s2, s3, s4, s5, s6 = stress_vector.unbind(dim=1)
-
-    # Stack the components into a 3x3 matrix
-    # Each s_i is of shape (B,)
-    stress_matrix = torch.stack(
-        [
-            torch.stack([s1, s6, s5], dim=1),
-            torch.stack([s6, s2, s4], dim=1),
-            torch.stack([s5, s4, s3], dim=1),
-        ],
-        dim=1,
-    )
-
-    return stress_matrix
 
 
 class ORBSystemConfig(C.Config):
@@ -94,14 +68,21 @@ class ORBBackboneModule(
     @override
     @classmethod
     def ensure_dependencies(cls):
-        # Make sure the jmp module is available
+        # Make sure the orb_models module is available
         if importlib.util.find_spec("orb_models") is None:
             raise ImportError(
                 "The orb_models module is not installed. Please install it by running"
-                " pip install orb_models."
+                ' pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"'
             )
+            # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect
+            #   the `device` argument. We have a patch to fix this, and we have
+            #   a PR open to fix this upstream. Until that is merged, users
+            #   will need to install the patched version of `orb_models` from our fork:
+            #   `pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"`
+            #   PR: https://github.com/orbital-materials/orb-models/pull/35
+            # FIXME: Remove this note once the PR is merged.
 
-        # Make sure torch-geometric is available
+        # Make sure pynanoflann is available
         if importlib.util.find_spec("pynanoflann") is None:
             raise ImportError(
                 "The pynanoflann module is not installed. Please install it by running"
@@ -255,7 +236,7 @@ class ORBBackboneModule(
 
             # Convert the stress tensor to the full 3x3 form
             if isinstance(prop, props.StressesPropertyConfig):
-                pred = _voigt_6_to_full_3x3_stress_torch(pred)
+                pred = voigt_6_to_full_3x3_stress_torch(pred)
 
             predicted_properties[name] = pred
 
@@ -315,6 +296,12 @@ class ORBBackboneModule(
         from orb_models.forcefield import atomic_system
 
         # This is the dataset transform; we can't use GPU here.
+        # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect
+        #   the `device` argument. We have a patch to fix this, and we have
+        #   a PR open to fix this upstream. Until that is merged, users
+        #   will need to install the patched version of `orb_models` from our fork:
+        #   `pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"`
+        #   PR: https://github.com/orbital-materials/orb-models/pull/35
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
             self.hparams.system._to_orb_system_config(),

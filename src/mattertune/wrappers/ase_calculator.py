@@ -36,6 +36,27 @@ class MatterTuneCalculator(Calculator):
         properties: list[str] | None = None,
         system_changes: list[str] | None = None,
     ):
+        """Calculate properties for the given atoms object using the MatterTune potential.
+        This method implements the calculation of properties like energy, forces, etc. for an ASE Atoms
+        object using the underlying MatterTune potential. It converts between ASE and MatterTune property
+        names and handles proper type conversions of the predicted values.
+        Args:
+            atoms (Atoms | None, optional): ASE Atoms object to calculate properties for. If None,
+                uses previously set atoms. Defaults to None.
+            properties (list[str] | None, optional): List of properties to calculate. If None,
+                calculates all implemented properties. Defaults to None.
+            system_changes (list[str] | None, optional): List of changes made to the system
+                since last calculation. Used by ASE for caching. Defaults to None.
+        Notes:
+            - The method first ensures atoms and property names are properly set
+            - Makes predictions using the MatterTune potential
+            - Converts predictions from PyTorch tensors to appropriate numpy types
+            - Maps MatterTune property names to ASE calculator property names
+            - Stores results in the calculator's results dictionary
+        Raises:
+            AssertionError: If atoms is not set properly or if predictions are not in expected format
+        """
+
         # Default properties to calculate.
         if properties is None:
             properties = copy.deepcopy(self.implemented_properties)
