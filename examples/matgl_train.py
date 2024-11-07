@@ -43,7 +43,7 @@ def hparams():
     # hparams.model.properties.append(stress)
 
     ## Data hparams
-    hparams.data = MC.PerSplitDataConfig.draft()
+    hparams.data = MC.ManualSplitDataModuleConfig.draft()
     hparams.data.train = MC.DBDatasetConfig.draft()
     hparams.data.train.src = "./data/water_ef_train.db"  ## 30 for training
     hparams.data.validation = MC.XYZDatasetConfig.draft()

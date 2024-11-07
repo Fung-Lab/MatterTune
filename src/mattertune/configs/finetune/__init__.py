@@ -22,10 +22,6 @@ from mattertune.finetune.lr_scheduler import (
     ReduceOnPlateauConfig as ReduceOnPlateauConfig,
 )
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
-from mattertune.finetune.main import DatasetConfig as DatasetConfig
-from mattertune.finetune.main import MatterTunerConfig as MatterTunerConfig
-from mattertune.finetune.main import ModelConfig as ModelConfig
-from mattertune.finetune.main import PerSplitDataConfig as PerSplitDataConfig
 from mattertune.finetune.optimizer import AdamConfig as AdamConfig
 from mattertune.finetune.optimizer import AdamWConfig as AdamWConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
@@ -40,6 +36,5 @@ from mattertune.finetune.properties import (
 from . import base as base
 from . import loss as loss
 from . import lr_scheduler as lr_scheduler
-from . import main as main
 from . import optimizer as optimizer
 from . import properties as properties
