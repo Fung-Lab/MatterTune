@@ -32,14 +32,15 @@ class MPDatasetConfig(DatasetConfigBase):
     """Query to filter the data from the Materials Project database."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return MPDataset
+    def create_dataset(self):
+        return MPDataset(self)
 
 
 class MPDataset(DatasetBase[MPDatasetConfig]):
     def __init__(self, config: MPDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
+
         from mp_api.client import MPRester
 
         self.mpr = MPRester(config.api)

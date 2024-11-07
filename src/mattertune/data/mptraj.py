@@ -38,15 +38,15 @@ class MPTrajDatasetConfig(DatasetConfigBase):
     Subsets are also allowed. For example, ["Li", "Na"] will keep structures with either Li or Na.
     """
 
-    @classmethod
     @override
-    def dataset_cls(cls):
-        return MPTrajDataset
+    def create_dataset(self):
+        return MPTrajDataset(self)
 
 
 class MPTrajDataset(DatasetBase[MPTrajDatasetConfig]):
     def __init__(self, config: MPTrajDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
         import datasets
 
         dataset = datasets.load_dataset("nimashoghi/mptrj", split=self.config.split)

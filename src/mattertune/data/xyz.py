@@ -24,14 +24,14 @@ class XYZDatasetConfig(DatasetConfigBase):
     """The path to the XYZ dataset."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return XYZDataset
+    def create_dataset(self):
+        return XYZDataset(self)
 
 
 class XYZDataset(DatasetBase[XYZDatasetConfig]):
     def __init__(self, config: XYZDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
 
         self.atoms_list: list[Atoms] = read(str(self.config.src), index=":")
         log.info(f"Loaded {len(self.atoms_list)} atoms from {self.config.src}")

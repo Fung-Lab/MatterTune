@@ -14,6 +14,7 @@ from .base import DatasetBase, DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
+
 @data_registry.register
 class MatbenchDatasetConfig(DatasetConfigBase):
     """Configuration for the Matbench dataset."""
@@ -36,14 +37,14 @@ class MatbenchDatasetConfig(DatasetConfigBase):
     """The ratio of the training data to the total train-valid data."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return MatbenchDataset
+    def create_dataset(self):
+        return MatbenchDataset(self)
 
 
 class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
     def __init__(self, config: MatbenchDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
         self._initialize_benchmark()
         self._load_data()
 

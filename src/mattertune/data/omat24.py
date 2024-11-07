@@ -19,16 +19,17 @@ class OMAT24DatasetConfig(DatasetConfigBase):
     """The path to the OMAT24 dataset."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return OMAT24Dataset
+    def create_dataset(self):
+        return OMAT24Dataset(self)
 
 
 class OMAT24Dataset(DatasetBase[OMAT24DatasetConfig]):
     def __init__(self, config: OMAT24DatasetConfig):
-        super().__init__(config)
-        
+        super().__init__()
+        self.config = config
+
         from fairchem.core.datasets import AseDBDataset
+
         self.dataset = AseDBDataset(config={"src": str(self.config.src)})
 
     @override

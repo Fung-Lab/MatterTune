@@ -1,30 +1,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, TypeVar
 
 import nshconfig as C
-from torch.utils.data import Dataset
-from typing_extensions import override
-
 from ase import Atoms
+from torch.utils.data import Dataset
 
 
 class DatasetConfigBase(C.Config, ABC):
-    @classmethod
     @abstractmethod
-    def dataset_cls(cls) -> type[DatasetBase]: ...
-
-
-TConfig = TypeVar("TConfig", bound=DatasetConfigBase, covariant=True)
-
-
-class DatasetBase(Dataset[Atoms], ABC, Generic[TConfig]):
-    @override
-    def __init__(self, config: TConfig):
-        super().__init__()
-
-        self.config = config
+    def create_dataset(self) -> DatasetBase: ...
 
     @classmethod
     def ensure_dependencies(cls):
@@ -36,3 +22,10 @@ class DatasetBase(Dataset[Atoms], ABC, Generic[TConfig]):
             how to install them.
         """
         pass
+
+
+TConfig = TypeVar("TConfig", bound=DatasetConfigBase, covariant=True)
+
+
+class DatasetBase(Dataset[Atoms], ABC, Generic[TConfig]):
+    pass

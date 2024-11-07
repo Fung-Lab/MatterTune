@@ -157,12 +157,11 @@ def _create_dataset(
     dataset_hparams: DatasetConfig,
     has_labels: bool,
 ):
-    # Get the dataset class and ensure all dependencies are installed
-    dataset_cls = dataset_hparams.dataset_cls()
-    dataset_cls.ensure_dependencies()
+    # Ensure all dependencies are installed for the dataset
+    dataset_hparams.ensure_dependencies()
 
     # Create the dataset and wrap it in our dataloader logic
-    dataset = dataset_cls(dataset_hparams)
+    dataset = dataset_hparams.create_dataset()
 
     return lightning_module.create_dataloader(
         dataset,

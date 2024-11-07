@@ -4,9 +4,7 @@ import logging
 from pathlib import Path
 from typing import Literal
 
-import ase
 import numpy as np
-from ase import Atoms
 from ase.calculators.calculator import all_properties
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.constraints import full_3x3_to_voigt_6_stress
@@ -43,14 +41,14 @@ class DBDatasetConfig(DatasetConfigBase):
     """Whether to load all the data at once or not."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return DBDataset
+    def create_dataset(self):
+        return DBDataset(self)
 
 
 class DBDataset(DatasetBase[DBDatasetConfig]):
     def __init__(self, config: DBDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
         if isinstance(config.src, Database):
             self.db = config.src
         else:
