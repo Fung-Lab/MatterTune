@@ -10,6 +10,7 @@ from ase.calculators.calculator import all_properties
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.db import connect
 from ase.db.core import Database
+from ase.stress import full_3x3_to_voigt_6_stress
 from torch.utils.data import Dataset
 from typing_extensions import override
 

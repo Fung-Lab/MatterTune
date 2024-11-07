@@ -31,11 +31,6 @@ class MatbenchDatasetConfig(DatasetConfigBase):
     fold_idx: Literal[0, 1, 2, 3, 4] = 0
     """The index of the fold to be used in the dataset."""
 
-    split: Literal["train", "valid", "test"] = "train"
-
-    train_split_ratio: float = 0.9
-    """The ratio of the training data to the total train-valid data."""
-
     @override
     def create_dataset(self):
         return MatbenchDataset(self)
@@ -65,27 +60,11 @@ class MatbenchDataset(Dataset[ase.Atoms]):
     def _load_data(self) -> None:
         """Load and process the dataset split."""
         fold = self._task.folds[self.config.fold_idx]
-
-        if self.config.split == "test":
-            inputs = self._task.get_test_data(fold, include_target=False)
-            self._atoms_list = self._convert_structures_to_atoms(inputs)
-            log.info(f"Loaded test split with {len(self._atoms_list)} samples")
-            return
-
         inputs_data, outputs_data = self._task.get_train_and_val_data(fold)
-        split_idx = int(len(inputs_data) * self.config.train_split_ratio)
 
-        if self.config.split == "train":
-            inputs = inputs_data[:split_idx]
-            outputs = outputs_data[:split_idx]
-        else:  # validation
-            inputs = inputs_data[split_idx:]
-            outputs = outputs_data[split_idx:]
-
-        self._atoms_list = self._convert_structures_to_atoms(inputs, outputs)
+        self._atoms_list = self._convert_structures_to_atoms(inputs_data, outputs_data)
         log.info(
-            f"Loaded {self.config.split} split with {len(self._atoms_list)} samples "
-            f"(fold {self.config.fold_idx})"
+            f"Loaded  {len(self._atoms_list)} samples " f"(fold {self.config.fold_idx})"
         )
 
     def _convert_structures_to_atoms(
@@ -132,9 +111,6 @@ class MatbenchDataset(Dataset[ase.Atoms]):
         Returns:
             List of ASE ase.Atoms objects from the test set.
         """
-        if self.config.split == "test":
-            return self._atoms_list
-
         test_inputs = self._task.get_test_data(
             self._task.folds[self.config.fold_idx], include_target=False
         )
