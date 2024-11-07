@@ -16,36 +16,14 @@ from typing_extensions import override
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...registry import backbone_registry
+from .util import get_activation_cls
 
 if TYPE_CHECKING:
     from ase import Atoms
-    # from torch_geometric.data import Batch, Data
-    # from torch_geometric.data.data import BaseData
+    from torch_geometric.data import Batch, Data
+    from torch_geometric.data.data import BaseData
 
 log = logging.getLogger(__name__)
-
-
-def _get_activation_cls(activation: str) -> type[nn.Module]:
-    """
-    Get the activation class from the activation name
-    """
-    activation = activation.lower()
-    if activation == "relu":
-        return nn.ReLU
-    elif activation == "silu" or activation == "swish":
-        return nn.SiLU
-    elif activation == "scaled_silu" or activation == "scaled_swish":
-        from jmp.models.gemnet.layers.base_layers import ScaledSiLU
-
-        return ScaledSiLU
-    elif activation == "tanh":
-        return nn.Tanh
-    elif activation == "sigmoid":
-        return nn.Sigmoid
-    elif activation == "identity":
-        return nn.Identity
-    else:
-        raise ValueError(f"Activation {activation} is not supported")
 
 
 class CutoffsConfig(C.Config):
@@ -137,13 +115,7 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
         return JMPBackboneModule
 
 
-class JMPBackboneModule(
-    FinetuneModuleBase[
-        "torch_geometric.data.Data",
-        "torch_geometric.data.Batch",
-        JMPBackboneConfig,
-    ]
-):
+class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     @classmethod
     def hparams_cls(cls):
@@ -171,7 +143,7 @@ class JMPBackboneModule(
         return False
 
     def _create_output_head(self, prop: props.PropertyConfig):
-        activation_cls = _get_activation_cls(self.backbone.hparams.activation)
+        activation_cls = get_activation_cls(self.backbone.hparams.activation)
         match prop:
             case props.EnergyPropertyConfig():
                 from jmp.nn.energy_head import EnergyTargetConfig
@@ -183,17 +155,32 @@ class JMPBackboneModule(
                     self.backbone.hparams.emb_size_edge,
                     activation_cls,
                 )
-            case props.ForcesPropertyConfig(conservative=False):
+            case props.ForcesPropertyConfig():
+                assert (
+                    not prop.conservative
+                ), "Conservative forces are not supported for JMP (yet)"
+
                 from jmp.nn.force_head import ForceTargetConfig
 
                 return ForceTargetConfig().create_model(
                     self.backbone.hparams.emb_size_edge, activation_cls
                 )
-            case props.StressesPropertyConfig(conservative=False):
+            case props.StressesPropertyConfig():
+                assert (
+                    not prop.conservative
+                ), "Conservative stresses are not supported for JMP (yet)"
+
                 from jmp.nn.stress_head import StressTargetConfig
 
                 return StressTargetConfig().create_model(
                     self.backbone.hparams.emb_size_edge, activation_cls
+                )
+            case props.GraphPropertyConfig():
+                from .prediction_heads.graph_scalar import GraphScalarTargetConfig
+
+                return GraphScalarTargetConfig(reduction=prop.reduction).create_model(
+                    self.backbone.hparams.emb_size_atom,
+                    activation_cls,
                 )
             case _:
                 raise ValueError(
@@ -266,9 +253,8 @@ class JMPBackboneModule(
     @override
     def collate_fn(self, data_list):
         from torch_geometric.data import Batch
-        from torch_geometric.data.data import BaseData
 
-        return Batch.from_data_list(cast(list[BaseData], data_list))
+        return Batch.from_data_list(cast("list[BaseData]", data_list))
 
     @override
     def gpu_batch_transform(self, batch):
@@ -333,17 +319,14 @@ class JMPBackboneModule(
 def _get_fixed(atoms: Atoms):
     """Gets the fixed atom constraint mask from an Atoms object."""
     fixed = np.zeros(len(atoms), dtype=np.bool_)
-    if not hasattr(atoms, "constraints"):
+    if (constraints := getattr(atoms, "constraints", None)) is None:
         raise ValueError("Atoms object does not have a constraints attribute")
 
     from ase.constraints import FixAtoms
 
-    if (
-        constraint := next(
-            (c for c in atoms.constraints if isinstance(c, FixAtoms)), None
-        )
-    ) is None:
-        return fixed
+    for constraint in constraints:
+        if not isinstance(constraint, FixAtoms):
+            continue
+        fixed[constraint.index] = True
 
-    fixed[constraint.index] = True
     return fixed

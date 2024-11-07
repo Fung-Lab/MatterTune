@@ -4,6 +4,7 @@ import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+import ase
 import torch
 from lightning.pytorch import Trainer
 from torch.utils.data import Dataset
@@ -12,8 +13,6 @@ from typing_extensions import override
 from ..finetune.properties import PropertyConfig
 
 if TYPE_CHECKING:
-    from ase import Atoms
-
     from ..finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig
 
 
@@ -21,6 +20,29 @@ log = logging.getLogger(__name__)
 
 
 class MatterTunePotential:
+    """
+    A wrapper class for handling predictions with trained neural network potentials.
+
+    This class provides an interface to make predictions using a trained neural network
+    potential model. It wraps a PyTorch Lightning module and handles the necessary setup
+    for making predictions on atomic systems.
+
+    lightning_module : FinetuneModuleBase
+        The trained PyTorch Lightning module that will be used for predictions.
+    lightning_trainer_kwargs : dict[str, Any] | None, optional
+        Additional keyword arguments to pass to the PyTorch Lightning Trainer.
+        Defaults to None.
+
+    Examples
+    --------
+    >>> from mattertune.wrappers import MatterTunePotential
+    >>> potential = MatterTunePotential(trained_model)  # OR `potential = trained_model.potential()`
+    >>> predictions = potential.predict(atoms_list)
+
+    The class provides a simplified interface for making predictions with trained models,
+    handling the necessary setup of trainers and dataloaders internally.
+    """
+
     def __init__(
         self,
         lightning_module: FinetuneModuleBase[Any, Any, FinetuneModuleBaseConfig],
@@ -31,9 +53,35 @@ class MatterTunePotential:
 
     def predict(
         self,
-        atoms_list: list[Atoms],
-        properties: Sequence[str | PropertyConfig],
+        atoms_list: list[ase.Atoms],
+        properties: Sequence[str | PropertyConfig] | None = None,
     ) -> list[dict[str, torch.Tensor]]:
+        """
+        Predicts properties for a list of atomic systems using the trained model.
+
+        This method processes a list of atomic structures through the model and returns
+        predicted properties for each system.
+
+        Parameters
+        ----------
+        atoms_list : list[ase.Atoms]
+            List of atomic systems to predict properties for.
+        properties : Sequence[str | PropertyConfig] | None, optional
+            Properties to predict. Can be specified as strings or PropertyConfig objects.
+            If None, predicts all properties supported by the model.
+
+        Returns
+        -------
+        list[dict[str, torch.Tensor]]
+            List of dictionaries containing predicted properties for each system.
+            Each dictionary maps property names to torch.Tensor values.
+
+        Notes
+        -----
+        - Creates a temporary trainer instance for prediction
+        - Converts input atoms to a dataloader compatible with the model
+        - Returns raw prediction outputs from the model
+        """
         # Resolve `properties` to a list of `PropertyConfig` objects.
         properties = _resolve_properties(properties, self.lightning_module.hparams)
 
@@ -52,9 +100,13 @@ class MatterTunePotential:
 
 
 def _resolve_properties(
-    properties: Sequence[str | PropertyConfig],
+    properties: Sequence[str | PropertyConfig] | None,
     hparams: FinetuneModuleBaseConfig,
 ):
+    # If `None`, return all properties.
+    if properties is None:
+        return hparams.properties
+
     resolved_properties: list[PropertyConfig] = []
     for prop in properties:
         # If `PropertyConfig`, append it to the list.
@@ -107,11 +159,11 @@ def _create_trainer(
 
 
 def _atoms_list_to_dataloader(
-    atoms_list: list[Atoms],
+    atoms_list: list[ase.Atoms],
     lightning_module: FinetuneModuleBase,
 ):
     class AtomsDataset(Dataset):
-        def __init__(self, atoms_list: list[Atoms]):
+        def __init__(self, atoms_list: list[ase.Atoms]):
             self.atoms_list = atoms_list
 
         def __len__(self):
