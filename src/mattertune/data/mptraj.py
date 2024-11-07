@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Literal
 
 import ase
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.stress import full_3x3_to_voigt_6_stress
+from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
-from .base import DatasetBase, DatasetConfigBase
+from .base import DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
@@ -38,15 +38,15 @@ class MPTrajDatasetConfig(DatasetConfigBase):
     Subsets are also allowed. For example, ["Li", "Na"] will keep structures with either Li or Na.
     """
 
-    @classmethod
     @override
-    def dataset_cls(cls):
-        return MPTrajDataset
+    def create_dataset(self):
+        return MPTrajDataset(self)
 
 
-class MPTrajDataset(DatasetBase[MPTrajDatasetConfig]):
+class MPTrajDataset(Dataset[ase.Atoms]):
     def __init__(self, config: MPTrajDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
         import datasets
 
         dataset = datasets.load_dataset("nimashoghi/mptrj", split=self.config.split)
