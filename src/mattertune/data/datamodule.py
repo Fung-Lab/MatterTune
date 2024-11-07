@@ -102,7 +102,7 @@ class AutoSplitDataModuleConfig(DataModuleBaseConfig):
     train_split: float
     """The proportion of the dataset to include in the training split."""
 
-    validation_split: float | Literal["auto", "disable"]
+    validation_split: float | Literal["auto", "disable"] = "auto"
     """The proportion of the dataset to include in the validation split.
 
     If set to "auto", the validation split will be automatically determined as
