@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Generic
 
 import ase
@@ -97,7 +97,7 @@ class FinetuneModuleBase(
 
     @classmethod
     @abstractmethod
-    def hparams_cls(cls) -> type[FinetuneModuleBaseConfig]:
+    def hparams_cls(cls) -> type[TFinetuneModuleConfig]:
         """Return the hyperparameters config class for this module."""
         ...
 
