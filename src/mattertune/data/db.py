@@ -5,10 +5,13 @@ from pathlib import Path
 from typing import Literal
 
 import ase
+import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import all_properties
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.constraints import full_3x3_to_voigt_6_stress
 from ase.db import connect
+from ase.db.core import Database
 from typing_extensions import override
 
 from ..registry import data_registry
@@ -24,8 +27,8 @@ class DBDatasetConfig(DatasetConfigBase):
     type: Literal["db"] = "db"
     """Discriminator for the DB dataset."""
 
-    src: str | Path
-    """Path to the ASE database file."""
+    src: Database | str | Path
+    """Path to the ASE database file or a database object."""
 
     energy_key: str | None = None
     """Key for the energy label in the database."""
@@ -36,6 +39,9 @@ class DBDatasetConfig(DatasetConfigBase):
     stress_key: str | None = None
     """Key for the stress label in the database."""
 
+    preload: bool = True
+    """Whether to load all the data at once or not."""
+
     @override
     @classmethod
     def dataset_cls(cls):
@@ -45,11 +51,15 @@ class DBDatasetConfig(DatasetConfigBase):
 class DBDataset(DatasetBase[DBDatasetConfig]):
     def __init__(self, config: DBDatasetConfig):
         super().__init__(config)
-        db = connect(config.src)
-        self.atoms_list = []
-        for row in db.select():
-            atoms = self._load_atoms_from_row(row)
-            self.atoms_list.append(atoms)
+        if isinstance(config.src, Database):
+            self.db = config.src
+        else:
+            self.db = connect(config.src)
+        if self.config.preload:
+            self.atoms_list = []
+            for row in self.db.select():
+                atoms = self._load_atoms_from_row(row)
+                self.atoms_list.append(atoms)
 
     def _load_atoms_from_row(self, row):
         atoms = row.toatoms()
@@ -58,9 +68,15 @@ class DBDataset(DatasetBase[DBDatasetConfig]):
         if self.config.energy_key:
             labels["energy"] = labels.pop(self.config.energy_key)
         if self.config.forces_key:
-            labels["forces"] = labels.pop(self.config.forces_key)
+            labels["forces"] = np.array(labels.pop(self.config.forces_key))
         if self.config.stress_key:
-            labels["stress"] = labels.pop(self.config.stress_key)
+            labels["stress"] = np.array(labels.pop(self.config.stress_key))
+            if labels["stress"].shape == (3, 3):
+                labels["stress"] = full_3x3_to_voigt_6_stress(labels["stress"])
+            elif labels["stress"].shape != (6,):
+                raise ValueError(
+                    f"Stress has unexpected shape: {labels['stress'].shape}, expected (3, 3) or (6,)"
+                )
         for key in list(labels.keys()):
             if key not in all_properties:
                 unrecognized_labels[key] = labels.pop(key)
@@ -71,7 +87,11 @@ class DBDataset(DatasetBase[DBDatasetConfig]):
 
     @override
     def __getitem__(self, idx):
-        return self.atoms_list[idx]
+        if self.config.preload:
+            return self.atoms_list[idx]
+        else:
+            row = self.db.get(idx=idx)
+            return self._load_atoms_from_row(row)
 
     def __len__(self):
-        return len(self.atoms_list)
+        return len(self.db)
