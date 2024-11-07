@@ -15,12 +15,13 @@ from typing_extensions import assert_never, override
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...registry import backbone_registry
-from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
+    from fairchem.core.models.equiformer_v2.prediction_heads.rank2 import (
+        Rank2SymmetricTensorHead,
+    )
     from torch_geometric.data import Batch
     from torch_geometric.data.data import BaseData
-
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +51,28 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
     @classmethod
     def model_cls(cls):
         return EqV2BackboneModule
+
+
+def _combine_scalar_irrep2(stress_head: "Rank2SymmetricTensorHead", scalar, irrep2):
+    # Change of basis to compute a rank 2 symmetric tensor
+
+    vector = torch.zeros((scalar.shape[0], 3), device=scalar.device).detach()
+    flatten_irreps = torch.cat([scalar.reshape(-1, 1), vector, irrep2], dim=1)
+    stress = torch.einsum(
+        "ab, cb->ca",
+        stress_head.block.change_mat.to(flatten_irreps.device),
+        flatten_irreps,
+    )
+
+    # stress = rearrange(
+    #     stress,
+    #     "b (three1 three2) -> b three1 three2",
+    #     three1=3,
+    #     three2=3,
+    # ).contiguous()
+    stress = stress.view(-1, 3, 3)
+
+    return stress
 
 
 def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
@@ -256,8 +279,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     # Convert the stress tensor to the full 3x3 form
                     stress_rank0 = head_output["stress_isotropic"]  # (bsz 1)
                     stress_rank2 = head_output["stress_anisotropic"]  # (bsz, 5)
-                    stress = torch.cat([stress_rank0, stress_rank2], dim=1)  # (bsz, 6)
-                    pred = voigt_6_to_full_3x3_stress_torch(stress)
+                    pred = _combine_scalar_irrep2(head, stress_rank0, stress_rank2)
                 case props.GraphPropertyConfig():
                     pred = head_output["energy"]
                 case _:
