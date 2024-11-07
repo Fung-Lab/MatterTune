@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence, Sized
+from collections.abc import Sized
 from typing import Generic, TypeVar
 
 import ase
@@ -24,11 +24,6 @@ class SplitDataset(Dataset[ase.Atoms], Generic[TDataset]):
         if not isinstance(dataset, Sized):
             raise TypeError(
                 f"The underlying dataset must be sized, but got {dataset!r}."
-            )
-
-        if not isinstance(dataset, Sequence):
-            raise TypeError(
-                f"The underlying dataset must be a sequence, but got {dataset!r}."
             )
 
         # Make sure the indices are valid.
