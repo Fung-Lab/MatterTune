@@ -6,7 +6,6 @@ from typing import Literal
 
 import ase
 from ase import Atoms
-from ase.constraints import full_3x3_to_voigt_6_stress
 from pymatgen.io.ase import AseAtomsAdaptor
 from typing_extensions import override
 
