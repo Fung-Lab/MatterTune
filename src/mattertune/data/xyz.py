@@ -7,10 +7,11 @@ from typing import Literal
 import ase
 from ase import Atoms
 from ase.io import read
+from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
-from .base import DatasetBase, DatasetConfigBase
+from .base import DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
@@ -24,14 +25,14 @@ class XYZDatasetConfig(DatasetConfigBase):
     """The path to the XYZ dataset."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return XYZDataset
+    def create_dataset(self):
+        return XYZDataset(self)
 
 
-class XYZDataset(DatasetBase[XYZDatasetConfig]):
+class XYZDataset(Dataset[ase.Atoms]):
     def __init__(self, config: XYZDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
 
         self.atoms_list: list[Atoms] = read(str(self.config.src), index=":")
         log.info(f"Loaded {len(self.atoms_list)} atoms from {self.config.src}")

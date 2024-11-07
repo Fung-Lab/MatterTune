@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Literal
 
 import ase
 from ase import Atoms
 from pymatgen.io.ase import AseAtomsAdaptor
+from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
-from .base import DatasetBase, DatasetConfigBase
+from .base import DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
@@ -32,14 +32,15 @@ class MPDatasetConfig(DatasetConfigBase):
     """Query to filter the data from the Materials Project database."""
 
     @override
-    @classmethod
-    def dataset_cls(cls):
-        return MPDataset
+    def create_dataset(self):
+        return MPDataset(self)
 
 
-class MPDataset(DatasetBase[MPDatasetConfig]):
+class MPDataset(Dataset[ase.Atoms]):
     def __init__(self, config: MPDatasetConfig):
-        super().__init__(config)
+        super().__init__()
+        self.config = config
+
         from mp_api.client import MPRester
 
         self.mpr = MPRester(config.api)
