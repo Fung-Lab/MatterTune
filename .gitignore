@@ -216,3 +216,4 @@ lightning_logs/
 nshtrainer/
 wandb/
 abandoned/
+.ruff_cache/
