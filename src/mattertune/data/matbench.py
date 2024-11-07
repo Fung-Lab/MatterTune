@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 from ase import Atoms
 from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
@@ -13,6 +14,7 @@ from ..registry import data_registry
 from .base import DatasetBase, DatasetConfigBase
 
 log = logging.getLogger(__name__)
+
 
 @data_registry.register
 class MatbenchDatasetConfig(DatasetConfigBase):
@@ -25,12 +27,12 @@ class MatbenchDatasetConfig(DatasetConfigBase):
     """The name of the self.tasks to include in the dataset."""
 
     property_name: str | None = None
-    """The name of the property for the self.task."""
+    """Assign a property name for the self.task. Must match the property head in the model."""
 
     fold_idx: Literal[0, 1, 2, 3, 4] = 0
     """The index of the fold to be used in the dataset."""
 
-    split: Literal["train", "validation", "test"] = "train"
+    split: Literal["train", "valid", "test"] = "train"
 
     train_split_ratio: float = 0.9
     """The ratio of the training data to the total train-valid data."""
@@ -52,13 +54,13 @@ class MatbenchDataset(DatasetBase[MatbenchDatasetConfig]):
 
         from matbench.bench import MatbenchBenchmark
 
-        if self._config.task is None:
+        if self.config.task is None:
             mb = MatbenchBenchmark(autoload=False)
             all_tasks = list(mb.metadata.keys())
             raise ValueError(f"Please specify a task from {all_tasks}")
         else:
             mb = MatbenchBenchmark(autoload=False, subset=[self.config.task])
-            self._task = mb.tasks[0]
+            self._task = list(mb.tasks)[0]
             self._task.load()
 
     def _load_data(self) -> None:

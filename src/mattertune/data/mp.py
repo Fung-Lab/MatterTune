@@ -54,5 +54,13 @@ class MPDataset(DatasetBase[MPDatasetConfig]):
         structure = self.mpr.get_structure_by_material_id(mid)
         adaptor = AseAtomsAdaptor()
         atoms: Atoms = adaptor.get_atoms(structure)
-        atoms.info = dict(doc)
+        doc_labels = dict(doc)
+        atoms.info = {
+            key: doc_labels[key]
+            for key in self.config.fields
+            if key in doc_labels and key != "material_id"
+        }
         return atoms
+
+    def __len__(self) -> int:
+        return len(self.docs)
