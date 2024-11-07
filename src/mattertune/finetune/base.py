@@ -97,7 +97,7 @@ class FinetuneModuleBase(
 
     @classmethod
     @abstractmethod
-    def hparams_cls(cls) -> type[FinetuneModuleBaseConfig]:
+    def hparams_cls(cls) -> type[TFinetuneModuleConfig]:
         """Return the hyperparameters config class for this module."""
         ...
 
