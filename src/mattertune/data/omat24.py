@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Literal
 
 import ase
+from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
-from .base import DatasetBase, DatasetConfigBase
+from .base import DatasetConfigBase
 
 
 @data_registry.register
@@ -23,7 +24,7 @@ class OMAT24DatasetConfig(DatasetConfigBase):
         return OMAT24Dataset(self)
 
 
-class OMAT24Dataset(DatasetBase[OMAT24DatasetConfig]):
+class OMAT24Dataset(Dataset[ase.Atoms]):
     def __init__(self, config: OMAT24DatasetConfig):
         super().__init__()
         self.config = config

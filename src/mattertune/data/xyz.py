@@ -7,10 +7,11 @@ from typing import Literal
 import ase
 from ase import Atoms
 from ase.io import read
+from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
-from .base import DatasetBase, DatasetConfigBase
+from .base import DatasetConfigBase
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class XYZDatasetConfig(DatasetConfigBase):
         return XYZDataset(self)
 
 
-class XYZDataset(DatasetBase[XYZDatasetConfig]):
+class XYZDataset(Dataset[ase.Atoms]):
     def __init__(self, config: XYZDatasetConfig):
         super().__init__()
         self.config = config

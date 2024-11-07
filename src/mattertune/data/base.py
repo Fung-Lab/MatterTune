@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
 
 import nshconfig as C
 from ase import Atoms
@@ -10,7 +9,7 @@ from torch.utils.data import Dataset
 
 class DatasetConfigBase(C.Config, ABC):
     @abstractmethod
-    def create_dataset(self) -> DatasetBase: ...
+    def create_dataset(self) -> Dataset[Atoms]: ...
 
     @classmethod
     def ensure_dependencies(cls):
@@ -22,10 +21,3 @@ class DatasetConfigBase(C.Config, ABC):
             how to install them.
         """
         pass
-
-
-TConfig = TypeVar("TConfig", bound=DatasetConfigBase, covariant=True)
-
-
-class DatasetBase(Dataset[Atoms], ABC, Generic[TConfig]):
-    pass
