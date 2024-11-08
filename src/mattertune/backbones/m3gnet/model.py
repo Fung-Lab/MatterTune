@@ -81,7 +81,7 @@ class M3GNetGraphComputerConfig(C.Config):
 class M3GNetBackboneConfig(FinetuneModuleBaseConfig):
     name: Literal["m3gnet"] = "m3gnet"
     """The type of the backbone."""
-    ckpt_path: str
+    ckpt_path: str | Path
     """The path to the pre-trained model checkpoint."""
     graph_computer: M3GNetGraphComputerConfig
     """Configuration for the graph computer."""
@@ -158,7 +158,7 @@ class M3GNetBackboneModule(
 
         ## Build the graph computer
         if isinstance(self.hparams.graph_computer, dict):
-            self.hparams.graph_computer = GraphComputerConfig(
+            self.hparams.graph_computer = M3GNetGraphComputerConfig(
                 **self.hparams.graph_computer
             )
         if self.hparams.graph_computer.cutoff is None:
@@ -184,9 +184,15 @@ class M3GNetBackboneModule(
                 case props.EnergyPropertyConfig():
                     self.energy_prop_name = prop.name
                 case props.ForcesPropertyConfig():
+                    assert (
+                        prop.conservative
+                    ), "Only conservative forces are supported for M3GNet"
                     self.forces_prop_name = prop.name
                     self.calc_forces = True
                 case props.StressesPropertyConfig():
+                    assert (
+                        prop.conservative
+                    ), "Only conservative stress are supported for M3GNet"
                     self.stress_prop_name = prop.name
                     self.calc_stress = True
                 case _:

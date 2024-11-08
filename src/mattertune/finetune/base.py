@@ -451,7 +451,10 @@ class FinetuneModuleBase(
             lightning_trainer_kwargs=lightning_trainer_kwargs,
         )
 
-    def ase_calculator(self, lightning_trainer_kwargs: dict[str, Any] | None = None):
+    def ase_calculator(
+        self, 
+        lightning_trainer_kwargs: dict[str, Any] | None = None
+    ):
         """Returns an ASE calculator wrapper for the interatomic potential.
 
         This method creates an ASE (Atomic Simulation Environment) calculator that can be used
