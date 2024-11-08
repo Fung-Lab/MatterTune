@@ -227,7 +227,7 @@ class StressesPropertyConfig(PropertyConfigBase):
 
         from ase.constraints import full_3x3_to_voigt_6_stress
 
-        return full_3x3_to_voigt_6_stress(value)
+        return full_3x3_to_voigt_6_stress(value.reshape((3, 3)))
 
     @override
     def property_type(self):

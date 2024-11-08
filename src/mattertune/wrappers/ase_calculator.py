@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from ase import Atoms
 from ase.calculators.calculator import Calculator
+from ase.stress import full_3x3_to_voigt_6_stress
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -120,3 +121,4 @@ class MatterTuneCalculator(Calculator):
 
             # Set the property value in the ASE calculator.
             self.results[ase_prop_name] = value
+            print(f"{ase_prop_name}: {value.shape}")
