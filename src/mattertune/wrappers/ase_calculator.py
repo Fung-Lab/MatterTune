@@ -121,4 +121,3 @@ class MatterTuneCalculator(Calculator):
 
             # Set the property value in the ASE calculator.
             self.results[ase_prop_name] = value
-            print(f"{ase_prop_name}: {value.shape}")
