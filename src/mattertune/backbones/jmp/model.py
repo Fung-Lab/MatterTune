@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -142,6 +143,12 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     def requires_disabled_inference_mode(self):
         return False
 
+    def _find_potential_energy_prop_name(self):
+        for prop in self.hparams.properties:
+            if isinstance(prop, props.EnergyPropertyConfig):
+                return prop.name
+        raise ValueError("No energy property found in the property list")
+
     def _create_output_head(self, prop: props.PropertyConfig):
         activation_cls = get_activation_cls(self.backbone.hparams.activation)
         match prop:
@@ -156,27 +163,36 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                     activation_cls,
                 )
             case props.ForcesPropertyConfig():
-                assert (
-                    not prop.conservative
-                ), "Conservative forces are not supported for JMP (yet)"
+                if not prop.conservative:
+                    from jmp.nn.force_head import ForceTargetConfig
 
-                from jmp.nn.force_head import ForceTargetConfig
+                    return ForceTargetConfig().create_model(
+                        self.backbone.hparams.emb_size_edge, activation_cls
+                    )
+                else:
+                    from jmp.nn.force_head import ConservativeForceTargetConfig
 
-                return ForceTargetConfig().create_model(
-                    self.backbone.hparams.emb_size_edge, activation_cls
-                )
+                    force_config = ConservativeForceTargetConfig(
+                        energy_prop_name=self._find_potential_energy_prop_name()
+                    )
+                    return force_config.create_model()
+
             case props.StressesPropertyConfig():
-                assert (
-                    not prop.conservative
-                ), "Conservative stresses are not supported for JMP (yet)"
+                if not prop.conservative:
+                    from jmp.nn.stress_head import StressTargetConfig
 
-                from jmp.nn.stress_head import StressTargetConfig
+                    return StressTargetConfig().create_model(
+                        self.backbone.hparams.emb_size_edge, activation_cls
+                    )
+                else:
+                    from jmp.nn.stress_head import ConservativeStressTargetConfig
 
-                return StressTargetConfig().create_model(
-                    self.backbone.hparams.emb_size_edge, activation_cls
-                )
+                    stress_config = ConservativeStressTargetConfig(
+                        energy_prop_name=self._find_potential_energy_prop_name()
+                    )
+                    return stress_config.create_model()
             case props.GraphPropertyConfig():
-                from .prediction_heads.graph_scalar import GraphScalarTargetConfig
+                from jmp.nn.graph_scaler import GraphScalarTargetConfig
 
                 return GraphScalarTargetConfig(reduction=prop.reduction).create_model(
                     self.backbone.hparams.emb_size_atom,
@@ -218,7 +234,11 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     @contextlib.contextmanager
     def model_forward_context(self, data):
-        yield
+        with ExitStack() as stack:
+            for head in self.output_heads.values():
+                stack.enter_context(head.forward_context(data))
+
+            yield
 
     @override
     def model_forward(self, batch, return_backbone_output=False):
@@ -228,9 +248,14 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
 
-        head_input = {"data": batch, "backbone_output": backbone_output}
+        head_input = {
+            "data": batch,
+            "backbone_output": backbone_output,
+            "predicted_props": predicted_properties,
+        }
         for name, head in self.output_heads.items():
             predicted_properties[name] = head(head_input)
+            head_input["predicted_props"] = predicted_properties
 
         pred: ModelOutput = {"predicted_properties": predicted_properties}
         if return_backbone_output:
