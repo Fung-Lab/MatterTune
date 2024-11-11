@@ -20,6 +20,9 @@ torchmetrics = "*"
 einops = "*"
 e3nn = "*"
 wandb = "*"
+nshutils = "*"
+nshconfig = "*"
+nshconfig_extra = "*"
 
 [build-system]
 requires = ["poetry-core"]

@@ -8,6 +8,7 @@ from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.stress import full_3x3_to_voigt_6_stress
 from torch.utils.data import Dataset
+from tqdm import tqdm
 from typing_extensions import override
 
 from ..registry import data_registry
@@ -53,10 +54,13 @@ class MPTrajDataset(Dataset[ase.Atoms]):
         assert isinstance(dataset, datasets.Dataset)
         dataset.set_format("numpy")
         self.atoms_list = []
+        pbar = tqdm(dataset, desc="Loading dataset...")
         for entry in dataset:
             atoms = self._load_atoms_from_entry(dict(entry))
             if self._filter_atoms(atoms):
                 self.atoms_list.append(atoms)
+            pbar.update(1)
+        pbar.close()
 
     def _load_atoms_from_entry(self, entry: dict) -> Atoms:
         atoms = Atoms(
