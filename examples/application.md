@@ -1,6 +1,6 @@
 water-thermo
 - finetune
-- md on water, which task?
+- md on water, which task? (python -m pip install git+https://github.com/i-pi/i-pi.git)
 
 property prediction
 - matbench
