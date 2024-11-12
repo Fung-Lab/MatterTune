@@ -7,6 +7,7 @@ from pathlib import Path
 import nshutils as nu
 import pytorch_lightning as pl
 import rich
+import wandb
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.strategies import DDPStrategy
@@ -55,7 +56,11 @@ def main(args_dict: dict):
         hparams.data.num_workers = 0
 
         ## Trainer Hyperparameters
-        wandb_logger = WandbLogger(project="MatterTune-Examples", name="ORB-ZnMnO")
+        wandb_logger = WandbLogger(
+            project="MatterTune-Examples",
+            name="ORB-ZnMnO",
+            mode = "online",
+        )
         checkpoint_callback = ModelCheckpoint(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
@@ -88,10 +93,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="orb-v2")
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=20)
-    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
