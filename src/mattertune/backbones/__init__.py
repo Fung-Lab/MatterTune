@@ -4,10 +4,14 @@ from typing import Annotated, TypeAlias
 
 from ..finetune.base import FinetuneModuleBaseConfig
 from ..registry import backbone_registry
+from .eqV2 import EqV2BackboneConfig as EqV2BackboneConfig
+from .eqV2 import EqV2BackboneModule as EqV2BackboneModule
 from .jmp import JMPBackboneConfig as JMPBackboneConfig
 from .jmp import JMPBackboneModule as JMPBackboneModule
 from .m3gnet import M3GNetBackboneConfig as M3GNetBackboneConfig
 from .m3gnet import M3GNetBackboneModule as M3GNetBackboneModule
+from .orb import ORBBackboneConfig as ORBBackboneConfig
+from .orb import ORBBackboneModule as ORBBackboneModule
 
 ModelConfig: TypeAlias = Annotated[
     FinetuneModuleBaseConfig,
