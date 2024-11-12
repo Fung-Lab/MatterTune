@@ -7,6 +7,7 @@ from pathlib import Path
 import nshutils as nu
 import pytorch_lightning as pl
 import rich
+import wandb
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 
@@ -54,7 +55,11 @@ def main(args_dict: dict):
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Trainer Hyperparameters
-        wandb_logger = WandbLogger(project="MatterTune-Examples", name="M3GNet-Water")
+        wandb_logger = WandbLogger(
+            project="MatterTune-Examples",
+            name="M3GNet-Water",
+            mode = "online",
+        )
         checkpoint_callback = ModelCheckpoint(
             monitor="val/forces_mae",
             dirpath="./checkpoints",

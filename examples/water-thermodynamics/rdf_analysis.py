@@ -66,9 +66,10 @@ def main(args_dict: dict):
     plt.plot(rdf_x, rdf_y)
     plt.xlabel("r (Angstrom)")
     plt.ylabel("g(r)")
+    plt.xlim(0, r_max)
     plt.title(f"RDF {elements[0]}-{elements[1]}")
     plt.tight_layout()
-    plt.savefig("rdf.png")
+    plt.savefig(f"rdf-{elements[0]}-{elements[1]}.png")
 
 
 if __name__ == "__main__":
@@ -77,8 +78,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--md_traj", type=str, default="./md_results/md_traj.xyz")
     parser.add_argument("--n_frames", type=int, default=1000)
-    parser.add_argument("--r_max", type=float, default=12.0)
+    parser.add_argument("--r_max", type=float, default=6.0)
     parser.add_argument("--n_bins", type=int, default=100)
-    parser.add_argument("--elements", type=str, nargs="+", default=["O", "H"])
+    parser.add_argument("--elements", type=str, nargs="+", default=["O", "O"])
     args_dict = vars(parser.parse_args())
     main(args_dict)

@@ -4,10 +4,11 @@ import logging
 import os
 from pathlib import Path
 
-import nshutils as nu
 import nshconfig_extra as CE
+import nshutils as nu
 import pytorch_lightning as pl
 import rich
+import wandb
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 
@@ -16,7 +17,7 @@ import mattertune.backbones
 import mattertune.configs as MC
 from mattertune import MatterTuner
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 nu.pretty()
 
@@ -55,7 +56,11 @@ def main(args_dict: dict):
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Trainer Hyperparameters
-        wandb_logger = WandbLogger(project="MatterTune-Examples", name="JMP-Water")
+        wandb_logger = WandbLogger(
+            project="MatterTune-Examples",
+            name="JMP-Water",
+            mode = "online",
+        )
         checkpoint_callback = ModelCheckpoint(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
