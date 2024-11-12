@@ -325,6 +325,12 @@ class FinetuneModuleBase(
             output: ModelOutput = self(batch)
         except _SkipBatchError:
 
+            def _zero_output():
+                return {
+                    "predicted_properties": {},
+                    "backbone_output": None,
+                }
+
             def _zero_loss():
                 # Return a zero loss tensor that is still attached to all
                 #   parameters so that the optimizer can still update them.
@@ -451,10 +457,7 @@ class FinetuneModuleBase(
             lightning_trainer_kwargs=lightning_trainer_kwargs,
         )
 
-    def ase_calculator(
-        self, 
-        lightning_trainer_kwargs: dict[str, Any] | None = None
-    ):
+    def ase_calculator(self, lightning_trainer_kwargs: dict[str, Any] | None = None):
         """Returns an ASE calculator wrapper for the interatomic potential.
 
         This method creates an ASE (Atomic Simulation Environment) calculator that can be used
