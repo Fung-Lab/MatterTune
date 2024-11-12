@@ -15,7 +15,12 @@ import torch.nn as nn
 from typing_extensions import override
 
 from ...finetune import properties as props
-from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
+from ...finetune.base import (
+    FinetuneModuleBase,
+    FinetuneModuleBaseConfig,
+    ModelOutput,
+    _SkipBatchError,
+)
 from ...registry import backbone_registry
 from .util import get_activation_cls
 
@@ -228,6 +233,14 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         # Create the output heads
         self.output_heads = nn.ModuleDict()
+        ## Rearange the properties to move the energy property to the front and stress second
+        self.hparams.properties = sorted(
+            self.hparams.properties,
+            key=lambda prop: (
+                not isinstance(prop, props.EnergyPropertyConfig),
+                not isinstance(prop, props.StressesPropertyConfig),
+            ),
+        )
         for prop in self.hparams.properties:
             self.output_heads[prop.name] = self._create_output_head(prop)
 
@@ -254,8 +267,10 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             "predicted_props": predicted_properties,
         }
         for name, head in self.output_heads.items():
-            predicted_properties[name] = head(head_input)
-            head_input["predicted_props"] = predicted_properties
+            output = head(head_input)
+            if torch.isnan(output).any() or torch.isinf(output).any():
+                raise _SkipBatchError("NaN or inf detected in the output")
+            head_input["predicted_props"][name] = output
 
         pred: ModelOutput = {"predicted_properties": predicted_properties}
         if return_backbone_output:
