@@ -331,7 +331,7 @@ class FinetuneModuleBase(
                 # This prevents DDP unused parameter errors.
                 return cast(torch.Tensor, sum(p.sum() * 0.0 for p in self.parameters()))
 
-            return _zero_loss()
+            return _zero_output(), _zero_loss()
 
         # Extract labels from the batch
         labels = self.batch_to_labels(batch)
