@@ -27,7 +27,7 @@ class MPTrajDatasetConfig(DatasetConfigBase):
     split: Literal["train", "val", "test"] = "train"
     """Split of the dataset to use."""
 
-    min_num_atoms: int | None = None
+    min_num_atoms: int | None = 5
     """Minimum number of atoms to be considered. Drops structures with fewer atoms."""
 
     max_num_atoms: int | None = None
