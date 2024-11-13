@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import Counter
-from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 import nshconfig as C
+import numpy as np
 import torch
 import torch.nn as nn
-from typing_extensions import final, override
+from typing_extensions import assert_never, final, override
 
 if TYPE_CHECKING:
     from ...finetune.base import FinetuneModuleBase
@@ -83,21 +84,28 @@ class FixedReferencerModule(ReferencerModuleBase):
 
 
 @final
-class LinearReferenceConfig(ReferenceConfigBase):
-    name: Literal["linear_reference"] = "linear_reference"
+class OTFReferenceConfig(ReferenceConfigBase):
+    name: Literal["otf_reference"] = "otf_reference"
+
+    reference_model: Literal["linear", "ridge"]
+    """The reference model to use."""
+
+    reference_model_kwargs: dict[str, Any] = {}
+    """The keyword arguments to pass to the reference model.
+    These are directly passed to the constructor of the scikit-learn model."""
 
     @override
     def create_referencer_module(self, base_module, data_module, property):
-        return LinearReferencerModule(self, base_module, data_module, property)
+        return OTFReferencerModule(self, base_module, data_module, property)
 
 
-class LinearReferencerModule(ReferencerModuleBase):
+class OTFReferencerModule(ReferencerModuleBase):
     references: torch.Tensor
 
     @override
     def __init__(
         self,
-        config: LinearReferenceConfig,
+        config: OTFReferenceConfig,
         base_module: FinetuneModuleBase,
         data_module: MatterTuneDataModule,
         property: PropertyConfig,
@@ -146,19 +154,31 @@ class LinearReferencerModule(ReferencerModuleBase):
         # Convert the compositions to a matrix
         num_samples = len(compositions)
         num_elements = max(max(c.keys()) for c in compositions) + 1
-        compositions_matrix = torch.zeros(num_samples, num_elements)
+        compositions_matrix = np.zeros((num_samples, num_elements))
         for i, composition in enumerate(compositions):
             for z, count in composition.items():
                 compositions_matrix[i, z] = count
 
         # Fit the linear model
-        from sklearn.linear_model import LinearRegression
+        match self.config.reference_model:
+            case "linear":
+                from sklearn.linear_model import LinearRegression
 
-        references = (
-            LinearRegression(fit_intercept=False)
-            .fit(compositions_matrix, torch.tensor(property_values))
-            .coef_
-        )
+                model = LinearRegression(
+                    fit_intercept=False,
+                    **self.config.reference_model_kwargs,
+                )
+            case "ridge":
+                from sklearn.linear_model import Ridge
+
+                model = Ridge(
+                    fit_intercept=False,
+                    **self.config.reference_model_kwargs,
+                )
+            case _:
+                assert_never(self.config.reference_model)
+
+        references = model.fit(compositions_matrix, torch.tensor(property_values)).coef_
         # references: (num_elements,)
 
         # Convert the reference to a dict[int, float]
