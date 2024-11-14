@@ -15,6 +15,7 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from torch.utils.data import Dataset
 from typing_extensions import NotRequired, TypedDict, TypeVar, Unpack, cast, override
 
+from ..data.util.normalization import NormalizationPropertyConfig
 from .loader import DataLoaderKwargs, create_dataloader
 from .loss import compute_loss
 from .lr_scheduler import LRSchedulerConfig, create_lr_scheduler
@@ -40,6 +41,9 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
 
     ignore_gpu_batch_transform_error: bool = True
     """Whether to ignore data processing errors during training."""
+
+    normalizers: Mapping[str, NormalizationPropertyConfig] = {}
+    """Normalizers for the properties."""
 
     @classmethod
     @abstractmethod
@@ -257,6 +261,44 @@ class FinetuneModuleBase(
         self.val_metrics = FinetuneMetrics(self.hparams.properties)
         self.test_metrics = FinetuneMetrics(self.hparams.properties)
 
+    def normalize(self, properties: dict[str, torch.Tensor]):
+        """
+        Normalizes the ``properties`` dictionary. ``properties`` can either be
+        the predicted properties or the ground truth labels.
+
+        Args:
+            properties: Dictionary of properties to normalize. The dictionary
+                should have the same format as the output of ``batch_to_labels``.
+
+        Returns:
+            Normalized properties.
+        """
+        return {
+            prop_name: properties[prop_name]
+            if (normalizer := self.hparams.normalizers.get(prop_name)) is None
+            else normalizer.normalize(properties[prop_name])
+            for prop_name in properties
+        }
+
+    def denormalize(self, properties: dict[str, torch.Tensor]):
+        """
+        Denormalizes the ``properties`` dictionary. ``properties`` can either be
+        the predicted properties or the ground truth labels.
+
+        Args:
+            properties: Dictionary of properties to denormalize. The dictionary
+                should have the same format as the output of ``batch_to_labels``.
+
+        Returns:
+            Denormalized properties.
+        """
+        return {
+            prop_name: properties[prop_name]
+            if (normalizer := self.hparams.normalizers.get(prop_name)) is None
+            else normalizer.denormalize(properties[prop_name])
+            for prop_name in properties
+        }
+
     @override
     def forward(
         self,
@@ -343,13 +385,30 @@ class FinetuneModuleBase(
         labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
 
+        # Normalize the properties.
+        # NOTE: We normalize the target properties before computing the loss.
+        #   This ensures that the model is effectively learning the normalized
+        #   properties.
+        # NOTE: Some other implementations may instead choose to denormalize
+        #   the predictions before computing the loss. We don't do this because
+        #   it can lead to numerical instability in the loss computation.
+        normalized_labels = self.normalize(labels)
+
         # Compute loss
         loss = self._compute_loss(
             predictions,
-            labels,
+            normalized_labels,
             log=log,
             log_prefix=f"{name}/",
         )
+
+        # NOTE: After computing the loss, we denormalize the predictions.
+        #   This is done so that the values that are output by the model
+        #   (and those used for metric computation) are measured in the
+        #   denormalized units, which are more interpretable.
+        # NOTE: Again, we only denormalize the predictions, not the labels.
+        #   This is because the labels are already in the denormalized units.
+        predictions = self.denormalize(predictions)
 
         # Log metrics
         if log and metrics is not None:
