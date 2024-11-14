@@ -32,20 +32,17 @@ def main(args_dict: dict):
         hparams.model.ckpt_path = Path(args_dict["ckpt_path"])
         hparams.model.ignore_gpu_batch_transform_error = True
         hparams.model.optimizer = MC.AdamWConfig(lr=args_dict["lr"])
+        hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
+            T_max=args_dict["max_epochs"]
+        )
 
         hparams.model.properties = []
         energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=1.0
+            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
         )
         hparams.model.properties.append(forces)
-        stresses = MC.StressesPropertyConfig(
-            loss=MC.MAELossConfig(),
-            conservative=True,
-            loss_coefficient=0.0,
-        )  ## Here we used gradient-based stress prediction, but it is not used in the loss. And we scaled the stress by 160.21766208 to convert from eV/Angstrom^3 to GPa.
-        hparams.model.properties.append(stresses)
 
         ## Data Hyperparameters
         hparams.data = MC.AutoSplitDataModuleConfig.draft()
@@ -58,7 +55,7 @@ def main(args_dict: dict):
         wandb_logger = WandbLogger(
             project="MatterTune-Examples",
             name="M3GNet-Water",
-            mode = "online",
+            mode="online",
         )
         checkpoint_callback = ModelCheckpoint(
             monitor="val/forces_mae",
@@ -94,10 +91,10 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt_path", type=str, default="M3GNet-MP-2021.2.8-PES")
     parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
     parser.add_argument("--train_split", type=float, default=0.8)
-    parser.add_argument("--batch_size", type=int, default=256)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--lr", type=float, default=8e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--devices", type=int, nargs="+", default=[1, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
