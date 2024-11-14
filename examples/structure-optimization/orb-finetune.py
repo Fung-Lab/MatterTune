@@ -88,7 +88,8 @@ def main(args_dict: dict):
         return hparams
 
     mt_config = hparams()
-    model = MatterTuner(mt_config).tune()
+    model, trainer = MatterTuner(mt_config).tune()
+    trainer.save_checkpoint("finetuned.ckpt")
 
 
 if __name__ == "__main__":
