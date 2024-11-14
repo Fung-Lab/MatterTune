@@ -2,9 +2,10 @@ from __future__ import annotations
 
 __codegen__ = True
 
+from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
-from mattertune.backbones.eqV2 import EqV2BackboneConfig as EqV2BackboneConfig
+from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.eqV2.model import (
     FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig,
 )
@@ -19,7 +20,6 @@ from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
-from mattertune.backbones.orb import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.data import DataModuleConfig as DataModuleConfig
 from mattertune.data import DatasetConfig as DatasetConfig
@@ -38,6 +38,7 @@ from mattertune.data.matbench import MatbenchDatasetConfig as MatbenchDatasetCon
 from mattertune.data.mp import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 from mattertune.finetune.base import LRSchedulerConfig as LRSchedulerConfig
+from mattertune.finetune.base import NormalizerConfig as NormalizerConfig
 from mattertune.finetune.base import OptimizerConfig as OptimizerConfig
 from mattertune.finetune.base import PropertyConfig as PropertyConfig
 from mattertune.finetune.loss import HuberLossConfig as HuberLossConfig
@@ -66,11 +67,18 @@ from mattertune.finetune.properties import (
 )
 from mattertune.main import MatterTunerConfig as MatterTunerConfig
 from mattertune.main import ModelConfig as ModelConfig
+from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalizerConfig
+from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
+from mattertune.normalization import (
+    PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig,
+)
+from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
 from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 
 from . import backbones as backbones
 from . import data as data
 from . import finetune as finetune
 from . import main as main
+from . import normalization as normalization
 from . import registry as registry
 from . import wrappers as wrappers
