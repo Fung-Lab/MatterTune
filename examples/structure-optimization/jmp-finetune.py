@@ -38,11 +38,11 @@ def main(args_dict: dict):
         energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
+            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=5.0
         )
         hparams.model.properties.append(forces)
         stresses = MC.StressesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=1.0
+            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=1.0
         )  ## Here we used gradient-based stress prediction, but it is not used in the loss
         hparams.model.properties.append(stresses)
 
@@ -101,7 +101,7 @@ if __name__ == "__main__":
         type=str,
         default="/net/csefiles/coc-fung-cluster/lingyu/checkpoints/jmp-s.pt",
     )
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
     parser.add_argument("--devices", type=int, nargs="+", default=[0])

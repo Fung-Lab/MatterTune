@@ -31,6 +31,7 @@ def main(args_dict: dict):
             "enable_progress_bar": False,
             "enable_model_summary": False,
             "logger": False,
+            "barebones": True,
         }
     )
     atoms: Atoms = read(args_dict["init_struct"])
