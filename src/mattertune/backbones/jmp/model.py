@@ -12,7 +12,8 @@ import nshconfig_extra as CE
 import numpy as np
 import torch
 import torch.nn as nn
-from typing_extensions import override
+import torch.nn.functional as F
+from typing_extensions import final, override
 
 from ...finetune import properties as props
 from ...finetune.base import (
@@ -21,6 +22,7 @@ from ...finetune.base import (
     ModelOutput,
     _SkipBatchError,
 )
+from ...normalization import NormalizationContext
 from ...registry import backbone_registry
 from .util import get_activation_cls
 
@@ -121,6 +123,7 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
         return JMPBackboneModule
 
 
+@final
 class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     @classmethod
@@ -354,6 +357,28 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                 data_dict[prop.name] = value
 
         return Data.from_dict(data_dict)
+
+    @override
+    def create_normalization_context_from_batch(self, batch):
+        from torch_scatter import scatter
+
+        atomic_numbers: torch.Tensor = batch.atomic_numbers.long()  # (n_atoms,)
+        batch_idx: torch.Tensor = batch.batch  # (n_atoms,)
+
+        # Convert atomic numbers to one-hot encoding
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
+        # ^ (n_atoms, 120)
+
+        compositions = scatter(
+            atom_types_onehot,
+            batch_idx,
+            dim=0,
+            dim_size=batch.num_graphs,
+            reduce="sum",
+        )
+        # ^ (n_graphs, 120)
+
+        return NormalizationContext(compositions=compositions)
 
 
 def _get_fixed(atoms: Atoms):
