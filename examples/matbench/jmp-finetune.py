@@ -7,18 +7,15 @@ from pathlib import Path
 import nshutils as nu
 import pytorch_lightning as pl
 import rich
-import wandb
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.strategies import DDPStrategy
 
 import mattertune
 import mattertune.backbones
 import mattertune.configs as MC
 from mattertune import MatterTuner
+from mattertune.configs import WandbLoggerConfig
 
 logging.basicConfig(level=logging.WARNING)
-
 nu.pretty()
 
 
@@ -34,6 +31,7 @@ def main(args_dict: dict):
         hparams.model.ignore_gpu_batch_transform_error = True
         hparams.model.optimizer = MC.AdamWConfig(lr=args_dict["lr"])
 
+        # Add property
         hparams.model.properties = []
         property = MC.GraphPropertyConfig(
             loss=MC.MAELossConfig(),
@@ -53,32 +51,41 @@ def main(args_dict: dict):
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Trainer Hyperparameters
-        wandb_logger = WandbLogger(
-            project="MatterTune-Examples",
-            name="JMP-Matbench-{}".format(args_dict["task"]),
-            mode="online",
+        hparams.trainer = MC.TrainerConfig.draft()
+        hparams.trainer.max_epochs = args_dict["max_epochs"]
+        hparams.trainer.accelerator = "gpu"
+        hparams.trainer.devices = args_dict["devices"]
+        hparams.trainer.gradient_clip_algorithm = "value"
+        hparams.trainer.gradient_clip_val = 1.0
+        hparams.trainer.precision = "bf16"
+
+        # Configure Early Stopping
+        hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
+            monitor="val/matbench_mp_gap_mae", patience=200, mode="min"
         )
-        checkpoint_callback = ModelCheckpoint(
+
+        # Configure Model Checkpoint
+        hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/matbench_mp_gap_mae",
             dirpath="./checkpoints",
             filename="jmp-best",
             save_top_k=1,
             mode="min",
         )
-        early_stopping = EarlyStopping(
-            monitor="val/matbench_mp_gap_mae", patience=200, mode="min"
-        )
+
+        # Configure Logger
+        hparams.trainer.loggers = [
+            WandbLoggerConfig(
+                project="MatterTune-Examples",
+                name=f"JMP-Matbench-{args_dict['task']}",
+                offline=False,
+            )
+        ]
+
+        # Additional trainer settings that need special handling
         hparams.lightning_trainer_kwargs = {
-            "max_epochs": args_dict["max_epochs"],
-            "accelerator": "gpu",
-            "devices": args_dict["devices"],
-            "strategy": DDPStrategy(find_unused_parameters=True),
-            "gradient_clip_algorithm": "value",
-            "gradient_clip_val": 1.0,
-            "precision": "bf16",
             "inference_mode": False,
-            "logger": [wandb_logger],
-            "callbacks": [checkpoint_callback, early_stopping],
+            "strategy": DDPStrategy(find_unused_parameters=True),  # Special DDP config
         }
 
         hparams = hparams.finalize(strict=False)
