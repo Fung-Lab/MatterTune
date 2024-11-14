@@ -36,7 +36,7 @@ def main(args_dict: dict):
         energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=1.0
+            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=5.0
         )
         hparams.model.properties.append(forces)
         stresses = MC.StressesPropertyConfig(
@@ -50,8 +50,8 @@ def main(args_dict: dict):
         hparams.data.train.split = "train"
         hparams.data.train.elements = ["Zn", "Mn", "O"]
         hparams.data.validation = MC.MPTrajDatasetConfig.draft()
-        hparams.data.train.split = "val"
-        hparams.data.train.elements = ["Zn", "Mn", "O"]
+        hparams.data.validation.split = "val"
+        hparams.data.validation.elements = ["Zn", "Mn", "O"]
         hparams.data.batch_size = args_dict["batch_size"]
         hparams.data.num_workers = 0
 
@@ -59,7 +59,7 @@ def main(args_dict: dict):
         wandb_logger = WandbLogger(
             project="MatterTune-Examples",
             name="ORB-ZnMnO",
-            mode = "online",
+            mode="online",
         )
         checkpoint_callback = ModelCheckpoint(
             monitor="val/forces_mae",
@@ -67,6 +67,9 @@ def main(args_dict: dict):
             filename="orb-best",
             save_top_k=1,
             mode="min",
+        )
+        early_stopping = EarlyStopping(
+            monitor="val/forces_mae", patience=200, mode="min"
         )
         hparams.lightning_trainer_kwargs = {
             "max_epochs": args_dict["max_epochs"],
@@ -78,7 +81,7 @@ def main(args_dict: dict):
             "precision": "bf16",
             "inference_mode": False,
             "logger": [wandb_logger],
-            "callbacks": [checkpoint_callback],
+            "callbacks": [checkpoint_callback, early_stopping],
         }
 
         hparams = hparams.finalize(strict=False)
@@ -93,7 +96,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, default="orb-v2")
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=20)
     parser.add_argument("--devices", type=int, nargs="+", default=[0])
