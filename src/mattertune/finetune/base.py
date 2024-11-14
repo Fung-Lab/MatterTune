@@ -15,11 +15,7 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from torch.utils.data import Dataset
 from typing_extensions import NotRequired, TypedDict, TypeVar, Unpack, cast, override
 
-from ..data.util.normalization import (
-    ComposeNormalizers,
-    NormalizationContext,
-    NormalizerConfig,
-)
+from ..normalization import ComposeNormalizers, NormalizationContext, NormalizerConfig
 from .loader import DataLoaderKwargs, create_dataloader
 from .loss import compute_loss
 from .lr_scheduler import LRSchedulerConfig, create_lr_scheduler
