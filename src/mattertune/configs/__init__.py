@@ -65,8 +65,15 @@ from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigB
 from mattertune.finetune.properties import (
     StressesPropertyConfig as StressesPropertyConfig,
 )
+from mattertune.loggers import CSVLoggerConfig as CSVLoggerConfig
+from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
+from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
+from mattertune.main import EarlyStoppingConfig as EarlyStoppingConfig
+from mattertune.main import LoggerConfig as LoggerConfig
 from mattertune.main import MatterTunerConfig as MatterTunerConfig
+from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.main import ModelConfig as ModelConfig
+from mattertune.main import TrainerConfig as TrainerConfig
 from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalizerConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
 from mattertune.normalization import (
@@ -76,8 +83,10 @@ from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
 from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 
 from . import backbones as backbones
+from . import callbacks as callbacks
 from . import data as data
 from . import finetune as finetune
+from . import loggers as loggers
 from . import main as main
 from . import normalization as normalization
 from . import registry as registry

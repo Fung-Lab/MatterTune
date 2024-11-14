@@ -7,17 +7,14 @@ from pathlib import Path
 import nshutils as nu
 import pytorch_lightning as pl
 import rich
-import wandb
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from lightning.pytorch.loggers import WandbLogger
 
 import mattertune
 import mattertune.backbones
 import mattertune.configs as MC
 from mattertune import MatterTuner
+from mattertune.configs import WandbLoggerConfig
 
 logging.basicConfig(level=logging.DEBUG)
-
 nu.pretty()
 
 
@@ -36,9 +33,14 @@ def main(args_dict: dict):
             T_max=args_dict["max_epochs"]
         )
 
+        # Add model properties
         hparams.model.properties = []
+
+        # Add energy property
         energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
         hparams.model.properties.append(energy)
+
+        # Add forces property
         forces = MC.ForcesPropertyConfig(
             loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
         )
@@ -52,29 +54,34 @@ def main(args_dict: dict):
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Trainer Hyperparameters
-        wandb_logger = WandbLogger(
-            project="MatterTune-Examples",
-            name="M3GNet-Water",
-            mode="online",
-        )
-        checkpoint_callback = ModelCheckpoint(
+        hparams.trainer = MC.TrainerConfig.draft()
+        hparams.trainer.max_epochs = args_dict["max_epochs"]
+        hparams.trainer.accelerator = "gpu"
+        hparams.trainer.devices = args_dict["devices"]
+        hparams.trainer.strategy = "ddp"
+        hparams.trainer.gradient_clip_algorithm = "value"
+        hparams.trainer.gradient_clip_val = 1.0
+        hparams.trainer.precision = "32"
+
+        # Configure Model Checkpoint
+        hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
             filename="m3gnet-best",
             save_top_k=1,
             mode="min",
         )
+
+        # Configure Logger
+        hparams.trainer.loggers = [
+            WandbLoggerConfig(
+                project="MatterTune-Examples", name="M3GNet-Water", offline=False
+            )
+        ]
+
+        # Additional trainer settings
         hparams.lightning_trainer_kwargs = {
-            "max_epochs": args_dict["max_epochs"],
-            "accelerator": "gpu",
-            "devices": args_dict["devices"],
-            "strategy": "ddp",
-            "gradient_clip_algorithm": "value",
-            "gradient_clip_val": 1.0,
-            "precision": "32",
             "inference_mode": False,
-            "logger": [wandb_logger],
-            "callbacks": [checkpoint_callback],
         }
 
         hparams = hparams.finalize(strict=False)
