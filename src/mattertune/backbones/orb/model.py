@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING, Literal, cast
 import nshconfig as C
 import torch
 import torch.nn as nn
-from typing_extensions import assert_never, override
+import torch.nn.functional as F
+from typing_extensions import assert_never, final, override
+
+from mattertune.normalization import NormalizationContext
 
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
@@ -57,6 +60,7 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
         return ORBBackboneModule
 
 
+@final
 class ORBBackboneModule(
     FinetuneModuleBase["AtomGraphs", "AtomGraphs", ORBBackboneConfig]
 ):
@@ -344,4 +348,23 @@ class ORBBackboneModule(
                     case _:
                         assert_never(prop_type)
 
+        # For normalization purposes, we should just pre-compute the composition
+        #   vector here and save it in the `system_features`. Then, when batching happens,
+        #   we can just use that composition vector from the batched `system_features`.
+        atom_types_onehot = F.one_hot(
+            atom_graphs.atomic_numbers.view(-1).long(),
+            num_classes=120,
+        )
+        # ^ (n_atoms, 120)
+        # Now we need to sum this up to get the composition vector
+        composition = atom_types_onehot.sum(dim=0, keepdim=True)
+        # ^ (1, 120)
+        atom_graphs.system_features["composition"] = composition
+
         return atom_graphs
+
+    @override
+    def create_normalization_context_from_batch(self, batch):
+        if (compositions := batch.system_features.get("composition")) is None:
+            raise ValueError("No composition found in the batch.")
+        return NormalizationContext(compositions=compositions)
