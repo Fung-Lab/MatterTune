@@ -50,31 +50,72 @@ Below are the detailed installation instructions for each supported model:
 
 > Provide how to install each model's env and test it.
 
-## General Workflow
+## MatterTune in 15 minutes.
 
-This section outlines the fundamental workflow for model training and accessing downstream task interfaces in MatterTune. For detailed parameter configurations and method specifications, please refer to the Glossary section.
+This section outlines the fundamental workflow for model training and accessing downstream task interfaces in MatterTune. For detailed parameter configurations and method specifications, please refer to our CoreAPI, OtherAPI and Glossary sections.
 
 ### Training
 
-A MatterTune training task is configured through `MC.MatterTunerConfig`, which consists of three essential components:
+A MatterTune training task is configured through `MC.MatterTunerConfig`. It can be declared by:
 
-1. **Model Configuration** (`MC.MatterTunerConfig.model`)
-  - Backbone model specification
-  - Target properties for training
-  - Loss function definitions
-  - Learning rate settings
-  - Other model hyperparameters
+```python
+hparams = MC.MatterTunerConfig.draft()
+```
 
-2. **Data Configuration** (`MC.MatterTunerConfig.data`)
-  - Dataset type selection
-  - Data source path specification
-  - Data loading parameters
+Then a then training task can be configured and started through for steps:
 
-3. **Trainer Settings** (`MC.MatterTunerConfig.lightning_trainer_kwargs`)
-  - PyTorch Lightning trainer arguments
-  - Training workflow configurations
+#### Step1. Model Configuration (`MC.MatterTunerConfig.model`)
+    
+```python
+# Set backbone model (JMP in this example)
+hparams.model = MC.JMPBackboneConfig.draft()
+hparams.model.graph_computer = MC.JMPGraphComputerConfig.draft()
+hparams.model.graph_computer.pbc = True  # For periodic structures
 
-For detailed examples of initializing `MC.MatterTunerConfig` and setting up these components, please refer to the `notebooks` and `examples` directories.
+# Specify checkpoint path
+hparams.model.ckpt_path = Path("./jmp-s.pt")
+
+# Configure optimizer
+hparams.model.optimizer = MC.AdamWConfig(lr=8e-5)
+
+# Define training properties and loss functions
+hparams.model.properties = [
+    MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0),
+    MC.ForcesPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=10.0, conservative=False)
+]
+```
+The model configuration specifies the backbone model type (e.g., JMP, or other supported models), optimizer settings, and target properties.
+
+#### Step2. **Data Configuration** (`MC.MatterTunerConfig.data`)
+
+```python
+# Configure data loading
+hparams.data = MC.AutoSplitDataModuleConfig.draft()
+hparams.data.dataset = MC.XYZDatasetConfig.draft()
+hparams.data.dataset.src = Path("dataset.xyz")
+hparams.data.train_split = 0.8
+hparams.data.batch_size = 64
+```
+
+MatterTune supports multiple data formats including ```.xyz```, ```ase.db```, MPTraj, OMat24, Matbench, and so on. It also supports auto-split and manual-split to suits various scenarios. 
+
+#### Step3. **Trainer Settings** (`MC.MatterTunerConfig.lightning_trainer_kwargs`)
+
+```python
+# Trainer Configuration
+from lightning.pytorch.strategies import DDPStrategy
+    
+hparams.lightning_trainer_kwargs = {
+    "max_epochs": 100,
+    "accelerator": "gpu",
+    "devices": [0, 1],
+    "strategy": DDPStrategy(find_unused_parameters=True),
+}
+```
+
+The ```hparams.lightning_trainer_kwargs``` exactly uses ```lightning.Trainer``` parameters, supporting features like multi-GPU training.
+
+#### Step4. Start Training
 
 Once you have prepared your configuration (let's call it `hparams`), you can start the training process with just two lines of code:
 
@@ -85,7 +126,7 @@ model = MatterTuner(mt_config).tune()
 
 ### Accessing Model Interfaces
 
-After successful training, you can easily wrap your model into both a potential and an ASE calculator:
+After successful training, you can easily wrap your model into both a potential and an ASE calculator, 
 
 ```python
 # Create a potential for batch predictions
@@ -95,7 +136,7 @@ potential = model.potential(lightning_trainer_kwargs=None)
 calculator = model.ase_calculator(lightning_trainer_kwargs=None)
 ```
 
-> Note: The ```lightning_trainer_kwargs``` parameter defaults to None, using PyTorch Lightning's default trainer settings. You can customize prediction behavior by providing your own trainer configurations.
+> Note: The lightning_trainer_kwargs parameter allows customization of prediction behavior. When set to None, it uses default PyTorch Lightning trainer settings.
 
 These interfaces can be directly used in downstream tasks. For example:
 
@@ -107,7 +148,26 @@ predictions = potential.predict([atoms1, atoms2])
 
 # Using ASE calculator for single structure calculations
 atoms1.calc = calculator
+energy = atoms.get_potential_energy() ## if energy property specified in target during training
+bandgap = atoms.get_property(["bandgap"]) ## if "bandgap" property specified in target during training
 ```
+
+## Core API
+
+Unfinished, to be listed here:
+- MC
+- MC.MatterTunerConfig
+- MC.backbone configs
+- MC.properties
+- MC.data...
+- MatterTuner
+
+## Other API
+
+Unfinished, to be listed here:
+- Optimizer
+- learning rate scheduler
+- losses
 
 ## Tutorials
 
