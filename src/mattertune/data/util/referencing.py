@@ -57,14 +57,14 @@ class ReferencerModuleBase(nn.Module, ReferencerModule, ABC):
         return torch.einsum("ij,j->i", compositions, self.references)
 
 
-class ReferenceConfigBase(C.Config, ABC):
+class PropertyReferencerConfigBase(C.Config, ABC):
     @abstractmethod
     def create_referencer_module(self) -> ReferencerModule: ...
 
 
 @final
-class FixedPerAtomReferenceConfig(ReferenceConfigBase):
-    name: Literal["fixed_reference"] = "fixed_reference"
+class FixedPerAtomPropertyReferencerConfig(PropertyReferencerConfigBase):
+    name: Literal["fixed_per_atom_referencer"] = "fixed_per_atom_referencer"
 
     references: Mapping[int, float] | Sequence[float] | Path
     """The fixed reference values for each element.
@@ -86,14 +86,14 @@ class FixedPerAtomReferenceConfig(ReferenceConfigBase):
 
     @override
     def create_referencer_module(self):
-        return FixedPerAtomReferencerModule(self)
+        return FixedPerAtomPropertyReferencerModule(self)
 
 
-class FixedPerAtomReferencerModule(ReferencerModuleBase):
+class FixedPerAtomPropertyReferencerModule(ReferencerModuleBase):
     references: torch.Tensor
 
     @override
-    def __init__(self, config: FixedPerAtomReferenceConfig):
+    def __init__(self, config: FixedPerAtomPropertyReferencerConfig):
         self.config = config
         del config
 
@@ -205,10 +205,13 @@ def compute_per_atom_references_cli_main(
         json.dump(references_dict, f)
 
 
-ReferenceConfig = TypeAliasType(
-    "ReferenceConfig",
+PropertyReferencerConfig = TypeAliasType(
+    "PropertyReferencerConfig",
     Annotated[
-        FixedPerAtomReferenceConfig,
-        C.Field(description="The configuration for the reference model."),
+        FixedPerAtomPropertyReferencerConfig,
+        C.Field(
+            discriminator="name",
+            description="The configuration for a property referencer.",
+        ),
     ],
 )
