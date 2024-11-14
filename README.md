@@ -1,9 +1,31 @@
 # MatterTune: A Unified Platform for Atomistic Foundation Model Fine-Tuning
 
+MatterTune is a flexible and powerful machine learning library designed specifically for fine-tuning state-of-the-art chemistry models. It provides intuitive interfaces for computational chemists to fine-tune pre-trained models on their specific use cases.
+
 ## Table of Contents
+- [MatterTune: A Unified Platform for Atomistic Foundation Model Fine-Tuning](#mattertune-a-unified-platform-for-atomistic-foundation-model-fine-tuning)
+  - [Table of Contents](#table-of-contents)
+  - [Motivation](#motivation)
+  - [Features](#features)
+  - [Installation](#installation)
+  - [Quick Start: Fine-Tuning a Pre-trained Model](#quick-start-fine-tuning-a-pre-trained-model)
+    - [Training Process](#training-process)
+    - [Checkpoints](#checkpoints)
+  - [Model Usage](#model-usage)
+    - [Making Predictions](#making-predictions)
+    - [Using as ASE Calculator](#using-as-ase-calculator)
+  - [Training Configuration](#training-configuration)
+    - [Model Configuration](#model-configuration)
+    - [Data Configuration](#data-configuration)
+    - [Training Process Configuration](#training-process-configuration)
+    - [Configuration Management](#configuration-management)
+  - [Extending MatterTune](#extending-mattertune)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Citation](#citation)
 
 
-## About MatterTune
+## Motivation
 
 Atomistic Foundation Models have emerged as powerful tools in molecular and materials science. However, the diverse implementations of these open-source models, with their varying architectures and interfaces, create significant barriers for customized fine-tuning and downstream applications.
 
@@ -20,179 +42,351 @@ MatterTune is a comprehensive platform that addresses these challenges through s
 
 Through these features, MatterTune significantly lowers the technical barriers for researchers and practitioners working with Atomistic Foundation Models, enabling them to focus on their scientific objectives rather than implementation details.
 
-## Supported Models
 
-MatterTune currently provides support for the following Atomistic Foundation Models:
+## Features
 
-- JMP
-- EquiformerV2
-- Orb
-- M3GNet (MatGL repository implementation)
+- **Pre-trained Model Support**: Seamlessly work with multiple state-of-the-art pre-trained models including:
+  - JMP
+  - EquiformerV2
+  - M3GNet
+  - ORB
 
-> Here add a brief description and link to each model?
+- **Flexible Property Predictions**: Support for various molecular and materials properties:
+  - Energy prediction
+  - Force prediction (both conservative and non-conservative)
+  - Stress tensor prediction
+  - Custom system-level property predictions
 
-MatterTune is still under active development and maintenance. We are continuously working to expand support for more mainstream open-source Atomistic Foundation Models. We welcome collaboration with other model development teams to help integrate their models into the MatterTune platform. 
+- **Data Processing**: Built-in support for multiple data formats:
+  - XYZ files
+  - ASE databases
+  - Materials Project database
+  - Matbench datasets
+  - Custom datasets
 
-## Supported Downstream Task Interfaces
-
-MatterTune currently provides support for ```ase```:
-- For any model trained on MatterTune, it can be automatically wrapped into a ```MatterTunePotential``` class, which can make prediction on a list of ```ase.Atoms``` and can be accelerated by cpu, single gpu, or multi-gpus. 
-- For any model trained on MatterTune, it can also be automatically wrapped into a ```ase.calculators.calculator.Calculator```, which can set as the calculator of ```ase.Atoms``` for property prediction, structure optimization, molecular dynamics, and so on. 
+- **Training Features**:
+  - Automated train/validation splitting
+  - Multiple loss functions (MAE, MSE, Huber, L2-MAE)
+  - Property normalization and scaling
+  - Early stopping and model checkpointing
+  - Comprehensive logging with WandB, TensorBoard, and CSV support
 
 ## Installation
 
-The setup process for using MatterTune consists of two steps:
-
-1. Installing model-specific dependencies
-2. Installing MatterTune on top of these dependencies
-
-Below are the detailed installation instructions for each supported model:
-
-> Provide how to install each model's env and test it.
-
-## MatterTune in 15 minutes.
-
-This section outlines the fundamental workflow for model training and accessing downstream task interfaces in MatterTune. For detailed parameter configurations and method specifications, please refer to our CoreAPI, OtherAPI and Glossary sections.
-
-### Training
-
-A MatterTune training task is configured through `MC.MatterTunerConfig`. It can be declared by:
-
-```python
-hparams = MC.MatterTunerConfig.draft()
+```bash
+pip install mattertune
 ```
 
-Then a then training task can be configured and started through for steps:
+Note: MatterTune requires PyTorch >= 2.0 and additional backbone-specific dependencies. When using specific backbones, you'll need:
+- JMP backbone: `pip install jmp`
+- EquiformerV2 backbone: `pip install fairchem`
+- M3GNet backbone: `pip install matgl`
+- ORB backbone: `pip install "orb-models@git+https://github.com/orbital-materials/orb-models.git"`
 
-#### Step1. Model Configuration (`MC.MatterTunerConfig.model`)
-    
-```python
-# Set backbone model (JMP in this example)
-hparams.model = MC.JMPBackboneConfig.draft()
-hparams.model.graph_computer = MC.JMPGraphComputerConfig.draft()
-hparams.model.graph_computer.pbc = True  # For periodic structures
+For development installation:
 
-# Specify checkpoint path
-hparams.model.ckpt_path = Path("./jmp-s.pt")
-
-# Configure optimizer
-hparams.model.optimizer = MC.AdamWConfig(lr=8e-5)
-
-# Define training properties and loss functions
-hparams.model.properties = [
-    MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0),
-    MC.ForcesPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=10.0, conservative=False)
-]
-```
-The model configuration specifies the backbone model type (e.g., JMP, or other supported models), optimizer settings, and target properties.
-
-#### Step2. **Data Configuration** (`MC.MatterTunerConfig.data`)
-
-```python
-# Configure data loading
-hparams.data = MC.AutoSplitDataModuleConfig.draft()
-hparams.data.dataset = MC.XYZDatasetConfig.draft()
-hparams.data.dataset.src = Path("dataset.xyz")
-hparams.data.train_split = 0.8
-hparams.data.batch_size = 64
+```bash
+git clone https://github.com/nimashoghi/mattertune.git
+cd mattertune
+pip install -e .
 ```
 
-MatterTune supports multiple data formats including ```.xyz```, ```ase.db```, MPTraj, OMat24, Matbench, and so on. It also supports auto-split and manual-split to suits various scenarios. 
+## Quick Start: Fine-Tuning a Pre-trained Model
 
-#### Step3. **Trainer Settings** (`MC.MatterTunerConfig.lightning_trainer_kwargs`)
-
-```python
-# Trainer Configuration
-from lightning.pytorch.strategies import DDPStrategy
-    
-hparams.lightning_trainer_kwargs = {
-    "max_epochs": 100,
-    "accelerator": "gpu",
-    "devices": [0, 1],
-    "strategy": DDPStrategy(find_unused_parameters=True),
-}
-```
-
-The ```hparams.lightning_trainer_kwargs``` exactly uses ```lightning.Trainer``` parameters, supporting features like multi-GPU training.
-
-#### Step4. Start Training
-
-Once you have prepared your configuration (let's call it `hparams`), you can start the training process with just two lines of code:
+Here's a simple example of fine-tuning a pre-trained model for energy prediction:
 
 ```python
-mt_config = hparams.finalize()
-model = MatterTuner(mt_config).tune()
+import mattertune as mt
+
+# Define configuration
+config = mt.configs.MatterTunerConfig(
+    model=mt.configs.JMPBackboneConfig(
+        ckpt_path="path/to/pretrained/model.pt",
+        properties=[
+            mt.configs.EnergyPropertyConfig(
+                loss=mt.configs.MAELossConfig(),
+                loss_coefficient=1.0
+            )
+        ],
+        optimizer=mt.configs.AdamWConfig(lr=1e-4)
+    ),
+    data=mt.configs.AutoSplitDataModuleConfig(
+        dataset=mt.configs.XYZDatasetConfig(
+            src="path/to/your/data.xyz"
+        ),
+        train_split=0.8,
+        batch_size=32
+    )
+)
+
+# Create tuner and train
+tuner = mt.MatterTuner(config)
+model, trainer = tuner.tune()
+
+# Save the fine-tuned model
+trainer.save_checkpoint("finetuned_model.ckpt")
 ```
 
-### Accessing Model Interfaces
+### Training Process
+MatterTune will:
+- Automatically split your data into training/validation sets
+- Log training metrics to your chosen logger (WandB/TensorBoard/CSV)
+- Save model checkpoints periodically
+- Stop training early if validation metrics stop improving
 
-After successful training, you can easily wrap your model into both a potential and an ASE calculator, 
+You can monitor training progress in real-time through your chosen logging interface.
+
+### Checkpoints
+MatterTune uses PyTorch Lightning for training and automatically saves checkpoints in the `lightning_logs` directory. The latest checkpoint can be found at:
+```
+lightning_logs/version_X/checkpoints/
+```
+
+Additionally, you can save the model manually using the `trainer.save_checkpoint` method.
+
+## Model Usage
+
+After training, you can use the model for predictions. To load a saved model checkpoint (from a previous fine-tuning run), you can use the `load_from_checkpoint` method:
 
 ```python
-# Create a potential for batch predictions
-potential = model.potential(lightning_trainer_kwargs=None)
+from mattertune.backbones import JMPBackboneModule
 
-# Create an ASE calculator for atomic simulations
-calculator = model.ase_calculator(lightning_trainer_kwargs=None)
+model = JMPBackboneModule.load_from_checkpoint("path/to/checkpoint.ckpt")
 ```
 
-> Note: The lightning_trainer_kwargs parameter allows customization of prediction behavior. When set to None, it uses default PyTorch Lightning trainer settings.
-
-These interfaces can be directly used in downstream tasks. For example:
+### Making Predictions
+The `Potential` interface provides a simple way to make predictions for a single or batch of atoms:
 
 ```python
-# Batch prediction using potential
-atoms1 = ...  # Your first atomic structure
-atoms2 = ...  # Your second atomic structure
-predictions = potential.predict([atoms1, atoms2])
+from ase import Atoms
+import torch
 
-# Using ASE calculator for single structure calculations
-atoms1.calc = calculator
-energy = atoms.get_potential_energy() ## if energy property specified in target during training
-bandgap = atoms.get_property(["bandgap"]) ## if "bandgap" property specified in target during training
+# Create an ASE Atoms object
+atoms1 = Atoms('H2O',
+              positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
+              cell=[10, 10, 10],
+              pbc=True)
+
+atoms2 = Atoms('H2O',
+                positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
+                cell=[10, 10, 10],
+                pbc=True)
+# Get predictions using the model's potential interface
+potential = model.potential()
+predictions = potential.predict([atoms1, atoms2], ["energy", "forces"])
+
+print("Energy:", predictions[0]["energy"], predictions[1]["energy"])
+print("Forces:", predictions[0]["forces"], predictions[1]["forces"])
 ```
 
-## Core API
+### Using as ASE Calculator
+Our ASE calculator interface allows you to use the model for molecular dynamics or geometry optimization:
 
-Unfinished, to be listed here:
-- MC
-- MC.MatterTunerConfig
-- MC.backbone configs
-- MC.properties
-- MC.data...
-- MatterTuner
+```python
+from ase.optimize import BFGS
 
-## Other API
+# Create calculator from model
+calculator = model.ase_calculator()
 
-Unfinished, to be listed here:
-- Optimizer
-- learning rate scheduler
-- losses
+# Set up atoms and calculator
+atoms = Atoms('H2O',
+              positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
+              cell=[10, 10, 10],
+              pbc=True)
+atoms.calc = calculator
 
-## Tutorials
+# Run geometry optimization
+opt = BFGS(atoms)
+opt.run(fmax=0.01)
 
-### Quick Start
-For quick start and general usage examples, explore the interactive notebooks in the `notebooks` directory.
+# Get optimized results
+print("Final energy:", atoms.get_potential_energy())
+print("Final forces:", atoms.get_forces())
+```
 
-### Comprehensive Examples
-The `examples` directory contains three detailed case studies demonstrating MatterTune's capabilities:
+## Training Configuration
 
-1. **Water Thermodynamics Study**
-  - Fine-tuning pretrained models on water thermodynamics datasets
-  - Performing ice-melting NVT molecular dynamics simulations using the fine-tuned model
+MatterTune uses a comprehensive configuration system to control all aspects of training. Here are the key components:
 
-2. **Crystal Structure Optimization**
-  - Fine-tuning pretrained models on Zn-Mn-O subset from MPTraj dataset
-  - Structure relaxation of random ZnMn<sub>2</sub>O<sub>4</sub> configurations
+### Model Configuration
+Control the model architecture and training parameters:
+```python
+model = mt.configs.JMPBackboneConfig(
+    # Specify pre-trained model checkpoint
+    ckpt_path="path/to/pretrained/model.pt",
 
-3. **Materials Property Screening**
-  - Fine-tuning pretrained models on Matbench tasks
-  - High-throughput property screening applications
+    # Define properties to predict
+    properties=[
+        mt.configs.EnergyPropertyConfig(
+            loss=mt.configs.MAELossConfig(),
+            loss_coefficient=1.0
+        ),
+        mt.configs.ForcesPropertyConfig(
+            loss=mt.configs.MAELossConfig(),
+            loss_coefficient=10.0,
+            conservative=True  # Use energy-conserving force prediction
+        )
+    ],
 
-Each example includes detailed documentation and scripts to help you adapt these workflows to your specific research needs.
+    # Configure optimizer
+    optimizer=mt.configs.AdamWConfig(lr=1e-4),
 
-## Contact
-missing
+    # Optional: Configure learning rate scheduler
+    lr_scheduler=mt.configs.CosineAnnealingLRConfig(
+        T_max=100,  # Number of epochs
+        eta_min=1e-6  # Minimum learning rate
+    )
+)
+```
+
+### Data Configuration
+Configure data loading and processing:
+```python
+data = mt.configs.AutoSplitDataModuleConfig(
+    # Specify dataset source
+    dataset=mt.configs.XYZDatasetConfig(
+        src="path/to/your/data.xyz"
+    ),
+
+    # Control data splitting
+    train_split=0.8,  # 80% for training
+
+    # Configure batch size and loading
+    batch_size=32,
+    num_workers=4,  # Number of data loading workers
+    pin_memory=True  # Optimize GPU transfer
+)
+```
+
+### Training Process Configuration
+Control the training loop behavior:
+```python
+trainer = mt.configs.TrainerConfig(
+    # Hardware configuration
+    accelerator="gpu",
+    devices=[0, 1],  # Use GPUs 0 and 1
+
+    # Training stopping criteria
+    max_epochs=100,
+    # OR: max_steps=1000,  # Stop after 1000 steps
+    # OR: max_time=datetime.timedelta(hours=1),  # Stop after 1 hour
+
+    # Validation frequency
+    check_val_every_n_epoch=1,
+
+    # Gradient clipping: Prevent exploding gradients
+    gradient_clip_val=1.0,
+
+    # Early stopping configuration: Stop if validation loss does not improve
+    early_stopping=mt.configs.EarlyStoppingConfig(
+        monitor="val/energy_mae",
+        patience=20,
+        mode="min"
+    ),
+
+    # Model checkpointing: Save best model based on validation loss
+    checkpoint=mt.configs.ModelCheckpointConfig(
+        monitor="val/energy_mae",
+        save_top_k=1,
+        mode="min"
+    ),
+
+    # Configure logging
+    loggers=[
+        mt.configs.WandbLoggerConfig(
+            project="my-project",
+            name="experiment-1"
+        )
+    ]
+)
+
+# Combine all configurations
+config = mt.configs.MatterTunerConfig(
+    model=model,
+    data=data,
+    trainer=trainer
+)
+```
+
+These configurations can be customized based on your specific needs. The configuration system ensures that all parameters are properly validated and provides clear error messages if any settings are invalid.
+
+When training begins, MatterTune will:
+1. Set up the model and data loading based on your configuration
+2. Initialize logging and checkpointing
+3. Begin the training loop with the specified parameters
+4. Save checkpoints and log metrics throughout training
+5. Stop when either max_epochs is reached or early stopping criteria are met
+
+You can monitor training progress through your configured logger (WandB/TensorBoard/CSV).
+
+### Configuration Management
+
+MatterTune uses [`nshconfig`](https://github.com/nimashoghi/nshconfig) (a type-safe configuration management library built on Pydantic) to handle all configuration. This provides several benefits:
+
+- Full type checking of all hyperparameters
+- Runtime validation of configuration values
+- Clear error messages when configurations are invalid
+- Multiple ways to create and load configurations
+
+You can define configurations in three ways:
+
+1. **Direct Construction** (as shown in examples above):
+```python
+config = mt.configs.MatterTunerConfig(
+    model=mt.configs.JMPBackboneConfig(...),
+    data=mt.configs.AutoSplitDataModuleConfig(...),
+    trainer=mt.configs.TrainerConfig(...)
+)
+```
+
+2. **Loading from Files/Dictionaries**:
+```python
+# Load from YAML
+config = mt.configs.MatterTunerConfig.from_yaml('/path/to/config.yaml')
+
+# Load from JSON
+config = mt.configs.MatterTunerConfig.from_json('/path/to/config.json')
+
+# Load from dictionary
+config = mt.configs.MatterTunerConfig.from_dict({
+    'model': {...},
+    'data': {...},
+    'trainer': {...}
+})
+```
+
+3. **Using Draft Configs** (a Pythonic way to create configurations step-by-step and finalize them at the end --- see the [`nshconfig`](https://github.com/nimashoghi/nshconfig) documentation for more details):
+```python
+# Create a draft config
+config = mt.configs.MatterTunerConfig.draft()
+
+# Set values progressively
+config.model = mt.configs.JMPBackboneConfig.draft()
+config.model.ckpt_path = "path/to/model.pt"
+# ... set other values ...
+
+# Finalize the config
+final_config = config.finalize()
+```
+
+For more advanced configuration management features, including draft configs and dynamic type registration, see the [nshconfig documentation](https://github.com/nimashoghi/nshconfig).
+
+## Extending MatterTune
+
+MatterTune is designed to be extensible and customizable. You can create custom property configurations, datasets, and backbones by subclassing the provided base classes. Please visit the [advanced usage documentation](ADVANCED_USAGE.md) for more details.
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ## License
-missing
+
+ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Citation
+
+If you use MatterTune in your research, please cite:
+
+TODO
+```bibtex
+```
