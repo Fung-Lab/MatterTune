@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, NamedTuple
 
 import nshconfig as C
 from lightning.pytorch import Trainer
@@ -12,6 +12,16 @@ from .finetune.base import FinetuneModuleBase
 from .registry import backbone_registry, data_registry
 
 log = logging.getLogger(__name__)
+
+
+class TuneOutput(NamedTuple):
+    """The output of the MatterTuner.tune method."""
+
+    model: FinetuneModuleBase
+    """The trained model."""
+
+    trainer: Trainer
+    """The trainer used to train the model."""
 
 
 @backbone_registry.rebuild_on_registers
@@ -35,7 +45,7 @@ class MatterTuner:
     def __init__(self, config: MatterTunerConfig):
         self.config = config
 
-    def tune(self):
+    def tune(self) -> TuneOutput:
         # Resolve the model class
         model_cls = self.config.model.model_cls()
 
@@ -79,4 +89,4 @@ class MatterTuner:
         trainer.fit(lightning_module, datamodule)
 
         # Return the trained model
-        return lightning_module
+        return TuneOutput(model=lightning_module, trainer=trainer)
