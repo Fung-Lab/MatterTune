@@ -329,3 +329,40 @@ NormalizerConfig = TypeAliasType(
         ),
     ],
 )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Compute per-atom references for a property using a linear model."
+    )
+    parser.add_argument(
+        "config",
+        type=Path,
+        help="The path to the MatterTune config JSON file.",
+    )
+    parser.add_argument(
+        "property",
+        type=str,
+        help="The name of the property for which to compute the per-atom references.",
+    )
+    parser.add_argument(
+        "dest",
+        type=Path,
+        help="The path to save the computed per-atom references JSON file.",
+    )
+    parser.add_argument(
+        "--reference-model",
+        type=str,
+        default="linear",
+        choices=["linear", "ridge"],
+        help="The type of reference model to use.",
+    )
+    parser.add_argument(
+        "--reference-model-kwargs",
+        type=json.loads,
+        default={},
+        help="The keyword arguments to pass to the reference model constructor.",
+    )
+
+    args = parser.parse_args()
+    compute_per_atom_references_cli_main(args, parser)
