@@ -15,7 +15,11 @@ from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
 from torch.utils.data import Dataset
 from typing_extensions import NotRequired, TypedDict, TypeVar, Unpack, cast, override
 
-from ..data.util.normalization import NormalizationPropertyConfig
+from ..data.util.normalization import (
+    ComposeNormalizers,
+    NormalizationContext,
+    NormalizerConfig,
+)
 from .loader import DataLoaderKwargs, create_dataloader
 from .loss import compute_loss
 from .lr_scheduler import LRSchedulerConfig, create_lr_scheduler
@@ -42,12 +46,30 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     ignore_gpu_batch_transform_error: bool = True
     """Whether to ignore data processing errors during training."""
 
-    normalizers: Mapping[str, NormalizationPropertyConfig] = {}
-    """Normalizers for the properties."""
+    normalizers: Mapping[str, Sequence[NormalizerConfig]] = {}
+    """Normalizers for the properties.
+
+    Any property can be associated with multiple normalizers. This is useful
+        for cases where we want to normalize the same property in different ways.
+        For example, we may want to normalize the energy by subtracting
+        the atomic reference energies, as well as by mean and standard deviation
+        normalization.
+
+    The normalizers are applied in the order they are defined in the list.
+    """
 
     @classmethod
     @abstractmethod
     def model_cls(cls) -> type[FinetuneModuleBase]: ...
+
+    @override
+    def __post_init__(self):
+        # VALIDATION: Any key for `normalizers` or `referencers` should be a property name.
+        for key in self.normalizers.keys():
+            if key not in self.properties:
+                raise ValueError(
+                    f"Key '{key}' in 'normalizers' is not a valid property name."
+                )
 
 
 class _SkipBatchError(Exception):
@@ -228,6 +250,34 @@ class FinetuneModuleBase(
         """
         ...
 
+    @abstractmethod
+    def create_normalization_context_from_batch(
+        self, batch: TBatch
+    ) -> NormalizationContext:
+        """
+        Create a normalization context from a batch. This is used to normalize
+            and denormalize the properties.
+
+        The normalization context contains all the information required to
+            normalize and denormalize the properties. Currently, this only
+            includes the compositions of the materials in the batch.
+            The compositions should be provided as an integer tensor of shape
+            (batch_size, num_elements), where each row (i.e., `compositions[i]`)
+            corresponds to the composition vector of the `i`-th material in the batch.
+
+        The composition vector is a vector that maps each element to the number of
+            atoms of that element in the material. For example, `compositions[:, 1]`
+            corresponds to the number of Hydrogen atoms in each material in the batch,
+            `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
+
+        Args:
+            batch: Input batch.
+
+        Returns:
+            Normalization context.
+        """
+        ...
+
     # endregion
 
     hparams: TFinetuneModuleConfig  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -249,6 +299,9 @@ class FinetuneModuleBase(
         # Create metrics
         self.create_metrics()
 
+        # Create normalization modules
+        self.create_normalizers()
+
         # Ensure that some parameters require gradients
         if not any(p.requires_grad for p in self.parameters()):
             raise ValueError(
@@ -261,7 +314,25 @@ class FinetuneModuleBase(
         self.val_metrics = FinetuneMetrics(self.hparams.properties)
         self.test_metrics = FinetuneMetrics(self.hparams.properties)
 
-    def normalize(self, properties: dict[str, torch.Tensor]):
+    def create_normalizers(self):
+        self.normalizers = nn.ModuleDict(
+            {
+                prop.name: ComposeNormalizers(
+                    [
+                        normalizer.create_normalizer_module()
+                        for normalizer in normalizers
+                    ]
+                )
+                for prop in self.hparams.properties
+                if (normalizers := self.hparams.normalizers.get(prop.name))
+            }
+        )
+
+    def normalize(
+        self,
+        properties: dict[str, torch.Tensor],
+        ctx: NormalizationContext,
+    ):
         """
         Normalizes the ``properties`` dictionary. ``properties`` can either be
         the predicted properties or the ground truth labels.
@@ -269,18 +340,26 @@ class FinetuneModuleBase(
         Args:
             properties: Dictionary of properties to normalize. The dictionary
                 should have the same format as the output of ``batch_to_labels``.
+            ctx: Normalization context. This should be created using
+                ``create_normalization_context_from_batch``.
 
         Returns:
             Normalized properties.
         """
         return {
             prop_name: properties[prop_name]
-            if (normalizer := self.hparams.normalizers.get(prop_name)) is None
-            else normalizer.normalize(properties[prop_name])
+            if (normalizer := self.normalizers.get(prop_name)) is None
+            else cast(ComposeNormalizers, normalizer).normalize(
+                properties[prop_name], ctx
+            )
             for prop_name in properties
         }
 
-    def denormalize(self, properties: dict[str, torch.Tensor]):
+    def denormalize(
+        self,
+        properties: dict[str, torch.Tensor],
+        ctx: NormalizationContext,
+    ):
         """
         Denormalizes the ``properties`` dictionary. ``properties`` can either be
         the predicted properties or the ground truth labels.
@@ -288,14 +367,18 @@ class FinetuneModuleBase(
         Args:
             properties: Dictionary of properties to denormalize. The dictionary
                 should have the same format as the output of ``batch_to_labels``.
+            ctx: Normalization context. This should be created using
+                ``create_normalization_context_from_batch``.
 
         Returns:
             Denormalized properties.
         """
         return {
             prop_name: properties[prop_name]
-            if (normalizer := self.hparams.normalizers.get(prop_name)) is None
-            else normalizer.denormalize(properties[prop_name])
+            if (normalizer := self.normalizers.get(prop_name)) is None
+            else cast(ComposeNormalizers, normalizer).denormalize(
+                properties[prop_name], ctx
+            )
             for prop_name in properties
         }
 
@@ -385,6 +468,10 @@ class FinetuneModuleBase(
         labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
 
+        # Create the normalization context required for normalization/referencing.
+        # We only need to create the context once per batch.
+        normalization_ctx = self.create_normalization_context_from_batch(batch)
+
         # Normalize the properties.
         # NOTE: We normalize the target properties before computing the loss.
         #   This ensures that the model is effectively learning the normalized
@@ -392,7 +479,7 @@ class FinetuneModuleBase(
         # NOTE: Some other implementations may instead choose to denormalize
         #   the predictions before computing the loss. We don't do this because
         #   it can lead to numerical instability in the loss computation.
-        normalized_labels = self.normalize(labels)
+        normalized_labels = self.normalize(labels, normalization_ctx)
 
         # Compute loss
         loss = self._compute_loss(
@@ -408,7 +495,7 @@ class FinetuneModuleBase(
         #   denormalized units, which are more interpretable.
         # NOTE: Again, we only denormalize the predictions, not the labels.
         #   This is because the labels are already in the denormalized units.
-        predictions = self.denormalize(predictions)
+        predictions = self.denormalize(predictions, normalization_ctx)
 
         # Log metrics
         if log and metrics is not None:
