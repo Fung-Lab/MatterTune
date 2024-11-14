@@ -11,7 +11,7 @@ import jaxtyping as jt
 import nshconfig as C
 import torch
 from torch.autograd import grad
-from typing_extensions import override
+from typing_extensions import final, override
 
 import mattertune as mt
 
@@ -92,6 +92,7 @@ class M3GNetBackboneConfig(FinetuneModuleBaseConfig):
         return M3GNetBackboneModule
 
 
+@final
 class M3GNetBackboneModule(
     FinetuneModuleBase[MatGLData, MatGLBatch, M3GNetBackboneConfig]
 ):

@@ -10,10 +10,13 @@ import nshconfig as C
 import nshconfig_extra as CE
 import torch
 import torch.nn as nn
-from typing_extensions import assert_never, override
+import torch.nn.functional as F
+from torch_geometric.data.batch import Batch
+from typing_extensions import assert_never, final, override
 
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
+from ...normalization import NormalizationContext
 from ...registry import backbone_registry
 
 if TYPE_CHECKING:
@@ -159,6 +162,7 @@ def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
     return backbone
 
 
+@final
 class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneConfig]):
     @override
     @classmethod
@@ -386,3 +390,25 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
             data.stress = data.stress.reshape(1, 3, 3)
 
         return data
+
+    @override
+    def create_normalization_context_from_batch(self, batch):
+        from torch_scatter import scatter
+
+        atomic_numbers: torch.Tensor = batch.atomic_numbers.long()  # (n_atoms,)
+        batch_idx: torch.Tensor = batch.batch  # (n_atoms,)
+
+        # Convert atomic numbers to one-hot encoding
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
+        # ^ (n_atoms, 120)
+
+        compositions = scatter(
+            atom_types_onehot,
+            batch_idx,
+            dim=0,
+            dim_size=batch.num_graphs,
+            reduce="sum",
+        )
+        # ^ (n_graphs, 120)
+
+        return NormalizationContext(compositions=compositions)
