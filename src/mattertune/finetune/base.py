@@ -560,14 +560,16 @@ class FinetuneModuleBase(
         """
         return create_dataloader(dataset, has_labels, lightning_module=self, **kwargs)
 
-    def potential(self, lightning_trainer_kwargs: dict[str, Any] | None = None):
+    def property_predictor(
+        self, lightning_trainer_kwargs: dict[str, Any] | None = None
+    ):
         """Return a wrapper for easy prediction without explicitly setting up a lightning trainer.
         This method provides a high-level interface for making predictions with the trained model.
-        While named 'potential', it can be used for various prediction tasks including but not
-        limited to:
+        This can be used for various prediction tasks including but not limited to:
         - Interatomic potential energy and forces
         - Material property prediction
         - Structure-property relationships
+
         Parameters
         ----------
         lightning_trainer_kwargs : dict[str, Any] | None, optional
@@ -575,26 +577,26 @@ class FinetuneModuleBase(
             If None, default trainer settings will be used.
         Returns
         -------
-        MatterTunePotential
+        MatterTunePropertyPredictor
             A wrapper class that provides simplified prediction functionality without requiring
             direct interaction with the Lightning Trainer.
         Examples
         --------
         >>> model = MyModel()
-        >>> potential = model.potential()
+        >>> property_predictor = model.property_predictor()
         >>> atoms_1 = ase.Atoms("H2O", positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]], cell=[10, 10, 10], pbc=True)
         >>> atoms_2 = ase.Atoms("H2O", positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]], cell=[10, 10, 10], pbc=True)
         >>> atoms = [atoms_1, atoms_2]
-        >>> predictions = potential.predict(atoms, ["energy", "forces"])
+        >>> predictions = property_predictor.predict(atoms, ["energy", "forces"])
         >>> print("Atoms 1 energy:", predictions[0]["energy"])
         >>> print("Atoms 1 forces:", predictions[0]["forces"])
         >>> print("Atoms 2 energy:", predictions[1]["energy"])
         >>> print("Atoms 2 forces:", predictions[1]["forces"])
         """
 
-        from ..wrappers.potential import MatterTunePotential
+        from ..wrappers.potential import MatterTunePropertyPredictor
 
-        return MatterTunePotential(
+        return MatterTunePropertyPredictor(
             self,
             lightning_trainer_kwargs=lightning_trainer_kwargs,
         )
@@ -630,5 +632,7 @@ class FinetuneModuleBase(
         """
         from ..wrappers.ase_calculator import MatterTuneCalculator
 
-        potential = self.potential(lightning_trainer_kwargs=lightning_trainer_kwargs)
-        return MatterTuneCalculator(potential)
+        property_predictor = self.property_predictor(
+            lightning_trainer_kwargs=lightning_trainer_kwargs
+        )
+        return MatterTuneCalculator(property_predictor)
