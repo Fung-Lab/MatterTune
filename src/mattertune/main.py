@@ -132,6 +132,13 @@ class TrainerConfig(C.Config):
     Default: ``"default"``.
     """
 
+    additional_trainer_kwargs: dict[str, Any] = {}
+    """
+    Additional keyword arguments for the Lightning Trainer.
+    This is for advanced users who want to customize the Lightning Trainer,
+        and is not recommended for beginners.
+    """
+
     def _to_lightning_kwargs(self):
         callbacks = []
         if self.checkpoint is not None:
@@ -158,6 +165,10 @@ class TrainerConfig(C.Config):
             "gradient_clip_val": self.gradient_clip_val,
             "gradient_clip_algorithm": self.gradient_clip_algorithm,
         }
+
+        # Add the additional trainer kwargs
+        kwargs.update(self.additional_trainer_kwargs)
+
         return kwargs
 
 
@@ -172,13 +183,6 @@ class MatterTunerConfig(C.Config):
 
     trainer: TrainerConfig
     """The configuration for the trainer."""
-
-    lightning_trainer_kwargs: dict[str, Any] = {}
-    """
-    Additional keyword arguments for the Lightning Trainer.
-    This is for advanced users who want to customize the Lightning Trainer,
-        and is not recommended for beginners.
-    """
 
     @classmethod
     def from_yaml(cls, path: str | Path):
@@ -211,11 +215,14 @@ class MatterTuner:
 
         # Resolve the full trainer kwargs
         trainer_kwargs_: dict[str, Any] = self.config.trainer._to_lightning_kwargs()
+
+        # Update with the user-specified kwargs in the method call
+        if trainer_kwargs is not None:
+            trainer_kwargs_.update(trainer_kwargs)
+
         if lightning_module.requires_disabled_inference_mode():
             if (
-                user_inference_mode := self.config.lightning_trainer_kwargs.get(
-                    "inference_mode"
-                )
+                user_inference_mode := trainer_kwargs_.get("inference_mode")
             ) is not None and user_inference_mode:
                 raise ValueError(
                     "The model requires inference_mode to be disabled. "
@@ -229,13 +236,6 @@ class MatterTuner:
                 "Setting inference_mode=False."
             )
             trainer_kwargs_["inference_mode"] = False
-
-        # Update with the user-specified kwargs in the config
-        trainer_kwargs_.update(self.config.lightning_trainer_kwargs)
-
-        # Update with the user-specified kwargs in the method call
-        if trainer_kwargs is not None:
-            trainer_kwargs_.update(trainer_kwargs)
 
         # Create the trainer
         trainer = Trainer(**trainer_kwargs_)

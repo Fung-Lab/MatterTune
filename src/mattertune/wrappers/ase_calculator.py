@@ -5,25 +5,24 @@ from typing import TYPE_CHECKING
 
 from ase import Atoms
 from ase.calculators.calculator import Calculator
-from ase.stress import full_3x3_to_voigt_6_stress
 from typing_extensions import override
 
 if TYPE_CHECKING:
     from ..finetune.properties import PropertyConfig
-    from .potential import MatterTunePotential
+    from .potential import MatterTunePropertyPredictor
 
 
 class MatterTuneCalculator(Calculator):
     @override
-    def __init__(self, potential: MatterTunePotential):
+    def __init__(self, property_predictor: MatterTunePropertyPredictor):
         super().__init__()
 
-        self.potential = potential
+        self.property_predictor = property_predictor
 
         self.implemented_properties: list[str] = []
         self._ase_prop_to_config: dict[str, PropertyConfig] = {}
 
-        for prop in self.potential.lightning_module.hparams.properties:
+        for prop in self.property_predictor.lightning_module.hparams.properties:
             # Ignore properties not marked as ASE calculator properties.
             if (ase_prop_name := prop.ase_calculator_property_name()) is None:
                 continue
@@ -37,10 +36,10 @@ class MatterTuneCalculator(Calculator):
         properties: list[str] | None = None,
         system_changes: list[str] | None = None,
     ):
-        """Calculate properties for the given atoms object using the MatterTune potential.
+        """Calculate properties for the given atoms object using the MatterTune property predictor.
         This method implements the calculation of properties like energy, forces, etc. for an ASE Atoms
-        object using the underlying MatterTune potential. It converts between ASE and MatterTune property
-        names and handles proper type conversions of the predicted values.
+        object using the underlying MatterTune property predictor. It converts between ASE and MatterTune
+        property names and handles proper type conversions of the predicted values.
         Args:
             atoms (Atoms | None, optional): ASE Atoms object to calculate properties for. If None,
                 uses previously set atoms. Defaults to None.
@@ -50,7 +49,7 @@ class MatterTuneCalculator(Calculator):
                 since last calculation. Used by ASE for caching. Defaults to None.
         Notes:
             - The method first ensures atoms and property names are properly set
-            - Makes predictions using the MatterTune potential
+            - Makes predictions using the MatterTune property predictor
             - Converts predictions from PyTorch tensors to appropriate numpy types
             - Maps MatterTune property names to ASE calculator property names
             - Stores results in the calculator's results dictionary
@@ -79,18 +78,18 @@ class MatterTuneCalculator(Calculator):
 
         # Get the predictions.
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
-        predictions = self.potential.predict(
+        predictions = self.property_predictor.predict(
             [self.atoms],
             prop_configs,
         )
-        # The output of the potential should be a list of predictions, where
-        #   each prediction is a dictionary of properties. The Potential class
+        # The output of the predictor should be a list of predictions, where
+        #   each prediction is a dictionary of properties. The PropertyPredictor class
         #   supports batch predictions, but we're only passing a single Atoms
         #   object here. So we expect a single prediction.
         assert len(predictions) == 1, "Expected a single prediction."
         [prediction] = predictions
 
-        # Further, the output of the potential is be a dictionary with the
+        # Further, the output of the predictor is be a dictionary with the
         #   property names as keys. These property are should be the
         #   MatterTune property names (i.e., the names from the
         #   `lightning_module.hparams.properties[*].name` attribute), not the ASE
@@ -107,7 +106,7 @@ class MatterTuneCalculator(Calculator):
 
             # Update the ASE calculator results.
             # We also need to convert the prediction to the correct type.
-            #   `Potential.predict` returns the predictions as a
+            #   `PropertyPredictor.predict` returns the predictions as a
             #   `dict[str, torch.Tensor]`, but the ASE calculator expects the
             #   properties as numpy arrays/floats.
             value = prediction[prop.name].detach().cpu().numpy()

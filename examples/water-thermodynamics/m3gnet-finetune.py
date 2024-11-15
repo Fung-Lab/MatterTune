@@ -80,7 +80,7 @@ def main(args_dict: dict):
         ]
 
         # Additional trainer settings
-        hparams.lightning_trainer_kwargs = {
+        hparams.trainer.additional_trainer_kwargs = {
             "inference_mode": False,
         }
 

@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-class MatterTunePotential:
+class MatterTunePropertyPredictor:
     """
-    A wrapper class for handling predictions with trained neural network potentials.
+    A wrapper class for handling predictions using a fine-tuned MatterTune model.
 
-    This class provides an interface to make predictions using a trained neural network
-    potential model. It wraps a PyTorch Lightning module and handles the necessary setup
-    for making predictions on atomic systems.
+    This class provides an interface to make predictions using a trained neural network.
+    It wraps a PyTorch Lightning module and handles the necessary setup for making
+    predictions on atomic systems.
 
     lightning_module : FinetuneModuleBase
         The trained PyTorch Lightning module that will be used for predictions.
@@ -35,9 +35,9 @@ class MatterTunePotential:
 
     Examples
     --------
-    >>> from mattertune.wrappers import MatterTunePotential
-    >>> potential = MatterTunePotential(trained_model)  # OR `potential = trained_model.potential()`
-    >>> predictions = potential.predict(atoms_list)
+    >>> from mattertune.wrappers import MatterTunePropertyPredictor
+    >>> predictor = MatterTunePropertyPredictor(trained_model)  # OR `predictor = trained_model.property_predictor()`
+    >>> predictions = predictor.predict(atoms_list)
 
     The class provides a simplified interface for making predictions with trained models,
     handling the necessary setup of trainers and dataloaders internally.
