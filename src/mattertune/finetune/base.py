@@ -72,10 +72,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
         Creates an instance of the finetune module for this configuration.
         """
 
-    @classmethod
-    @abstractmethod
-    def model_cls(cls) -> type[FinetuneModuleBase]: ...
-
     @override
     def __post_init__(self):
         # VALIDATION: Any key for `normalizers` or `referencers` should be a property name.
