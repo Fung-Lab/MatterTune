@@ -10,9 +10,8 @@ from ase import Atoms
 from ase.io import read, write
 from ase.md.langevin import Langevin
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from tqdm import tqdm
-
 from mattertune.backbones import JMPBackboneModule, M3GNetBackboneModule
+from tqdm import tqdm
 
 logging.getLogger("lightning.pytorch").setLevel(logging.WARNING)
 

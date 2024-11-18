@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import ase
 import torch
@@ -96,7 +96,7 @@ class MatterTunePropertyPredictor:
         )
         assert predictions is not None, "Predictions should not be None. Report a bug."
 
-        return predictions
+        return cast(list[dict[str, torch.Tensor]], predictions)
 
 
 def _resolve_properties(
