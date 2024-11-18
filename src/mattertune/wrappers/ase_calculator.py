@@ -9,7 +9,7 @@ from typing_extensions import override
 
 if TYPE_CHECKING:
     from ..finetune.properties import PropertyConfig
-    from .potential import MatterTunePropertyPredictor
+    from .property_predictor import MatterTunePropertyPredictor
 
 
 class MatterTuneCalculator(Calculator):

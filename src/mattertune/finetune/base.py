@@ -596,7 +596,7 @@ class FinetuneModuleBase(
         >>> print("Atoms 2 forces:", predictions[1]["forces"])
         """
 
-        from ..wrappers.potential import MatterTunePropertyPredictor
+        from ..wrappers.property_predictor import MatterTunePropertyPredictor
 
         return MatterTunePropertyPredictor(
             self,
