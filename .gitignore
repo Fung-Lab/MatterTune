@@ -212,3 +212,11 @@ pyrightconfig.json
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
+lightning_logs/
+nshtrainer/
+wandb/
+abandoned/
+.ruff_cache/
+examples/hidden/
+checkpoints/
+md_results/

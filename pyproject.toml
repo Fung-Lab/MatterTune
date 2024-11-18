@@ -6,9 +6,39 @@ authors = ["Nima Shoghi <nimashoghi@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-
+python = ">=3.10"
+numpy = ">=1.26"
+torch = ">=2.0"
+typing-extensions = "*"
+lightning = ">=2.4"
+pydantic = "*"
+ase = "*"
+pymatgen = "*"
+torchmetrics = "*"
+wandb = "*"
+nshutils = "*"
+nshconfig = "*"
+nshconfig_extra = "*"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+typeCheckingMode = "standard"
+deprecateTypingAliases = true
+strictListInference = true
+strictDictionaryInference = true
+strictSetInference = true
+reportPrivateImportUsage = false
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportMatchNotExhaustive = "error"
+reportImplicitOverride = "warning"
+reportShadowedImports = "warning"
+
+[tool.ruff.lint]
+select = ["FA102", "FA100"]
+ignore = ["F722", "F821", "E731", "E741"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
