@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import nshutils as nu
-
 import mattertune.configs as MC
+import nshutils as nu
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
 
