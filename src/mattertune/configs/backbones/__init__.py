@@ -6,7 +6,6 @@ from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.backbones import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
-from mattertune.backbones import ModelConfig as ModelConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.eqV2.model import (
     FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig,

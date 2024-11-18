@@ -2,8 +2,6 @@ from __future__ import annotations
 
 __codegen__ = True
 
-from mattertune.data import DataModuleConfig as DataModuleConfig
-from mattertune.data import DatasetConfig as DatasetConfig
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
