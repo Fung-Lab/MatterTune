@@ -1,15 +1,10 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 import nshutils as nu
-import pytorch_lightning as pl
-import rich
 
-import mattertune
-import mattertune.backbones
 import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
