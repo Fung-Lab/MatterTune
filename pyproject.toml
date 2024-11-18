@@ -20,6 +20,11 @@ nshutils = "*"
 nshconfig = "*"
 nshconfig_extra = "*"
 
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pre-commit = "*"
+ruff = "*"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
