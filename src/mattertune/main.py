@@ -192,6 +192,51 @@ class MatterTunerConfig(C.Config):
             config_dict = yaml.safe_load(f)
         return cls.model_validate(config_dict)
 
+    @classmethod
+    def from_toml(cls, path: str | Path):
+        import toml
+
+        with open(path, "r") as f:
+            config_dict = toml.load(f)
+        return cls.model_validate(config_dict)
+
+    @classmethod
+    def from_json(cls, path: str | Path):
+        import json
+
+        with open(path, "r") as f:
+            config_dict = json.load(f)
+        return cls.model_validate(config_dict)
+
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]):
+        return cls.model_validate(config_dict)
+
+    def to_yaml(self, path: str | Path):
+        """Save configuration to YAML file."""
+        import yaml
+
+        with open(path, "w") as f:
+            yaml.dump(self.model_dump(), f)
+
+    def to_toml(self, path: str | Path):
+        """Save configuration to TOML file."""
+        import toml
+
+        with open(path, "w") as f:
+            toml.dump(self.model_dump(), f)
+
+    def to_json(self, path: str | Path):
+        """Save configuration to JSON file."""
+        import json
+
+        with open(path, "w") as f:
+            json.dump(self.model_dump(), f)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert configuration to dictionary."""
+        return self.model_dump()
+
 
 class MatterTuner:
     def __init__(self, config: MatterTunerConfig):
