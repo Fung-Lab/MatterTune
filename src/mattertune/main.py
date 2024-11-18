@@ -198,14 +198,11 @@ class MatterTuner:
         self.config = config
 
     def tune(self, trainer_kwargs: dict[str, Any] | None = None) -> TuneOutput:
-        # Resolve the model class
-        model_cls = self.config.model.model_cls()
-
         # Make sure all the necessary dependencies are installed
-        model_cls.ensure_dependencies()
+        self.config.model.ensure_dependencies()
 
         # Create the model
-        lightning_module = model_cls(self.config.model)
+        lightning_module = self.config.model.create_model()
         assert isinstance(
             lightning_module, FinetuneModuleBase
         ), f'The backbone model must be a FinetuneModuleBase subclass. Got "{type(lightning_module)}".'

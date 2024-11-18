@@ -87,9 +87,23 @@ class M3GNetBackboneConfig(FinetuneModuleBaseConfig):
     """Configuration for the graph computer."""
 
     @override
+    def create_model(self):
+        return M3GNetBackboneModule(self)
+
+    @override
     @classmethod
-    def model_cls(cls):
-        return M3GNetBackboneModule
+    def ensure_dependencies(cls):
+        if importlib.util.find_spec("matgl") is None:
+            raise ImportError(
+                "The `matgl` module is not installed. Please install it by running"
+                " `pip install matgl`."
+            )
+
+        if importlib.util.find_spec("dgl") is None:
+            raise ImportError(
+                "The `dgl` module is not installed. Please install it by running"
+                " `pip install dgl`."
+            )
 
 
 @final
@@ -107,21 +121,6 @@ class M3GNetBackboneModule(
     @classmethod
     def hparams_cls(cls):
         return M3GNetBackboneConfig
-
-    @override
-    @classmethod
-    def ensure_dependencies(cls):
-        if importlib.util.find_spec("matgl") is None:
-            raise ImportError(
-                "The `matgl` module is not installed. Please install it by running"
-                " `pip install matgl`."
-            )
-
-        if importlib.util.find_spec("dgl") is None:
-            raise ImportError(
-                "The `dgl` module is not installed. Please install it by running"
-                " `pip install dgl`."
-            )
 
     def _should_enable_grad(self):
         return self.calc_forces or self.calc_stress

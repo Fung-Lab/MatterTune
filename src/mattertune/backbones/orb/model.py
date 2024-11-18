@@ -55,19 +55,8 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
     """The system configuration, controlling how to featurize a system of atoms."""
 
     @override
-    @classmethod
-    def model_cls(cls):
-        return ORBBackboneModule
-
-
-@final
-class ORBBackboneModule(
-    FinetuneModuleBase["AtomGraphs", "AtomGraphs", ORBBackboneConfig]
-):
-    @override
-    @classmethod
-    def hparams_cls(cls):
-        return ORBBackboneConfig
+    def create_model(self):
+        return ORBBackboneModule(self)
 
     @override
     @classmethod
@@ -92,6 +81,16 @@ class ORBBackboneModule(
                 "The pynanoflann module is not installed. Please install it by running"
                 'pip install "pynanoflann@git+https://github.com/dwastberg/pynanoflann#egg=af434039ae14bedcbb838a7808924d6689274168"'
             )
+
+
+@final
+class ORBBackboneModule(
+    FinetuneModuleBase["AtomGraphs", "AtomGraphs", ORBBackboneConfig]
+):
+    @override
+    @classmethod
+    def hparams_cls(cls):
+        return ORBBackboneConfig
 
     @override
     def requires_disabled_inference_mode(self):
