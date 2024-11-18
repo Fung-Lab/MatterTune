@@ -1,0 +1,36 @@
+{
+    "properties": {
+        "type": {
+            "const": "CosineAnnealingLR",
+            "default": "CosineAnnealingLR",
+            "description": "Type of the learning rate scheduler.",
+            "enum": [
+                "CosineAnnealingLR"
+            ],
+            "title": "Type",
+            "type": "string"
+        },
+        "T_max": {
+            "description": "Maximum number of iterations.",
+            "title": "T Max",
+            "type": "integer"
+        },
+        "eta_min": {
+            "default": 0,
+            "description": "Minimum learning rate.",
+            "title": "Eta Min",
+            "type": "number"
+        },
+        "last_epoch": {
+            "default": -1,
+            "description": "The index of last epoch.",
+            "title": "Last Epoch",
+            "type": "integer"
+        }
+    },
+    "required": [
+        "T_max"
+    ],
+    "title": "CosineAnnealingLRConfig",
+    "type": "object"
+}

@@ -1,0 +1,390 @@
+{
+    "$defs": {
+        "DBDatasetConfig": {
+            "description": "Configuration for a dataset stored in an ASE database.",
+            "properties": {
+                "type": {
+                    "const": "db",
+                    "default": "db",
+                    "description": "Discriminator for the DB dataset.",
+                    "enum": [
+                        "db"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "src": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "Path to the ASE database file or a database object.",
+                    "title": "Src"
+                },
+                "energy_key": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Key for the energy label in the database.",
+                    "title": "Energy Key"
+                },
+                "forces_key": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Key for the force label in the database.",
+                    "title": "Forces Key"
+                },
+                "stress_key": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Key for the stress label in the database.",
+                    "title": "Stress Key"
+                },
+                "preload": {
+                    "default": true,
+                    "description": "Whether to load all the data at once or not.",
+                    "title": "Preload",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "src"
+            ],
+            "title": "DBDatasetConfig",
+            "type": "object"
+        },
+        "DatasetConfig": {
+            "discriminator": {
+                "mapping": {
+                    "db": "#/$defs/DBDatasetConfig",
+                    "matbench": "#/$defs/MatbenchDatasetConfig",
+                    "mp": "#/$defs/MPDatasetConfig",
+                    "mptraj": "#/$defs/MPTrajDatasetConfig",
+                    "omat24": "#/$defs/OMAT24DatasetConfig",
+                    "xyz": "#/$defs/XYZDatasetConfig"
+                },
+                "propertyName": "type"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/OMAT24DatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/XYZDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MPTrajDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MatbenchDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/DBDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MPDatasetConfig"
+                }
+            ]
+        },
+        "MPDatasetConfig": {
+            "description": "Configuration for a dataset stored in the Materials Project database.",
+            "properties": {
+                "type": {
+                    "const": "mp",
+                    "default": "mp",
+                    "description": "Discriminator for the MP dataset.",
+                    "enum": [
+                        "mp"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "api": {
+                    "description": "Input API key for the Materials Project database.",
+                    "title": "Api",
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "Fields to retrieve from the Materials Project database.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Fields",
+                    "type": "array"
+                },
+                "query": {
+                    "description": "Query to filter the data from the Materials Project database.",
+                    "title": "Query",
+                    "type": "object"
+                }
+            },
+            "required": [
+                "api",
+                "fields",
+                "query"
+            ],
+            "title": "MPDatasetConfig",
+            "type": "object"
+        },
+        "MPTrajDatasetConfig": {
+            "description": "Configuration for a dataset stored in the Materials Project database.",
+            "properties": {
+                "type": {
+                    "const": "mptraj",
+                    "default": "mptraj",
+                    "description": "Discriminator for the MPTraj dataset.",
+                    "enum": [
+                        "mptraj"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "split": {
+                    "default": "train",
+                    "description": "Split of the dataset to use.",
+                    "enum": [
+                        "train",
+                        "val",
+                        "test"
+                    ],
+                    "title": "Split",
+                    "type": "string"
+                },
+                "min_num_atoms": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": 5,
+                    "description": "Minimum number of atoms to be considered. Drops structures with fewer atoms.",
+                    "title": "Min Num Atoms"
+                },
+                "max_num_atoms": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Maximum number of atoms to be considered. Drops structures with more atoms.",
+                    "title": "Max Num Atoms"
+                },
+                "elements": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "List of elements to be considered. Drops structures with elements not in the list.\nSubsets are also allowed. For example, [\"Li\", \"Na\"] will keep structures with either Li or Na.",
+                    "title": "Elements"
+                }
+            },
+            "title": "MPTrajDatasetConfig",
+            "type": "object"
+        },
+        "MatbenchDatasetConfig": {
+            "description": "Configuration for the Matbench dataset.",
+            "properties": {
+                "type": {
+                    "const": "matbench",
+                    "default": "matbench",
+                    "description": "Discriminator for the Matbench dataset.",
+                    "enum": [
+                        "matbench"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "task": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The name of the self.tasks to include in the dataset.",
+                    "title": "Task"
+                },
+                "property_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Assign a property name for the self.task. Must match the property head in the model.",
+                    "title": "Property Name"
+                },
+                "fold_idx": {
+                    "default": 0,
+                    "description": "The index of the fold to be used in the dataset.",
+                    "enum": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "title": "Fold Idx",
+                    "type": "integer"
+                }
+            },
+            "title": "MatbenchDatasetConfig",
+            "type": "object"
+        },
+        "OMAT24DatasetConfig": {
+            "properties": {
+                "type": {
+                    "const": "omat24",
+                    "default": "omat24",
+                    "description": "Discriminator for the OMAT24 dataset.",
+                    "enum": [
+                        "omat24"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "src": {
+                    "description": "The path to the OMAT24 dataset.",
+                    "format": "path",
+                    "title": "Src",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "src"
+            ],
+            "title": "OMAT24DatasetConfig",
+            "type": "object"
+        },
+        "XYZDatasetConfig": {
+            "properties": {
+                "type": {
+                    "const": "xyz",
+                    "default": "xyz",
+                    "description": "Discriminator for the XYZ dataset.",
+                    "enum": [
+                        "xyz"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "src": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The path to the XYZ dataset.",
+                    "title": "Src"
+                }
+            },
+            "required": [
+                "src"
+            ],
+            "title": "XYZDatasetConfig",
+            "type": "object"
+        }
+    },
+    "properties": {
+        "batch_size": {
+            "description": "The batch size for the dataloaders.",
+            "title": "Batch Size",
+            "type": "integer"
+        },
+        "num_workers": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "const": "auto",
+                    "enum": [
+                        "auto"
+                    ],
+                    "type": "string"
+                }
+            ],
+            "default": "auto",
+            "description": "The number of workers for the dataloaders.\n\nThis is the number of processes that generate batches in parallel.\nIf set to \"auto\", the number of workers will be automatically\n    set based on the number of available CPUs.\nSet to 0 to disable parallelism.",
+            "title": "Num Workers"
+        },
+        "pin_memory": {
+            "default": true,
+            "description": "Whether to pin memory in the dataloaders.\n\nThis is useful for speeding up GPU data transfer.",
+            "title": "Pin Memory",
+            "type": "boolean"
+        },
+        "train": {
+            "$ref": "#/$defs/DatasetConfig",
+            "description": "The configuration for the training data."
+        },
+        "validation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/DatasetConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "The configuration for the validation data."
+        }
+    },
+    "required": [
+        "batch_size",
+        "train"
+    ],
+    "title": "ManualSplitDataModuleConfig",
+    "type": "object"
+}

@@ -1,0 +1,3123 @@
+{
+    "$defs": {
+        "AdamConfig": {
+            "properties": {
+                "name": {
+                    "const": "Adam",
+                    "default": "Adam",
+                    "description": "name of the optimizer.",
+                    "enum": [
+                        "Adam"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "lr": {
+                    "description": "Learning rate.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Lr",
+                    "type": "number"
+                },
+                "eps": {
+                    "default": 1e-08,
+                    "description": "Epsilon.",
+                    "minimum": 0.0,
+                    "title": "Eps",
+                    "type": "number"
+                },
+                "betas": {
+                    "default": [
+                        0.9,
+                        0.999
+                    ],
+                    "description": "Betas.",
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        }
+                    ],
+                    "title": "Betas",
+                    "type": "array"
+                },
+                "weight_decay": {
+                    "default": 0.0,
+                    "description": "Weight decay.",
+                    "minimum": 0.0,
+                    "title": "Weight Decay",
+                    "type": "number"
+                },
+                "amsgrad": {
+                    "default": false,
+                    "description": "Whether to use AMSGrad variant of Adam.",
+                    "title": "Amsgrad",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "lr"
+            ],
+            "title": "AdamConfig",
+            "type": "object"
+        },
+        "AdamWConfig": {
+            "properties": {
+                "name": {
+                    "const": "AdamW",
+                    "default": "AdamW",
+                    "description": "name of the optimizer.",
+                    "enum": [
+                        "AdamW"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "lr": {
+                    "description": "Learning rate.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Lr",
+                    "type": "number"
+                },
+                "eps": {
+                    "default": 1e-08,
+                    "description": "Epsilon.",
+                    "minimum": 0.0,
+                    "title": "Eps",
+                    "type": "number"
+                },
+                "betas": {
+                    "default": [
+                        0.9,
+                        0.999
+                    ],
+                    "description": "Betas.",
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        }
+                    ],
+                    "title": "Betas",
+                    "type": "array"
+                },
+                "weight_decay": {
+                    "default": 0.01,
+                    "description": "Weight decay.",
+                    "minimum": 0.0,
+                    "title": "Weight Decay",
+                    "type": "number"
+                },
+                "amsgrad": {
+                    "default": false,
+                    "description": "Whether to use AMSGrad variant of Adam.",
+                    "title": "Amsgrad",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "lr"
+            ],
+            "title": "AdamWConfig",
+            "type": "object"
+        },
+        "AutoSplitDataModuleConfig": {
+            "properties": {
+                "batch_size": {
+                    "description": "The batch size for the dataloaders.",
+                    "title": "Batch Size",
+                    "type": "integer"
+                },
+                "num_workers": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "const": "auto",
+                            "enum": [
+                                "auto"
+                            ],
+                            "type": "string"
+                        }
+                    ],
+                    "default": "auto",
+                    "description": "The number of workers for the dataloaders.\n\nThis is the number of processes that generate batches in parallel.\nIf set to \"auto\", the number of workers will be automatically\n    set based on the number of available CPUs.\nSet to 0 to disable parallelism.",
+                    "title": "Num Workers"
+                },
+                "pin_memory": {
+                    "default": true,
+                    "description": "Whether to pin memory in the dataloaders.\n\nThis is useful for speeding up GPU data transfer.",
+                    "title": "Pin Memory",
+                    "type": "boolean"
+                },
+                "dataset": {
+                    "$ref": "#/$defs/DatasetConfig",
+                    "description": "The configuration for the dataset."
+                },
+                "train_split": {
+                    "description": "The proportion of the dataset to include in the training split.",
+                    "title": "Train Split",
+                    "type": "number"
+                },
+                "validation_split": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "enum": [
+                                "auto",
+                                "disable"
+                            ],
+                            "type": "string"
+                        }
+                    ],
+                    "default": "auto",
+                    "description": "The proportion of the dataset to include in the validation split.\n\nIf set to \"auto\", the validation split will be automatically determined as\nthe complement of the training split, i.e. `validation_split = 1 - train_split`.\n\nIf set to \"disable\", the validation split will be disabled.",
+                    "title": "Validation Split"
+                },
+                "shuffle": {
+                    "default": true,
+                    "description": "Whether to shuffle the dataset before splitting.",
+                    "title": "Shuffle",
+                    "type": "boolean"
+                },
+                "shuffle_seed": {
+                    "default": 42,
+                    "description": "The seed to use for shuffling the dataset.",
+                    "title": "Shuffle Seed",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "batch_size",
+                "dataset",
+                "train_split"
+            ],
+            "title": "AutoSplitDataModuleConfig",
+            "type": "object"
+        },
+        "CSVLoggerConfig": {
+            "properties": {
+                "type": {
+                    "const": "csv",
+                    "default": "csv",
+                    "enum": [
+                        "csv"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "save_dir": {
+                    "description": "Save directory for logs.",
+                    "title": "Save Dir",
+                    "type": "string"
+                },
+                "name": {
+                    "default": "lightning_logs",
+                    "description": "Experiment name. Default: ``'lightning_logs'``.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "version": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Experiment version. If not specified, automatically assigns the next available version.\nDefault: ``None``.",
+                    "title": "Version"
+                },
+                "prefix": {
+                    "default": "",
+                    "description": "String to put at the beginning of metric keys. Default: ``''``.",
+                    "title": "Prefix",
+                    "type": "string"
+                },
+                "flush_logs_every_n_steps": {
+                    "default": 100,
+                    "description": "How often to flush logs to disk. Default: ``100``.",
+                    "title": "Flush Logs Every N Steps",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "save_dir"
+            ],
+            "title": "CSVLoggerConfig",
+            "type": "object"
+        },
+        "CachedPath": {
+            "properties": {
+                "uri": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The origin of the cached path.\n\nThis can be a local path, a downloadable URL, an S3 URL, a GCS URL, or an Hugging Face Hub URL.",
+                    "title": "Uri"
+                },
+                "cache_dir": {
+                    "anyOf": [
+                        {
+                            "format": "path",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The directory to cache the file in.\n\nIf not specified, the file will be cached in the default cache directory for `cached_path`.",
+                    "title": "Cache Dir"
+                },
+                "extract_archive": {
+                    "default": false,
+                    "description": "Whether to extract the archive after downloading it.",
+                    "title": "Extract Archive",
+                    "type": "boolean"
+                },
+                "force_extract": {
+                    "default": false,
+                    "description": "Whether to force extraction of the archive even if the extracted directory already exists.",
+                    "title": "Force Extract",
+                    "type": "boolean"
+                },
+                "quiet": {
+                    "default": false,
+                    "description": "Whether to suppress the progress bar.",
+                    "title": "Quiet",
+                    "type": "boolean"
+                },
+                "is_local": {
+                    "default": false,
+                    "description": "Whether the cached path is a local path. If set, this completely bypasses the caching mechanism,\nand simply returns the path as-is.",
+                    "title": "Is Local",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uri"
+            ],
+            "title": "CachedPath",
+            "type": "object"
+        },
+        "CosineAnnealingLRConfig": {
+            "properties": {
+                "type": {
+                    "const": "CosineAnnealingLR",
+                    "default": "CosineAnnealingLR",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "CosineAnnealingLR"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "T_max": {
+                    "description": "Maximum number of iterations.",
+                    "title": "T Max",
+                    "type": "integer"
+                },
+                "eta_min": {
+                    "default": 0,
+                    "description": "Minimum learning rate.",
+                    "title": "Eta Min",
+                    "type": "number"
+                },
+                "last_epoch": {
+                    "default": -1,
+                    "description": "The index of last epoch.",
+                    "title": "Last Epoch",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "T_max"
+            ],
+            "title": "CosineAnnealingLRConfig",
+            "type": "object"
+        },
+        "CutoffsConfig": {
+            "properties": {
+                "main": {
+                    "title": "Main",
+                    "type": "number"
+                },
+                "aeaint": {
+                    "title": "Aeaint",
+                    "type": "number"
+                },
+                "qint": {
+                    "title": "Qint",
+                    "type": "number"
+                },
+                "aint": {
+                    "title": "Aint",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "main",
+                "aeaint",
+                "qint",
+                "aint"
+            ],
+            "title": "CutoffsConfig",
+            "type": "object"
+        },
+        "DBDatasetConfig": {
+            "description": "Configuration for a dataset stored in an ASE database.",
+            "properties": {
+                "type": {
+                    "const": "db",
+                    "default": "db",
+                    "description": "Discriminator for the DB dataset.",
+                    "enum": [
+                        "db"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "src": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "Path to the ASE database file or a database object.",
+                    "title": "Src"
+                },
+                "energy_key": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Key for the energy label in the database.",
+                    "title": "Energy Key"
+                },
+                "forces_key": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Key for the force label in the database.",
+                    "title": "Forces Key"
+                },
+                "stress_key": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Key for the stress label in the database.",
+                    "title": "Stress Key"
+                },
+                "preload": {
+                    "default": true,
+                    "description": "Whether to load all the data at once or not.",
+                    "title": "Preload",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "src"
+            ],
+            "title": "DBDatasetConfig",
+            "type": "object"
+        },
+        "DataModuleConfig": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ManualSplitDataModuleConfig"
+                },
+                {
+                    "$ref": "#/$defs/AutoSplitDataModuleConfig"
+                }
+            ]
+        },
+        "DatasetConfig": {
+            "discriminator": {
+                "mapping": {
+                    "db": "#/$defs/DBDatasetConfig",
+                    "matbench": "#/$defs/MatbenchDatasetConfig",
+                    "mp": "#/$defs/MPDatasetConfig",
+                    "mptraj": "#/$defs/MPTrajDatasetConfig",
+                    "omat24": "#/$defs/OMAT24DatasetConfig",
+                    "xyz": "#/$defs/XYZDatasetConfig"
+                },
+                "propertyName": "type"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/OMAT24DatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/XYZDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MPTrajDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MatbenchDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/DBDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MPDatasetConfig"
+                }
+            ]
+        },
+        "EarlyStoppingConfig": {
+            "properties": {
+                "monitor": {
+                    "default": "val/total_loss",
+                    "description": "Quantity to be monitored.",
+                    "title": "Monitor",
+                    "type": "string"
+                },
+                "min_delta": {
+                    "default": 0.0,
+                    "description": "Minimum change in monitored quantity to qualify as an improvement. Changes of less than or equal to\n`min_delta` will count as no improvement. Default: ``0.0``.",
+                    "title": "Min Delta",
+                    "type": "number"
+                },
+                "patience": {
+                    "default": 3,
+                    "description": "Number of validation checks with no improvement after which training will be stopped. Default: ``3``.",
+                    "title": "Patience",
+                    "type": "integer"
+                },
+                "verbose": {
+                    "default": false,
+                    "description": "Whether to print messages when improvement is found or early stopping is triggered. Default: ``False``.",
+                    "title": "Verbose",
+                    "type": "boolean"
+                },
+                "mode": {
+                    "default": "min",
+                    "description": "One of 'min' or 'max'. In 'min' mode, training stops when monitored quantity stops decreasing;\nin 'max' mode it stops when the quantity stops increasing. Default: ``'min'``.",
+                    "enum": [
+                        "min",
+                        "max"
+                    ],
+                    "title": "Mode",
+                    "type": "string"
+                },
+                "strict": {
+                    "default": true,
+                    "description": "Whether to raise an error if monitored metric is not found in validation metrics. Default: ``True``.",
+                    "title": "Strict",
+                    "type": "boolean"
+                },
+                "check_finite": {
+                    "default": true,
+                    "description": "Whether to stop training when the monitor becomes NaN or infinite. Default: ``True``.",
+                    "title": "Check Finite",
+                    "type": "boolean"
+                },
+                "stopping_threshold": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Stop training immediately once the monitored quantity reaches this threshold. Default: ``None``.",
+                    "title": "Stopping Threshold"
+                },
+                "divergence_threshold": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Stop training as soon as the monitored quantity becomes worse than this threshold. Default: ``None``.",
+                    "title": "Divergence Threshold"
+                },
+                "check_on_train_epoch_end": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Whether to run early stopping at the end of training epoch. If False, check runs at validation end.\nDefault: ``None``.",
+                    "title": "Check On Train Epoch End"
+                },
+                "log_rank_zero_only": {
+                    "default": false,
+                    "description": "Whether to log the status of early stopping only for rank 0 process. Default: ``False``.",
+                    "title": "Log Rank Zero Only",
+                    "type": "boolean"
+                }
+            },
+            "title": "EarlyStoppingConfig",
+            "type": "object"
+        },
+        "EnergyPropertyConfig": {
+            "properties": {
+                "name": {
+                    "default": "energy",
+                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "dtype": {
+                    "const": "float",
+                    "default": "float",
+                    "description": "The type of the property values.",
+                    "enum": [
+                        "float"
+                    ],
+                    "title": "Dtype",
+                    "type": "string"
+                },
+                "loss": {
+                    "description": "The loss function to use when training the model on this property.",
+                    "discriminator": {
+                        "mapping": {
+                            "huber": "#/$defs/HuberLossConfig",
+                            "l2_mae": "#/$defs/L2MAELossConfig",
+                            "mae": "#/$defs/MAELossConfig",
+                            "mse": "#/$defs/MSELossConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/MAELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/MSELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/HuberLossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/L2MAELossConfig"
+                        }
+                    ],
+                    "title": "Loss"
+                },
+                "loss_coefficient": {
+                    "default": 1.0,
+                    "description": "The coefficient to apply to this property's loss function when training the model.",
+                    "title": "Loss Coefficient",
+                    "type": "number"
+                },
+                "type": {
+                    "const": "energy",
+                    "default": "energy",
+                    "enum": [
+                        "energy"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "loss"
+            ],
+            "title": "EnergyPropertyConfig",
+            "type": "object"
+        },
+        "EqV2BackboneConfig": {
+            "properties": {
+                "properties": {
+                    "type": "array",
+                    "items": {
+                        "description": "The configuration for the property.",
+                        "discriminator": {
+                            "mapping": {
+                                "energy": "#/$defs/EnergyPropertyConfig",
+                                "forces": "#/$defs/ForcesPropertyConfig",
+                                "graph_property": "#/$defs/GraphPropertyConfig",
+                                "stresses": "#/$defs/StressesPropertyConfig"
+                            },
+                            "propertyName": "type"
+                        },
+                        "oneOf": [
+                            {
+                                "$ref": "#/$defs/GraphPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/EnergyPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/ForcesPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/StressesPropertyConfig"
+                            }
+                        ]
+                    },
+                    "description": "Properties to predict.",
+                    "title": "Properties"
+                },
+                "optimizer": {
+                    "description": "Optimizer.",
+                    "discriminator": {
+                        "mapping": {
+                            "Adam": "#/$defs/AdamConfig",
+                            "AdamW": "#/$defs/AdamWConfig",
+                            "SGD": "#/$defs/SGDConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/AdamConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/AdamWConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/SGDConfig"
+                        }
+                    ],
+                    "title": "Optimizer"
+                },
+                "lr_scheduler": {
+                    "anyOf": [
+                        {
+                            "discriminator": {
+                                "mapping": {
+                                    "CosineAnnealingLR": "#/$defs/CosineAnnealingLRConfig",
+                                    "ExponentialLR": "#/$defs/ExponentialConfig",
+                                    "MultiStepLR": "#/$defs/MultiStepLRConfig",
+                                    "ReduceLROnPlateau": "#/$defs/ReduceOnPlateauConfig",
+                                    "StepLR": "#/$defs/StepLRConfig"
+                                },
+                                "propertyName": "type"
+                            },
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/StepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/MultiStepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ExponentialConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ReduceOnPlateauConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/CosineAnnealingLRConfig"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Learning Rate Scheduler",
+                    "title": "Lr Scheduler"
+                },
+                "ignore_gpu_batch_transform_error": {
+                    "default": true,
+                    "description": "Whether to ignore data processing errors during training.",
+                    "title": "Ignore Gpu Batch Transform Error",
+                    "type": "boolean"
+                },
+                "normalizers": {
+                    "additionalProperties": {
+                        "items": {
+                            "$ref": "#/$defs/NormalizerConfig"
+                        },
+                        "type": "array"
+                    },
+                    "default": {},
+                    "description": "Normalizers for the properties.\n\nAny property can be associated with multiple normalizers. This is useful\n    for cases where we want to normalize the same property in different ways.\n    For example, we may want to normalize the energy by subtracting\n    the atomic reference energies, as well as by mean and standard deviation\n    normalization.\n\nThe normalizers are applied in the order they are defined in the list.",
+                    "title": "Normalizers",
+                    "type": "object"
+                },
+                "name": {
+                    "const": "eqV2",
+                    "default": "eqV2",
+                    "description": "The type of the backbone.",
+                    "enum": [
+                        "eqV2"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "checkpoint_path": {
+                    "anyOf": [
+                        {
+                            "format": "path",
+                            "type": "string"
+                        },
+                        {
+                            "$ref": "#/$defs/CachedPath"
+                        }
+                    ],
+                    "description": "The path to the checkpoint to load.",
+                    "title": "Checkpoint Path"
+                },
+                "atoms_to_graph": {
+                    "$ref": "#/$defs/FAIRChemAtomsToGraphSystemConfig",
+                    "description": "Configuration for converting ASE Atoms to a graph."
+                }
+            },
+            "required": [
+                "properties",
+                "optimizer",
+                "checkpoint_path",
+                "atoms_to_graph"
+            ],
+            "title": "EqV2BackboneConfig",
+            "type": "object"
+        },
+        "ExponentialConfig": {
+            "properties": {
+                "type": {
+                    "const": "ExponentialLR",
+                    "default": "ExponentialLR",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "ExponentialLR"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "gamma": {
+                    "description": "Multiplicative factor of learning rate decay.",
+                    "title": "Gamma",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "gamma"
+            ],
+            "title": "ExponentialConfig",
+            "type": "object"
+        },
+        "FAIRChemAtomsToGraphSystemConfig": {
+            "description": "Configuration for converting ASE Atoms to a graph for the FAIRChem model.",
+            "properties": {
+                "radius": {
+                    "description": "The radius for edge construction.",
+                    "title": "Radius",
+                    "type": "number"
+                },
+                "max_num_neighbors": {
+                    "description": "The maximum number of neighbours each node can send messages to.",
+                    "title": "Max Num Neighbors",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "radius",
+                "max_num_neighbors"
+            ],
+            "title": "FAIRChemAtomsToGraphSystemConfig",
+            "type": "object"
+        },
+        "ForcesPropertyConfig": {
+            "properties": {
+                "name": {
+                    "default": "forces",
+                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "dtype": {
+                    "const": "float",
+                    "default": "float",
+                    "description": "The type of the property values.",
+                    "enum": [
+                        "float"
+                    ],
+                    "title": "Dtype",
+                    "type": "string"
+                },
+                "loss": {
+                    "description": "The loss function to use when training the model on this property.",
+                    "discriminator": {
+                        "mapping": {
+                            "huber": "#/$defs/HuberLossConfig",
+                            "l2_mae": "#/$defs/L2MAELossConfig",
+                            "mae": "#/$defs/MAELossConfig",
+                            "mse": "#/$defs/MSELossConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/MAELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/MSELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/HuberLossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/L2MAELossConfig"
+                        }
+                    ],
+                    "title": "Loss"
+                },
+                "loss_coefficient": {
+                    "default": 1.0,
+                    "description": "The coefficient to apply to this property's loss function when training the model.",
+                    "title": "Loss Coefficient",
+                    "type": "number"
+                },
+                "type": {
+                    "const": "forces",
+                    "default": "forces",
+                    "enum": [
+                        "forces"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "conservative": {
+                    "description": "Whether the forces are energy conserving.\nThis is used by the backbone to decide the type of output head to use for\n    this property. Conservative force predictions are computed by taking the\n    negative gradient of the energy with respect to the atomic positions, whereas\n    non-conservative forces may be computed by other means.",
+                    "title": "Conservative",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "loss",
+                "conservative"
+            ],
+            "title": "ForcesPropertyConfig",
+            "type": "object"
+        },
+        "GraphPropertyConfig": {
+            "properties": {
+                "name": {
+                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.\nThis is also the key that will be used to access the property in the ASE Atoms object.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "dtype": {
+                    "const": "float",
+                    "description": "The type of the property values.",
+                    "enum": [
+                        "float"
+                    ],
+                    "title": "Dtype",
+                    "type": "string"
+                },
+                "loss": {
+                    "description": "The loss function to use when training the model on this property.",
+                    "discriminator": {
+                        "mapping": {
+                            "huber": "#/$defs/HuberLossConfig",
+                            "l2_mae": "#/$defs/L2MAELossConfig",
+                            "mae": "#/$defs/MAELossConfig",
+                            "mse": "#/$defs/MSELossConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/MAELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/MSELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/HuberLossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/L2MAELossConfig"
+                        }
+                    ],
+                    "title": "Loss"
+                },
+                "loss_coefficient": {
+                    "default": 1.0,
+                    "description": "The coefficient to apply to this property's loss function when training the model.",
+                    "title": "Loss Coefficient",
+                    "type": "number"
+                },
+                "type": {
+                    "const": "graph_property",
+                    "default": "graph_property",
+                    "enum": [
+                        "graph_property"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "reduction": {
+                    "description": "The reduction to use for the output.\n- \"sum\": Sum the property values for all atoms in the system.\n    This is optimal for extensive properties (e.g. energy).\n- \"mean\": Take the mean of the property values for all atoms in the system.\n    This is optimal for intensive properties (e.g. density).\n- \"max\": Take the maximum of the property values for all atoms in the system.\n    This is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.",
+                    "enum": [
+                        "mean",
+                        "sum",
+                        "max"
+                    ],
+                    "title": "Reduction",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "dtype",
+                "loss",
+                "reduction"
+            ],
+            "title": "GraphPropertyConfig",
+            "type": "object"
+        },
+        "HuberLossConfig": {
+            "properties": {
+                "name": {
+                    "const": "huber",
+                    "default": "huber",
+                    "enum": [
+                        "huber"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
+                "reduction": {
+                    "default": "mean",
+                    "description": "How to reduce the loss values across the batch.\n\n- ``\"mean\"``: The mean of the loss values.\n- ``\"sum\"``: The sum of the loss values.",
+                    "enum": [
+                        "mean",
+                        "sum"
+                    ],
+                    "title": "Reduction",
+                    "type": "string"
+                }
+            },
+            "title": "HuberLossConfig",
+            "type": "object"
+        },
+        "JMPBackboneConfig": {
+            "properties": {
+                "properties": {
+                    "type": "array",
+                    "items": {
+                        "description": "The configuration for the property.",
+                        "discriminator": {
+                            "mapping": {
+                                "energy": "#/$defs/EnergyPropertyConfig",
+                                "forces": "#/$defs/ForcesPropertyConfig",
+                                "graph_property": "#/$defs/GraphPropertyConfig",
+                                "stresses": "#/$defs/StressesPropertyConfig"
+                            },
+                            "propertyName": "type"
+                        },
+                        "oneOf": [
+                            {
+                                "$ref": "#/$defs/GraphPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/EnergyPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/ForcesPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/StressesPropertyConfig"
+                            }
+                        ]
+                    },
+                    "description": "Properties to predict.",
+                    "title": "Properties"
+                },
+                "optimizer": {
+                    "description": "Optimizer.",
+                    "discriminator": {
+                        "mapping": {
+                            "Adam": "#/$defs/AdamConfig",
+                            "AdamW": "#/$defs/AdamWConfig",
+                            "SGD": "#/$defs/SGDConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/AdamConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/AdamWConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/SGDConfig"
+                        }
+                    ],
+                    "title": "Optimizer"
+                },
+                "lr_scheduler": {
+                    "anyOf": [
+                        {
+                            "discriminator": {
+                                "mapping": {
+                                    "CosineAnnealingLR": "#/$defs/CosineAnnealingLRConfig",
+                                    "ExponentialLR": "#/$defs/ExponentialConfig",
+                                    "MultiStepLR": "#/$defs/MultiStepLRConfig",
+                                    "ReduceLROnPlateau": "#/$defs/ReduceOnPlateauConfig",
+                                    "StepLR": "#/$defs/StepLRConfig"
+                                },
+                                "propertyName": "type"
+                            },
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/StepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/MultiStepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ExponentialConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ReduceOnPlateauConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/CosineAnnealingLRConfig"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Learning Rate Scheduler",
+                    "title": "Lr Scheduler"
+                },
+                "ignore_gpu_batch_transform_error": {
+                    "default": true,
+                    "description": "Whether to ignore data processing errors during training.",
+                    "title": "Ignore Gpu Batch Transform Error",
+                    "type": "boolean"
+                },
+                "normalizers": {
+                    "additionalProperties": {
+                        "items": {
+                            "$ref": "#/$defs/NormalizerConfig"
+                        },
+                        "type": "array"
+                    },
+                    "default": {},
+                    "description": "Normalizers for the properties.\n\nAny property can be associated with multiple normalizers. This is useful\n    for cases where we want to normalize the same property in different ways.\n    For example, we may want to normalize the energy by subtracting\n    the atomic reference energies, as well as by mean and standard deviation\n    normalization.\n\nThe normalizers are applied in the order they are defined in the list.",
+                    "title": "Normalizers",
+                    "type": "object"
+                },
+                "name": {
+                    "const": "jmp",
+                    "default": "jmp",
+                    "description": "The type of the backbone.",
+                    "enum": [
+                        "jmp"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "ckpt_path": {
+                    "anyOf": [
+                        {
+                            "format": "path",
+                            "type": "string"
+                        },
+                        {
+                            "$ref": "#/$defs/CachedPath"
+                        }
+                    ],
+                    "description": "The path to the pre-trained model checkpoint.",
+                    "title": "Ckpt Path"
+                },
+                "graph_computer": {
+                    "$ref": "#/$defs/JMPGraphComputerConfig",
+                    "description": "The configuration for the graph computer."
+                }
+            },
+            "required": [
+                "properties",
+                "optimizer",
+                "ckpt_path",
+                "graph_computer"
+            ],
+            "title": "JMPBackboneConfig",
+            "type": "object"
+        },
+        "JMPGraphComputerConfig": {
+            "properties": {
+                "pbc": {
+                    "description": "Whether to use periodic boundary conditions.",
+                    "title": "Pbc",
+                    "type": "boolean"
+                },
+                "cutoffs": {
+                    "$ref": "#/$defs/CutoffsConfig",
+                    "default": {
+                        "main": 12.0,
+                        "aeaint": 12.0,
+                        "qint": 12.0,
+                        "aint": 12.0
+                    },
+                    "description": "The cutoff for the radius graph."
+                },
+                "max_neighbors": {
+                    "$ref": "#/$defs/MaxNeighborsConfig",
+                    "default": {
+                        "main": 30,
+                        "aeaint": 20,
+                        "qint": 8,
+                        "aint": 1000
+                    },
+                    "description": "The maximum number of neighbors for the radius graph."
+                },
+                "per_graph_radius_graph": {
+                    "default": false,
+                    "description": "Whether to compute the radius graph per graph.",
+                    "title": "Per Graph Radius Graph",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "pbc"
+            ],
+            "title": "JMPGraphComputerConfig",
+            "type": "object"
+        },
+        "L2MAELossConfig": {
+            "properties": {
+                "name": {
+                    "const": "l2_mae",
+                    "default": "l2_mae",
+                    "enum": [
+                        "l2_mae"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reduction": {
+                    "default": "mean",
+                    "description": "How to reduce the loss values across the batch.\n\n- ``\"mean\"``: The mean of the loss values.\n- ``\"sum\"``: The sum of the loss values.",
+                    "enum": [
+                        "mean",
+                        "sum"
+                    ],
+                    "title": "Reduction",
+                    "type": "string"
+                }
+            },
+            "title": "L2MAELossConfig",
+            "type": "object"
+        },
+        "LoggerConfig": {
+            "discriminator": {
+                "mapping": {
+                    "csv": "#/$defs/CSVLoggerConfig",
+                    "tensorboard": "#/$defs/TensorBoardLoggerConfig",
+                    "wandb": "#/$defs/WandbLoggerConfig"
+                },
+                "propertyName": "type"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/CSVLoggerConfig"
+                },
+                {
+                    "$ref": "#/$defs/WandbLoggerConfig"
+                },
+                {
+                    "$ref": "#/$defs/TensorBoardLoggerConfig"
+                }
+            ]
+        },
+        "M3GNetBackboneConfig": {
+            "properties": {
+                "properties": {
+                    "type": "array",
+                    "items": {
+                        "description": "The configuration for the property.",
+                        "discriminator": {
+                            "mapping": {
+                                "energy": "#/$defs/EnergyPropertyConfig",
+                                "forces": "#/$defs/ForcesPropertyConfig",
+                                "graph_property": "#/$defs/GraphPropertyConfig",
+                                "stresses": "#/$defs/StressesPropertyConfig"
+                            },
+                            "propertyName": "type"
+                        },
+                        "oneOf": [
+                            {
+                                "$ref": "#/$defs/GraphPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/EnergyPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/ForcesPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/StressesPropertyConfig"
+                            }
+                        ]
+                    },
+                    "description": "Properties to predict.",
+                    "title": "Properties"
+                },
+                "optimizer": {
+                    "description": "Optimizer.",
+                    "discriminator": {
+                        "mapping": {
+                            "Adam": "#/$defs/AdamConfig",
+                            "AdamW": "#/$defs/AdamWConfig",
+                            "SGD": "#/$defs/SGDConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/AdamConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/AdamWConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/SGDConfig"
+                        }
+                    ],
+                    "title": "Optimizer"
+                },
+                "lr_scheduler": {
+                    "anyOf": [
+                        {
+                            "discriminator": {
+                                "mapping": {
+                                    "CosineAnnealingLR": "#/$defs/CosineAnnealingLRConfig",
+                                    "ExponentialLR": "#/$defs/ExponentialConfig",
+                                    "MultiStepLR": "#/$defs/MultiStepLRConfig",
+                                    "ReduceLROnPlateau": "#/$defs/ReduceOnPlateauConfig",
+                                    "StepLR": "#/$defs/StepLRConfig"
+                                },
+                                "propertyName": "type"
+                            },
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/StepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/MultiStepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ExponentialConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ReduceOnPlateauConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/CosineAnnealingLRConfig"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Learning Rate Scheduler",
+                    "title": "Lr Scheduler"
+                },
+                "ignore_gpu_batch_transform_error": {
+                    "default": true,
+                    "description": "Whether to ignore data processing errors during training.",
+                    "title": "Ignore Gpu Batch Transform Error",
+                    "type": "boolean"
+                },
+                "normalizers": {
+                    "additionalProperties": {
+                        "items": {
+                            "$ref": "#/$defs/NormalizerConfig"
+                        },
+                        "type": "array"
+                    },
+                    "default": {},
+                    "description": "Normalizers for the properties.\n\nAny property can be associated with multiple normalizers. This is useful\n    for cases where we want to normalize the same property in different ways.\n    For example, we may want to normalize the energy by subtracting\n    the atomic reference energies, as well as by mean and standard deviation\n    normalization.\n\nThe normalizers are applied in the order they are defined in the list.",
+                    "title": "Normalizers",
+                    "type": "object"
+                },
+                "name": {
+                    "const": "m3gnet",
+                    "default": "m3gnet",
+                    "description": "The type of the backbone.",
+                    "enum": [
+                        "m3gnet"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "ckpt_path": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The path to the pre-trained model checkpoint.",
+                    "title": "Ckpt Path"
+                },
+                "graph_computer": {
+                    "$ref": "#/$defs/M3GNetGraphComputerConfig",
+                    "description": "Configuration for the graph computer."
+                }
+            },
+            "required": [
+                "properties",
+                "optimizer",
+                "ckpt_path",
+                "graph_computer"
+            ],
+            "title": "M3GNetBackboneConfig",
+            "type": "object"
+        },
+        "M3GNetGraphComputerConfig": {
+            "description": "Configuration for initialize a MatGL Atoms2Graph Convertor.",
+            "properties": {
+                "element_types": {
+                    "description": "The element types to consider, default is all elements.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Element Types",
+                    "type": "array"
+                },
+                "cutoff": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The cutoff distance for the neighbor list. If None, the cutoff is loaded from the checkpoint.",
+                    "title": "Cutoff"
+                },
+                "threebody_cutoff": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The cutoff distance for the three-body interactions. If None, the cutoff is loaded from the checkpoint.",
+                    "title": "Threebody Cutoff"
+                },
+                "pre_compute_line_graph": {
+                    "default": false,
+                    "description": "Whether to pre-compute the line graph for three-body interactions in data preparation.",
+                    "title": "Pre Compute Line Graph",
+                    "type": "boolean"
+                },
+                "graph_labels": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "anyOf": [
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "number"
+                                    }
+                                ]
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The graph labels to consider, default is None.",
+                    "title": "Graph Labels"
+                }
+            },
+            "title": "M3GNetGraphComputerConfig",
+            "type": "object"
+        },
+        "MAELossConfig": {
+            "properties": {
+                "name": {
+                    "const": "mae",
+                    "default": "mae",
+                    "enum": [
+                        "mae"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reduction": {
+                    "default": "mean",
+                    "description": "How to reduce the loss values across the batch.\n\n- ``\"mean\"``: The mean of the loss values.\n- ``\"sum\"``: The sum of the loss values.",
+                    "enum": [
+                        "mean",
+                        "sum"
+                    ],
+                    "title": "Reduction",
+                    "type": "string"
+                }
+            },
+            "title": "MAELossConfig",
+            "type": "object"
+        },
+        "MPDatasetConfig": {
+            "description": "Configuration for a dataset stored in the Materials Project database.",
+            "properties": {
+                "type": {
+                    "const": "mp",
+                    "default": "mp",
+                    "description": "Discriminator for the MP dataset.",
+                    "enum": [
+                        "mp"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "api": {
+                    "description": "Input API key for the Materials Project database.",
+                    "title": "Api",
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "Fields to retrieve from the Materials Project database.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Fields",
+                    "type": "array"
+                },
+                "query": {
+                    "description": "Query to filter the data from the Materials Project database.",
+                    "title": "Query",
+                    "type": "object"
+                }
+            },
+            "required": [
+                "api",
+                "fields",
+                "query"
+            ],
+            "title": "MPDatasetConfig",
+            "type": "object"
+        },
+        "MPTrajDatasetConfig": {
+            "description": "Configuration for a dataset stored in the Materials Project database.",
+            "properties": {
+                "type": {
+                    "const": "mptraj",
+                    "default": "mptraj",
+                    "description": "Discriminator for the MPTraj dataset.",
+                    "enum": [
+                        "mptraj"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "split": {
+                    "default": "train",
+                    "description": "Split of the dataset to use.",
+                    "enum": [
+                        "train",
+                        "val",
+                        "test"
+                    ],
+                    "title": "Split",
+                    "type": "string"
+                },
+                "min_num_atoms": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": 5,
+                    "description": "Minimum number of atoms to be considered. Drops structures with fewer atoms.",
+                    "title": "Min Num Atoms"
+                },
+                "max_num_atoms": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Maximum number of atoms to be considered. Drops structures with more atoms.",
+                    "title": "Max Num Atoms"
+                },
+                "elements": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "List of elements to be considered. Drops structures with elements not in the list.\nSubsets are also allowed. For example, [\"Li\", \"Na\"] will keep structures with either Li or Na.",
+                    "title": "Elements"
+                }
+            },
+            "title": "MPTrajDatasetConfig",
+            "type": "object"
+        },
+        "MSELossConfig": {
+            "properties": {
+                "name": {
+                    "const": "mse",
+                    "default": "mse",
+                    "enum": [
+                        "mse"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reduction": {
+                    "default": "mean",
+                    "description": "How to reduce the loss values across the batch.\n\n- ``\"mean\"``: The mean of the loss values.\n- ``\"sum\"``: The sum of the loss values.",
+                    "enum": [
+                        "mean",
+                        "sum"
+                    ],
+                    "title": "Reduction",
+                    "type": "string"
+                }
+            },
+            "title": "MSELossConfig",
+            "type": "object"
+        },
+        "ManualSplitDataModuleConfig": {
+            "properties": {
+                "batch_size": {
+                    "description": "The batch size for the dataloaders.",
+                    "title": "Batch Size",
+                    "type": "integer"
+                },
+                "num_workers": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "const": "auto",
+                            "enum": [
+                                "auto"
+                            ],
+                            "type": "string"
+                        }
+                    ],
+                    "default": "auto",
+                    "description": "The number of workers for the dataloaders.\n\nThis is the number of processes that generate batches in parallel.\nIf set to \"auto\", the number of workers will be automatically\n    set based on the number of available CPUs.\nSet to 0 to disable parallelism.",
+                    "title": "Num Workers"
+                },
+                "pin_memory": {
+                    "default": true,
+                    "description": "Whether to pin memory in the dataloaders.\n\nThis is useful for speeding up GPU data transfer.",
+                    "title": "Pin Memory",
+                    "type": "boolean"
+                },
+                "train": {
+                    "$ref": "#/$defs/DatasetConfig",
+                    "description": "The configuration for the training data."
+                },
+                "validation": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/DatasetConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The configuration for the validation data."
+                }
+            },
+            "required": [
+                "batch_size",
+                "train"
+            ],
+            "title": "ManualSplitDataModuleConfig",
+            "type": "object"
+        },
+        "MatbenchDatasetConfig": {
+            "description": "Configuration for the Matbench dataset.",
+            "properties": {
+                "type": {
+                    "const": "matbench",
+                    "default": "matbench",
+                    "description": "Discriminator for the Matbench dataset.",
+                    "enum": [
+                        "matbench"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "task": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The name of the self.tasks to include in the dataset.",
+                    "title": "Task"
+                },
+                "property_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Assign a property name for the self.task. Must match the property head in the model.",
+                    "title": "Property Name"
+                },
+                "fold_idx": {
+                    "default": 0,
+                    "description": "The index of the fold to be used in the dataset.",
+                    "enum": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "title": "Fold Idx",
+                    "type": "integer"
+                }
+            },
+            "title": "MatbenchDatasetConfig",
+            "type": "object"
+        },
+        "MaxNeighborsConfig": {
+            "properties": {
+                "main": {
+                    "title": "Main",
+                    "type": "integer"
+                },
+                "aeaint": {
+                    "title": "Aeaint",
+                    "type": "integer"
+                },
+                "qint": {
+                    "title": "Qint",
+                    "type": "integer"
+                },
+                "aint": {
+                    "title": "Aint",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "main",
+                "aeaint",
+                "qint",
+                "aint"
+            ],
+            "title": "MaxNeighborsConfig",
+            "type": "object"
+        },
+        "MeanStdNormalizerConfig": {
+            "properties": {
+                "mean": {
+                    "description": "The mean of the property values.",
+                    "title": "Mean",
+                    "type": "number"
+                },
+                "std": {
+                    "description": "The standard deviation of the property values.",
+                    "title": "Std",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "mean",
+                "std"
+            ],
+            "title": "MeanStdNormalizerConfig",
+            "type": "object"
+        },
+        "ModelCheckpointConfig": {
+            "properties": {
+                "dirpath": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Directory to save the model file. Default: ``None``.",
+                    "title": "Dirpath"
+                },
+                "filename": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Checkpoint filename. Can contain named formatting options. Default: ``None``.",
+                    "title": "Filename"
+                },
+                "monitor": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Quantity to monitor. Default: ``None``.",
+                    "title": "Monitor"
+                },
+                "verbose": {
+                    "default": false,
+                    "description": "Verbosity mode. Default: ``False``.",
+                    "title": "Verbose",
+                    "type": "boolean"
+                },
+                "save_last": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                true,
+                                false,
+                                "link"
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "When True or \"link\", saves a 'last.ckpt' checkpoint when a checkpoint is saved. Default: ``None``.",
+                    "title": "Save Last"
+                },
+                "save_top_k": {
+                    "default": 1,
+                    "description": "If save_top_k=k, save k models with best monitored quantity. Default: ``1``.",
+                    "title": "Save Top K",
+                    "type": "integer"
+                },
+                "save_weights_only": {
+                    "default": false,
+                    "description": "If True, only save model weights. Default: ``False``.",
+                    "title": "Save Weights Only",
+                    "type": "boolean"
+                },
+                "mode": {
+                    "default": "min",
+                    "description": "One of {'min', 'max'}. For 'min' training stops when monitored quantity stops decreasing. Default: ``'min'``.",
+                    "enum": [
+                        "min",
+                        "max"
+                    ],
+                    "title": "Mode",
+                    "type": "string"
+                },
+                "auto_insert_metric_name": {
+                    "default": true,
+                    "description": "Whether to automatically insert metric name in checkpoint filename. Default: ``True``.",
+                    "title": "Auto Insert Metric Name",
+                    "type": "boolean"
+                },
+                "every_n_train_steps": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Number of training steps between checkpoints. Default: ``None``.",
+                    "title": "Every N Train Steps"
+                },
+                "train_time_interval": {
+                    "anyOf": [
+                        {
+                            "format": "duration",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Checkpoints are monitored at the specified time interval. Default: ``None``.",
+                    "title": "Train Time Interval"
+                },
+                "every_n_epochs": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Number of epochs between checkpoints. Default: ``None``.",
+                    "title": "Every N Epochs"
+                },
+                "save_on_train_epoch_end": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Whether to run checkpointing at end of training epoch. Default: ``None``.",
+                    "title": "Save On Train Epoch End"
+                },
+                "enable_version_counter": {
+                    "default": true,
+                    "description": "Whether to append version to existing filenames. Default: ``True``.",
+                    "title": "Enable Version Counter",
+                    "type": "boolean"
+                }
+            },
+            "title": "ModelCheckpointConfig",
+            "type": "object"
+        },
+        "MultiStepLRConfig": {
+            "properties": {
+                "type": {
+                    "const": "MultiStepLR",
+                    "default": "MultiStepLR",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "MultiStepLR"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "milestones": {
+                    "description": "List of epoch indices. Must be increasing.",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "title": "Milestones",
+                    "type": "array"
+                },
+                "gamma": {
+                    "description": "Multiplicative factor of learning rate decay.",
+                    "title": "Gamma",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "milestones",
+                "gamma"
+            ],
+            "title": "MultiStepLRConfig",
+            "type": "object"
+        },
+        "NormalizerConfig": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/MeanStdNormalizerConfig"
+                },
+                {
+                    "$ref": "#/$defs/RMSNormalizerConfig"
+                },
+                {
+                    "$ref": "#/$defs/PerAtomReferencingNormalizerConfig"
+                }
+            ]
+        },
+        "OMAT24DatasetConfig": {
+            "properties": {
+                "type": {
+                    "const": "omat24",
+                    "default": "omat24",
+                    "description": "Discriminator for the OMAT24 dataset.",
+                    "enum": [
+                        "omat24"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "src": {
+                    "description": "The path to the OMAT24 dataset.",
+                    "format": "path",
+                    "title": "Src",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "src"
+            ],
+            "title": "OMAT24DatasetConfig",
+            "type": "object"
+        },
+        "ORBBackboneConfig": {
+            "properties": {
+                "properties": {
+                    "type": "array",
+                    "items": {
+                        "description": "The configuration for the property.",
+                        "discriminator": {
+                            "mapping": {
+                                "energy": "#/$defs/EnergyPropertyConfig",
+                                "forces": "#/$defs/ForcesPropertyConfig",
+                                "graph_property": "#/$defs/GraphPropertyConfig",
+                                "stresses": "#/$defs/StressesPropertyConfig"
+                            },
+                            "propertyName": "type"
+                        },
+                        "oneOf": [
+                            {
+                                "$ref": "#/$defs/GraphPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/EnergyPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/ForcesPropertyConfig"
+                            },
+                            {
+                                "$ref": "#/$defs/StressesPropertyConfig"
+                            }
+                        ]
+                    },
+                    "description": "Properties to predict.",
+                    "title": "Properties"
+                },
+                "optimizer": {
+                    "description": "Optimizer.",
+                    "discriminator": {
+                        "mapping": {
+                            "Adam": "#/$defs/AdamConfig",
+                            "AdamW": "#/$defs/AdamWConfig",
+                            "SGD": "#/$defs/SGDConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/AdamConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/AdamWConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/SGDConfig"
+                        }
+                    ],
+                    "title": "Optimizer"
+                },
+                "lr_scheduler": {
+                    "anyOf": [
+                        {
+                            "discriminator": {
+                                "mapping": {
+                                    "CosineAnnealingLR": "#/$defs/CosineAnnealingLRConfig",
+                                    "ExponentialLR": "#/$defs/ExponentialConfig",
+                                    "MultiStepLR": "#/$defs/MultiStepLRConfig",
+                                    "ReduceLROnPlateau": "#/$defs/ReduceOnPlateauConfig",
+                                    "StepLR": "#/$defs/StepLRConfig"
+                                },
+                                "propertyName": "type"
+                            },
+                            "oneOf": [
+                                {
+                                    "$ref": "#/$defs/StepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/MultiStepLRConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ExponentialConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/ReduceOnPlateauConfig"
+                                },
+                                {
+                                    "$ref": "#/$defs/CosineAnnealingLRConfig"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Learning Rate Scheduler",
+                    "title": "Lr Scheduler"
+                },
+                "ignore_gpu_batch_transform_error": {
+                    "default": true,
+                    "description": "Whether to ignore data processing errors during training.",
+                    "title": "Ignore Gpu Batch Transform Error",
+                    "type": "boolean"
+                },
+                "normalizers": {
+                    "additionalProperties": {
+                        "items": {
+                            "$ref": "#/$defs/NormalizerConfig"
+                        },
+                        "type": "array"
+                    },
+                    "default": {},
+                    "description": "Normalizers for the properties.\n\nAny property can be associated with multiple normalizers. This is useful\n    for cases where we want to normalize the same property in different ways.\n    For example, we may want to normalize the energy by subtracting\n    the atomic reference energies, as well as by mean and standard deviation\n    normalization.\n\nThe normalizers are applied in the order they are defined in the list.",
+                    "title": "Normalizers",
+                    "type": "object"
+                },
+                "name": {
+                    "const": "orb",
+                    "default": "orb",
+                    "description": "The type of the backbone.",
+                    "enum": [
+                        "orb"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "pretrained_model": {
+                    "description": "The name of the pretrained model to load.",
+                    "title": "Pretrained Model",
+                    "type": "string"
+                },
+                "system": {
+                    "$ref": "#/$defs/ORBSystemConfig",
+                    "default": {
+                        "radius": 10.0,
+                        "max_num_neighbors": 20
+                    },
+                    "description": "The system configuration, controlling how to featurize a system of atoms."
+                }
+            },
+            "required": [
+                "properties",
+                "optimizer",
+                "pretrained_model"
+            ],
+            "title": "ORBBackboneConfig",
+            "type": "object"
+        },
+        "ORBSystemConfig": {
+            "description": "Config controlling how to featurize a system of atoms.",
+            "properties": {
+                "radius": {
+                    "description": "The radius for edge construction.",
+                    "title": "Radius",
+                    "type": "number"
+                },
+                "max_num_neighbors": {
+                    "description": "The maximum number of neighbours each node can send messages to.",
+                    "title": "Max Num Neighbors",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "radius",
+                "max_num_neighbors"
+            ],
+            "title": "ORBSystemConfig",
+            "type": "object"
+        },
+        "PerAtomReferencingNormalizerConfig": {
+            "properties": {
+                "per_atom_references": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": {
+                                "type": "number"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "items": {
+                                "type": "number"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The reference values for each element.\n\n- If a dictionary is provided, it maps atomic numbers to reference values\n- If a list is provided, it's a list of reference values indexed by atomic number\n- If a path is provided, it should point to a JSON file containing the references",
+                    "title": "Per Atom References"
+                }
+            },
+            "required": [
+                "per_atom_references"
+            ],
+            "title": "PerAtomReferencingNormalizerConfig",
+            "type": "object"
+        },
+        "RMSNormalizerConfig": {
+            "properties": {
+                "rms": {
+                    "description": "The root mean square of the property values.",
+                    "title": "Rms",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "rms"
+            ],
+            "title": "RMSNormalizerConfig",
+            "type": "object"
+        },
+        "ReduceOnPlateauConfig": {
+            "properties": {
+                "type": {
+                    "const": "ReduceLROnPlateau",
+                    "default": "ReduceLROnPlateau",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "ReduceLROnPlateau"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "One of {\"min\", \"max\"}. Determines when to reduce the learning rate.",
+                    "title": "Mode",
+                    "type": "string"
+                },
+                "factor": {
+                    "description": "Factor by which the learning rate will be reduced.",
+                    "title": "Factor",
+                    "type": "number"
+                },
+                "patience": {
+                    "description": "Number of epochs with no improvement after which learning rate will be reduced.",
+                    "title": "Patience",
+                    "type": "integer"
+                },
+                "threshold": {
+                    "default": 0.0001,
+                    "description": "Threshold for measuring the new optimum.",
+                    "title": "Threshold",
+                    "type": "number"
+                },
+                "threshold_mode": {
+                    "default": "rel",
+                    "description": "One of {\"rel\", \"abs\"}. Determines the threshold mode.",
+                    "title": "Threshold Mode",
+                    "type": "string"
+                },
+                "cooldown": {
+                    "default": 0,
+                    "description": "Number of epochs to wait before resuming normal operation.",
+                    "title": "Cooldown",
+                    "type": "integer"
+                },
+                "min_lr": {
+                    "default": 0,
+                    "description": "A lower bound on the learning rate.",
+                    "title": "Min Lr",
+                    "type": "number"
+                },
+                "eps": {
+                    "default": 1e-08,
+                    "description": "Threshold for testing the new optimum.",
+                    "title": "Eps",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "mode",
+                "factor",
+                "patience"
+            ],
+            "title": "ReduceOnPlateauConfig",
+            "type": "object"
+        },
+        "SGDConfig": {
+            "properties": {
+                "name": {
+                    "const": "SGD",
+                    "default": "SGD",
+                    "description": "name of the optimizer.",
+                    "enum": [
+                        "SGD"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
+                "lr": {
+                    "description": "Learning rate.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Lr",
+                    "type": "number"
+                },
+                "momentum": {
+                    "default": 0.0,
+                    "description": "Momentum.",
+                    "minimum": 0.0,
+                    "title": "Momentum",
+                    "type": "number"
+                },
+                "weight_decay": {
+                    "default": 0.0,
+                    "description": "Weight decay.",
+                    "minimum": 0.0,
+                    "title": "Weight Decay",
+                    "type": "number"
+                },
+                "nestrov": {
+                    "default": false,
+                    "description": "Whether to use nestrov.",
+                    "title": "Nestrov",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "lr"
+            ],
+            "title": "SGDConfig",
+            "type": "object"
+        },
+        "StepLRConfig": {
+            "properties": {
+                "type": {
+                    "const": "StepLR",
+                    "default": "StepLR",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "StepLR"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "step_size": {
+                    "description": "Period of learning rate decay.",
+                    "title": "Step Size",
+                    "type": "integer"
+                },
+                "gamma": {
+                    "description": "Multiplicative factor of learning rate decay.",
+                    "title": "Gamma",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "step_size",
+                "gamma"
+            ],
+            "title": "StepLRConfig",
+            "type": "object"
+        },
+        "StressesPropertyConfig": {
+            "properties": {
+                "name": {
+                    "default": "stresses",
+                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "dtype": {
+                    "const": "float",
+                    "default": "float",
+                    "description": "The type of the property values.",
+                    "enum": [
+                        "float"
+                    ],
+                    "title": "Dtype",
+                    "type": "string"
+                },
+                "loss": {
+                    "description": "The loss function to use when training the model on this property.",
+                    "discriminator": {
+                        "mapping": {
+                            "huber": "#/$defs/HuberLossConfig",
+                            "l2_mae": "#/$defs/L2MAELossConfig",
+                            "mae": "#/$defs/MAELossConfig",
+                            "mse": "#/$defs/MSELossConfig"
+                        },
+                        "propertyName": "name"
+                    },
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/MAELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/MSELossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/HuberLossConfig"
+                        },
+                        {
+                            "$ref": "#/$defs/L2MAELossConfig"
+                        }
+                    ],
+                    "title": "Loss"
+                },
+                "loss_coefficient": {
+                    "default": 1.0,
+                    "description": "The coefficient to apply to this property's loss function when training the model.",
+                    "title": "Loss Coefficient",
+                    "type": "number"
+                },
+                "type": {
+                    "const": "stresses",
+                    "default": "stresses",
+                    "enum": [
+                        "stresses"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "conservative": {
+                    "description": "Similar to the `conservative` parameter in `ForcesPropertyConfig`, this parameter\n    specifies whether the stresses should be computed in a conservative manner.",
+                    "title": "Conservative",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "loss",
+                "conservative"
+            ],
+            "title": "StressesPropertyConfig",
+            "type": "object"
+        },
+        "TensorBoardLoggerConfig": {
+            "properties": {
+                "type": {
+                    "const": "tensorboard",
+                    "default": "tensorboard",
+                    "enum": [
+                        "tensorboard"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "save_dir": {
+                    "description": "Save directory where TensorBoard logs will be saved.",
+                    "title": "Save Dir",
+                    "type": "string"
+                },
+                "name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": "lightning_logs",
+                    "description": "Experiment name. Default: ``'lightning_logs'``. If empty string, no per-experiment subdirectory is used.",
+                    "title": "Name"
+                },
+                "version": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Experiment version. If not specified, logger auto-assigns next available version.\nIf string, used as run-specific subdirectory name. Default: ``None``.",
+                    "title": "Version"
+                },
+                "log_graph": {
+                    "default": false,
+                    "description": "Whether to add computational graph to tensorboard. Requires model.example_input_array to be defined.\nDefault: ``False``.",
+                    "title": "Log Graph",
+                    "type": "boolean"
+                },
+                "default_hp_metric": {
+                    "default": true,
+                    "description": "Enables placeholder metric with key `hp_metric` when logging hyperparameters without a metric.\nDefault: ``True``.",
+                    "title": "Default Hp Metric",
+                    "type": "boolean"
+                },
+                "prefix": {
+                    "default": "",
+                    "description": "String to put at beginning of metric keys. Default: ``''``.",
+                    "title": "Prefix",
+                    "type": "string"
+                },
+                "sub_dir": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Sub-directory to group TensorBoard logs. If provided, logs are saved in\n``/save_dir/name/version/sub_dir/``. Default: ``None``.",
+                    "title": "Sub Dir"
+                },
+                "additional_params": {
+                    "default": {},
+                    "description": "Additional parameters passed to tensorboardX.SummaryWriter. Default: ``{}``.",
+                    "title": "Additional Params",
+                    "type": "object"
+                }
+            },
+            "required": [
+                "save_dir"
+            ],
+            "title": "TensorBoardLoggerConfig",
+            "type": "object"
+        },
+        "TrainerConfig": {
+            "properties": {
+                "accelerator": {
+                    "default": "auto",
+                    "description": "Supports passing different accelerator types (\"cpu\", \"gpu\", \"tpu\", \"ipu\", \"hpu\", \"mps\", \"auto\")\nas well as custom accelerator instances.",
+                    "title": "Accelerator",
+                    "type": "string"
+                },
+                "strategy": {
+                    "default": "auto",
+                    "description": "Supports different training strategies with aliases as well custom strategies.\nDefault: ``\"auto\"``.",
+                    "title": "Strategy",
+                    "type": "string"
+                },
+                "num_nodes": {
+                    "default": 1,
+                    "description": "Number of GPU nodes for distributed training.\nDefault: ``1``.",
+                    "title": "Num Nodes",
+                    "type": "integer"
+                },
+                "devices": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "integer"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ],
+                    "default": "auto",
+                    "description": "The devices to use. Can be set to a sequence of device indices, \"all\" to indicate all available devices should be used, or ``\"auto\"`` for\nautomatic selection based on the chosen accelerator. Default: ``\"auto\"``.",
+                    "title": "Devices"
+                },
+                "precision": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                64,
+                                32,
+                                16
+                            ],
+                            "type": "integer"
+                        },
+                        {
+                            "enum": [
+                                "transformer-engine",
+                                "transformer-engine-float16",
+                                "16-true",
+                                "16-mixed",
+                                "bf16-true",
+                                "bf16-mixed",
+                                "32-true",
+                                "64-true"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "64",
+                                "32",
+                                "16",
+                                "bf16"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": "32-true",
+                    "description": "Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'),\n16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').\nCan be used on CPU, GPU, TPUs, HPUs or IPUs.\nDefault: ``'32-true'``.",
+                    "title": "Precision"
+                },
+                "deterministic": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "const": "warn",
+                            "enum": [
+                                "warn"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "If ``True``, sets whether PyTorch operations must use deterministic algorithms.\n    Set to ``\"warn\"`` to use deterministic algorithms whenever possible, throwing warnings on operations\n    that don't support deterministic mode. If not set, defaults to ``False``. Default: ``None``.",
+                    "title": "Deterministic"
+                },
+                "max_epochs": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Stop training once this number of epochs is reached. Disabled by default (None).\nIf both max_epochs and max_steps are not specified, defaults to ``max_epochs = 1000``.\nTo enable infinite training, set ``max_epochs = -1``.",
+                    "title": "Max Epochs"
+                },
+                "min_epochs": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Force training for at least these many epochs. Disabled by default (None).",
+                    "title": "Min Epochs"
+                },
+                "max_steps": {
+                    "default": -1,
+                    "description": "Stop training after this number of steps. Disabled by default (-1). If ``max_steps = -1``\nand ``max_epochs = None``, will default to ``max_epochs = 1000``. To enable infinite training, set\n``max_epochs`` to ``-1``.",
+                    "title": "Max Steps",
+                    "type": "integer"
+                },
+                "min_steps": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Force training for at least these number of steps. Disabled by default (``None``).",
+                    "title": "Min Steps"
+                },
+                "max_time": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "duration",
+                            "type": "string"
+                        },
+                        {
+                            "additionalProperties": {
+                                "type": "integer"
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Stop training after this amount of time has passed. Disabled by default (``None``).\nThe time duration can be specified in the format DD:HH:MM:SS (days, hours, minutes seconds), as a\n:class:`datetime.timedelta`, or a dictionary with keys that will be passed to\n:class:`datetime.timedelta`.",
+                    "title": "Max Time"
+                },
+                "val_check_interval": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "How often to check the validation set. Pass a ``float`` in the range [0.0, 1.0] to check\nafter a fraction of the training epoch. Pass an ``int`` to check after a fixed number of training\nbatches. An ``int`` value can only be higher than the number of training batches when\n``check_val_every_n_epoch=None``, which validates after every ``N`` training batches\nacross epochs or during iteration-based training.\nDefault: ``1.0``.",
+                    "title": "Val Check Interval"
+                },
+                "check_val_every_n_epoch": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": 1,
+                    "description": "Perform a validation loop every after every `N` training epochs. If ``None``,\nvalidation will be done solely based on the number of training batches, requiring ``val_check_interval``\nto be an integer value.\nDefault: ``1``.",
+                    "title": "Check Val Every N Epoch"
+                },
+                "log_every_n_steps": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "How often to log within steps.\nDefault: ``50``.",
+                    "title": "Log Every N Steps"
+                },
+                "gradient_clip_val": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The value at which to clip gradients. Passing ``gradient_clip_val=None`` disables\ngradient clipping. If using Automatic Mixed Precision (AMP), the gradients will be unscaled before.\nDefault: ``None``.",
+                    "title": "Gradient Clip Val"
+                },
+                "gradient_clip_algorithm": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The gradient clipping algorithm to use. Pass ``gradient_clip_algorithm=\"value\"``\nto clip by value, and ``gradient_clip_algorithm=\"norm\"`` to clip by norm. By default it will\nbe set to ``\"norm\"``.",
+                    "title": "Gradient Clip Algorithm"
+                },
+                "checkpoint": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ModelCheckpointConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": {
+                        "dirpath": null,
+                        "filename": null,
+                        "monitor": null,
+                        "verbose": false,
+                        "save_last": null,
+                        "save_top_k": 1,
+                        "save_weights_only": false,
+                        "mode": "min",
+                        "auto_insert_metric_name": true,
+                        "every_n_train_steps": null,
+                        "train_time_interval": null,
+                        "every_n_epochs": null,
+                        "save_on_train_epoch_end": null,
+                        "enable_version_counter": true
+                    },
+                    "description": "The configuration for the model checkpoint."
+                },
+                "early_stopping": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/EarlyStoppingConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": {
+                        "monitor": "val/total_loss",
+                        "min_delta": 0.0,
+                        "patience": 3,
+                        "verbose": false,
+                        "mode": "min",
+                        "strict": true,
+                        "check_finite": true,
+                        "stopping_threshold": null,
+                        "divergence_threshold": null,
+                        "check_on_train_epoch_end": null,
+                        "log_rank_zero_only": false
+                    },
+                    "description": "The configuration for early stopping."
+                },
+                "loggers": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "$ref": "#/$defs/LoggerConfig"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "const": "default",
+                            "enum": [
+                                "default"
+                            ],
+                            "type": "string"
+                        }
+                    ],
+                    "default": "default",
+                    "description": "The loggers to use for logging training metrics.\n\nIf ``\"default\"``, will use the CSV logger + the W&B logger if available.\nDefault: ``\"default\"``.",
+                    "title": "Loggers"
+                },
+                "additional_trainer_kwargs": {
+                    "default": {},
+                    "description": "Additional keyword arguments for the Lightning Trainer.\nThis is for advanced users who want to customize the Lightning Trainer,\n    and is not recommended for beginners.",
+                    "title": "Additional Trainer Kwargs",
+                    "type": "object"
+                }
+            },
+            "title": "TrainerConfig",
+            "type": "object"
+        },
+        "WandbLoggerConfig": {
+            "properties": {
+                "type": {
+                    "const": "wandb",
+                    "default": "wandb",
+                    "enum": [
+                        "wandb"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Display name for the run. Default: ``None``.",
+                    "title": "Name"
+                },
+                "save_dir": {
+                    "default": ".",
+                    "description": "Path where data is saved. Default: ``.``.",
+                    "title": "Save Dir",
+                    "type": "string"
+                },
+                "version": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Sets the version, mainly used to resume a previous run. Default: ``None``.",
+                    "title": "Version"
+                },
+                "offline": {
+                    "default": false,
+                    "description": "Run offline (data can be streamed later to wandb servers). Default: ``False``.",
+                    "title": "Offline",
+                    "type": "boolean"
+                },
+                "dir": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Same as save_dir. Default: ``None``.",
+                    "title": "Dir"
+                },
+                "id": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Same as version. Default: ``None``.",
+                    "title": "Id"
+                },
+                "anonymous": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Enables or explicitly disables anonymous logging. Default: ``None``.",
+                    "title": "Anonymous"
+                },
+                "project": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The name of the project to which this run will belong. Default: ``None``.",
+                    "title": "Project"
+                },
+                "log_model": {
+                    "anyOf": [
+                        {
+                            "const": "all",
+                            "enum": [
+                                "all"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "default": false,
+                    "description": "Whether/how to log model checkpoints as W&B artifacts. Default: ``False``.\nIf 'all', checkpoints are logged during training.\nIf True, checkpoints are logged at the end of training.\nIf False, no checkpoints are logged.",
+                    "title": "Log Model"
+                },
+                "prefix": {
+                    "default": "",
+                    "description": "A string to put at the beginning of metric keys. Default: ``''``.",
+                    "title": "Prefix",
+                    "type": "string"
+                },
+                "experiment": {
+                    "anyOf": [
+                        {},
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "WandB experiment object. Automatically set when creating a run. Default: ``None``.",
+                    "title": "Experiment"
+                },
+                "checkpoint_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Name of the model checkpoint artifact being logged. Default: ``None``.",
+                    "title": "Checkpoint Name"
+                },
+                "additional_init_parameters": {
+                    "default": {},
+                    "description": "Additional parameters to pass to wandb.init(). Default: ``{}``.",
+                    "title": "Additional Init Parameters",
+                    "type": "object"
+                }
+            },
+            "title": "WandbLoggerConfig",
+            "type": "object"
+        },
+        "XYZDatasetConfig": {
+            "properties": {
+                "type": {
+                    "const": "xyz",
+                    "default": "xyz",
+                    "description": "Discriminator for the XYZ dataset.",
+                    "enum": [
+                        "xyz"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "src": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The path to the XYZ dataset.",
+                    "title": "Src"
+                }
+            },
+            "required": [
+                "src"
+            ],
+            "title": "XYZDatasetConfig",
+            "type": "object"
+        }
+    },
+    "properties": {
+        "data": {
+            "$ref": "#/$defs/DataModuleConfig",
+            "description": "The configuration for the data."
+        },
+        "model": {
+            "description": "The configuration for the model.",
+            "discriminator": {
+                "mapping": {
+                    "eqV2": "#/$defs/EqV2BackboneConfig",
+                    "jmp": "#/$defs/JMPBackboneConfig",
+                    "m3gnet": "#/$defs/M3GNetBackboneConfig",
+                    "orb": "#/$defs/ORBBackboneConfig"
+                },
+                "propertyName": "name"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/EqV2BackboneConfig"
+                },
+                {
+                    "$ref": "#/$defs/JMPBackboneConfig"
+                },
+                {
+                    "$ref": "#/$defs/M3GNetBackboneConfig"
+                },
+                {
+                    "$ref": "#/$defs/ORBBackboneConfig"
+                }
+            ],
+            "title": "Model"
+        },
+        "trainer": {
+            "$ref": "#/$defs/TrainerConfig",
+            "description": "The configuration for the trainer."
+        }
+    },
+    "required": [
+        "data",
+        "model",
+        "trainer"
+    ],
+    "title": "MatterTunerConfig",
+    "type": "object"
+}

@@ -1,0 +1,30 @@
+{
+    "properties": {
+        "type": {
+            "const": "StepLR",
+            "default": "StepLR",
+            "description": "Type of the learning rate scheduler.",
+            "enum": [
+                "StepLR"
+            ],
+            "title": "Type",
+            "type": "string"
+        },
+        "step_size": {
+            "description": "Period of learning rate decay.",
+            "title": "Step Size",
+            "type": "integer"
+        },
+        "gamma": {
+            "description": "Multiplicative factor of learning rate decay.",
+            "title": "Gamma",
+            "type": "number"
+        }
+    },
+    "required": [
+        "step_size",
+        "gamma"
+    ],
+    "title": "StepLRConfig",
+    "type": "object"
+}
