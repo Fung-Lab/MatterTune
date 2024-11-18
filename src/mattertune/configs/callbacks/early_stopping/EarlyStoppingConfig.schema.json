@@ -1,0 +1,97 @@
+{
+    "properties": {
+        "monitor": {
+            "default": "val/total_loss",
+            "description": "Quantity to be monitored.",
+            "title": "Monitor",
+            "type": "string"
+        },
+        "min_delta": {
+            "default": 0.0,
+            "description": "Minimum change in monitored quantity to qualify as an improvement. Changes of less than or equal to\n`min_delta` will count as no improvement. Default: ``0.0``.",
+            "title": "Min Delta",
+            "type": "number"
+        },
+        "patience": {
+            "default": 3,
+            "description": "Number of validation checks with no improvement after which training will be stopped. Default: ``3``.",
+            "title": "Patience",
+            "type": "integer"
+        },
+        "verbose": {
+            "default": false,
+            "description": "Whether to print messages when improvement is found or early stopping is triggered. Default: ``False``.",
+            "title": "Verbose",
+            "type": "boolean"
+        },
+        "mode": {
+            "default": "min",
+            "description": "One of 'min' or 'max'. In 'min' mode, training stops when monitored quantity stops decreasing;\nin 'max' mode it stops when the quantity stops increasing. Default: ``'min'``.",
+            "enum": [
+                "min",
+                "max"
+            ],
+            "title": "Mode",
+            "type": "string"
+        },
+        "strict": {
+            "default": true,
+            "description": "Whether to raise an error if monitored metric is not found in validation metrics. Default: ``True``.",
+            "title": "Strict",
+            "type": "boolean"
+        },
+        "check_finite": {
+            "default": true,
+            "description": "Whether to stop training when the monitor becomes NaN or infinite. Default: ``True``.",
+            "title": "Check Finite",
+            "type": "boolean"
+        },
+        "stopping_threshold": {
+            "anyOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Stop training immediately once the monitored quantity reaches this threshold. Default: ``None``.",
+            "title": "Stopping Threshold"
+        },
+        "divergence_threshold": {
+            "anyOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Stop training as soon as the monitored quantity becomes worse than this threshold. Default: ``None``.",
+            "title": "Divergence Threshold"
+        },
+        "check_on_train_epoch_end": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Whether to run early stopping at the end of training epoch. If False, check runs at validation end.\nDefault: ``None``.",
+            "title": "Check On Train Epoch End"
+        },
+        "log_rank_zero_only": {
+            "default": false,
+            "description": "Whether to log the status of early stopping only for rank 0 process. Default: ``False``.",
+            "title": "Log Rank Zero Only",
+            "type": "boolean"
+        }
+    },
+    "title": "EarlyStoppingConfig",
+    "type": "object"
+}

@@ -1,0 +1,31 @@
+{
+    "properties": {
+        "per_atom_references": {
+            "anyOf": [
+                {
+                    "additionalProperties": {
+                        "type": "number"
+                    },
+                    "type": "object"
+                },
+                {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array"
+                },
+                {
+                    "format": "path",
+                    "type": "string"
+                }
+            ],
+            "description": "The reference values for each element.\n\n- If a dictionary is provided, it maps atomic numbers to reference values\n- If a list is provided, it's a list of reference values indexed by atomic number\n- If a path is provided, it should point to a JSON file containing the references",
+            "title": "Per Atom References"
+        }
+    },
+    "required": [
+        "per_atom_references"
+    ],
+    "title": "PerAtomReferencingNormalizerConfig",
+    "type": "object"
+}

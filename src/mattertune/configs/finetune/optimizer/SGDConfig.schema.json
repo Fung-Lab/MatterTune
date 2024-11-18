@@ -1,0 +1,45 @@
+{
+    "properties": {
+        "name": {
+            "const": "SGD",
+            "default": "SGD",
+            "description": "name of the optimizer.",
+            "enum": [
+                "SGD"
+            ],
+            "title": "Name",
+            "type": "string"
+        },
+        "lr": {
+            "description": "Learning rate.",
+            "exclusiveMinimum": 0.0,
+            "title": "Lr",
+            "type": "number"
+        },
+        "momentum": {
+            "default": 0.0,
+            "description": "Momentum.",
+            "minimum": 0.0,
+            "title": "Momentum",
+            "type": "number"
+        },
+        "weight_decay": {
+            "default": 0.0,
+            "description": "Weight decay.",
+            "minimum": 0.0,
+            "title": "Weight Decay",
+            "type": "number"
+        },
+        "nestrov": {
+            "default": false,
+            "description": "Whether to use nestrov.",
+            "title": "Nestrov",
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "lr"
+    ],
+    "title": "SGDConfig",
+    "type": "object"
+}
