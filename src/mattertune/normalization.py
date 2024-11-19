@@ -156,7 +156,11 @@ class PerAtomReferencingNormalizerConfig(NormalizerConfigBase):
             return {z: ref for z, ref in enumerate(self.per_atom_references)}
         else:
             with open(self.per_atom_references, "r") as f:
-                return json.load(f)
+                per_atom_references = json.load(f)
+                per_atom_references = {
+                    int(k): v for k, v in per_atom_references.items()
+                }
+            return per_atom_references
 
     @override
     def create_normalizer_module(self) -> NormalizerModule:
@@ -174,6 +178,8 @@ class PerAtomReferencingNormalizerModule(nn.Module, NormalizerModule):
         references = torch.zeros(max_atomic_number)
         for z, ref in references_dict.items():
             references[z] = ref
+        ## delete reference with key 0
+        references = references[1:]
         self.register_buffer("references", references)
 
     @override
@@ -217,7 +223,7 @@ def compute_per_atom_references(
     dataset: Dataset[ase.Atoms],
     property: PropertyConfig,
     reference_model: Literal["linear", "ridge"],
-    reference_model_kwargs: dict[str, Any],
+    reference_model_kwargs: dict[str, Any] = {},
 ):
     property_values: list[float] = []
     compositions: list[Counter[int]] = []
@@ -263,8 +269,9 @@ def compute_per_atom_references(
     # references: (num_elements,)
 
     # Convert the reference to a dict[int, float]
-    references_dict = {z: ref for z, ref in enumerate(references.tolist())}
-
+    references_dict = {int(z): ref for z, ref in enumerate(references.tolist())}
+    ## delete reference with key 0
+    del references_dict[0]
     return references_dict
 
 

@@ -388,8 +388,9 @@ class M3GNetBackboneModule(
         atomic_numbers: torch.Tensor = g.ndata["node_type"].long()  # (n_atoms,)
 
         # Convert atomic numbers to one-hot encoding
+        max_atomic_number = int(atomic_numbers.max().item())
         g.ndata["atom_types_onehot"] = F.one_hot(
-            atomic_numbers, num_classes=len(DEFAULT_ELEMENTS)
+            atomic_numbers, num_classes=max_atomic_number + 1
         ).float()
 
         # Sum the one-hot encoded atom types for each graph in the batch
