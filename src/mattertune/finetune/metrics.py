@@ -43,7 +43,12 @@ class PropertyMetrics(MetricBase):
         ground_truth: dict[str, Any],
     ):
         y_hat, y = prediction[self.property_name], ground_truth[self.property_name]
-
+        try:
+            y_hat = y_hat.reshape(y.shape)
+        except RuntimeError:
+            raise ValueError(
+                f"Prediction shape {y_hat.shape} does not match ground truth shape {y.shape}"
+            )
         self.mae(y_hat, y)
         self.mse(y_hat, y)
         self.rmse(y_hat, y)
