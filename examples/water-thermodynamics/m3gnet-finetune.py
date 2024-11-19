@@ -53,6 +53,15 @@ def main(args_dict: dict):
         hparams.data.train_split = args_dict["train_split"]
         hparams.data.batch_size = args_dict["batch_size"]
 
+        ## Add Normalization for Energy
+        hparams.model.normalizers = {
+            "energy": [
+                MC.PerAtomReferencingNormalizerConfig(
+                    per_atom_references=Path("./data/energy_reference.json")
+                )
+            ]
+        }
+
         ## Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
         hparams.trainer.max_epochs = args_dict["max_epochs"]
@@ -70,6 +79,7 @@ def main(args_dict: dict):
             filename="m3gnet-best",
             save_top_k=1,
             mode="min",
+            every_n_epochs=10,
         )
 
         # Configure Logger
@@ -101,7 +111,7 @@ if __name__ == "__main__":
     parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
     parser.add_argument("--train_split", type=float, default=0.8)
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=8e-4)
+    parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--max_epochs", type=int, default=2000)
     parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
     args = parser.parse_args()
