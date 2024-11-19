@@ -72,6 +72,7 @@ def main(args_dict: dict):
             filename="jmp-best",
             save_top_k=1,
             mode="min",
+            every_n_epochs=10,
         )
 
         # Configure Logger

@@ -59,10 +59,11 @@ def main(args_dict: dict):
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor=f"val/{args_dict['task']}_mae",
-            dirpath="./checkpoints",
-            filename=f"orb-best-{args_dict['task']}",
+            dirpath=f"./checkpoints-{args_dict['task']}",
+            filename="orb-best",
             save_top_k=1,
             mode="min",
+            every_n_epochs=10,
         )
 
         # Configure Logger
@@ -87,7 +88,6 @@ def main(args_dict: dict):
 
     mt_config = hparams()
     model, trainer = MatterTuner(mt_config).tune()
-    trainer.save_checkpoint("finetuned.ckpt")
 
 
 if __name__ == "__main__":
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--train_split", type=float, default=0.9)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=2000)
+    parser.add_argument("--max_epochs", type=int, default=2)
     parser.add_argument("--devices", type=int, nargs="+", default=[0])
     args = parser.parse_args()
     args_dict = vars(args)
