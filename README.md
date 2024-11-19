@@ -187,26 +187,26 @@ Here's a simple example of fine-tuning a pre-trained model for energy prediction
 
 ```python
 import mattertune as mt
+from pathlib import Path
 
 # Define configuration
 config = mt.configs.MatterTunerConfig(
     model=mt.configs.JMPBackboneConfig(
-        ckpt_path="path/to/pretrained/model.pt",
+        ckpt_path=Path("YOUR_CHECKPOINT_PATH"),
+        graph_computer=mt.configs.JMPGraphComputerConfig(pbc=True),
         properties=[
             mt.configs.EnergyPropertyConfig(
-                loss=mt.configs.MAELossConfig(),
-                loss_coefficient=1.0
+                loss=mt.configs.MAELossConfig(), loss_coefficient=1.0
             )
         ],
-        optimizer=mt.configs.AdamWConfig(lr=1e-4)
+        optimizer=mt.configs.AdamWConfig(lr=1e-4),
     ),
     data=mt.configs.AutoSplitDataModuleConfig(
-        dataset=mt.configs.XYZDatasetConfig(
-            src="path/to/your/data.xyz"
-        ),
+        dataset=mt.configs.XYZDatasetConfig(src=Path("YOUR_XYZFILE_PATH")),
         train_split=0.8,
-        batch_size=32
-    )
+        batch_size=4,
+    ),
+    trainer=mt.configs.TrainerConfig(max_epochs=10, accelerator="gpu", devices=[0]),
 )
 
 # Create tuner and train
