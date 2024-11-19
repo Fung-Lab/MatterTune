@@ -61,14 +61,14 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor="val/matbench_mp_gap_mae", patience=200, mode="min"
+            monitor=f"val/{args_dict['task']}_mae", patience=200, mode="min"
         )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
-            monitor="val/matbench_mp_gap_mae",
+            monitor=f"val/{args_dict['task']}_mae",
             dirpath="./checkpoints",
-            filename="jmp-best",
+            filename="jmp-best-" + args_dict["task"],
             save_top_k=1,
             mode="min",
         )

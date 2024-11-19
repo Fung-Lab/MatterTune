@@ -63,14 +63,14 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor="val/forces_mae", patience=200, mode="min"
+            monitor=f"val/{args_dict['task']}_mae", patience=200, mode="min"
         )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
-            monitor="val/forces_mae",
+            monitor=f"val/{args_dict['task']}_mae",
             dirpath="./checkpoints",
-            filename="jmp-best",
+            filename=f"eqv2-Matbench-{args_dict['task']}",
             save_top_k=1,
             mode="min",
         )
@@ -78,7 +78,9 @@ def main(args_dict: dict):
         # Configure Logger
         hparams.trainer.loggers = [
             WandbLoggerConfig(
-                project="MatterTune-Examples", name="JMP-Water", offline=False
+                project="MatterTune-Examples",
+                name=f"EqV2-Matbench-{args_dict['task']}",
+                offline=False,
             )
         ]
 

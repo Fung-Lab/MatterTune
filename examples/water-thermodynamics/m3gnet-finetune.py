@@ -35,16 +35,16 @@ def main(args_dict: dict):
 
         # Add model properties
         hparams.model.properties = []
-
-        # Add energy property
         energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
         hparams.model.properties.append(energy)
-
-        # Add forces property
         forces = MC.ForcesPropertyConfig(
             loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
         )
         hparams.model.properties.append(forces)
+        stresses = MC.StressesPropertyConfig(
+            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=0.0
+        )
+        hparams.model.properties.append(stresses)
 
         ## Data Hyperparameters
         hparams.data = MC.AutoSplitDataModuleConfig.draft()
@@ -75,7 +75,8 @@ def main(args_dict: dict):
         # Configure Logger
         hparams.trainer.loggers = [
             WandbLoggerConfig(
-                project="MatterTune-Examples", name="M3GNet-Water", offline=False
+                project="MatterTune-Examples",
+                name="M3GNet-Water",
             )
         ]
 
@@ -89,7 +90,7 @@ def main(args_dict: dict):
 
     mt_config = hparams()
     model, trainer = MatterTuner(mt_config).tune()
-    trainer.save_checkpoint("finetuned.ckpt")
+    # trainer.save_checkpoint("finetuned.ckpt")
 
 
 if __name__ == "__main__":
@@ -100,9 +101,9 @@ if __name__ == "__main__":
     parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
     parser.add_argument("--train_split", type=float, default=0.8)
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=8e-5)
+    parser.add_argument("--lr", type=float, default=8e-4)
     parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[1, 3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
