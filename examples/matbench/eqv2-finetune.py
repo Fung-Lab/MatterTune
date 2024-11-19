@@ -26,9 +26,7 @@ def main(args_dict: dict):
 
         ## Model Hyperparameters
         hparams.model = MC.EqV2BackboneConfig.draft()
-        hparams.model.checkpoint_path = CE.CachedPath(
-            uri="hf://fairchem/OMAT24/eqV2_31M_mp.pt"
-        )
+        hparams.model.checkpoint_path = Path(args_dict["ckpt_path"])
         hparams.model.atoms_to_graph = MC.FAIRChemAtomsToGraphSystemConfig.draft()
         hparams.model.atoms_to_graph.radius = 8.0
         hparams.model.atoms_to_graph.max_num_neighbors = 20
@@ -101,7 +99,11 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default="orb-v2")
+    parser.add_argument(
+        "--ckpt_path",
+        type=str,
+        default="/net/csefiles/coc-fung-cluster/nima/shared/checkpoints/eqV2_31M_mp.pt",
+    )
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)

@@ -27,9 +27,7 @@ def main(args_dict: dict):
 
         ## Model Hyperparameters
         hparams.model = MC.EqV2BackboneConfig.draft()
-        hparams.model.checkpoint_path = CE.CachedPath(
-            uri="hf://fairchem/OMAT24/eqV2_31M_mp.pt"
-        )
+        hparams.model.checkpoint_path = Path(args_dict["ckpt_path"])
         hparams.model.atoms_to_graph = MC.FAIRChemAtomsToGraphSystemConfig.draft()
         hparams.model.atoms_to_graph.radius = 8.0
         hparams.model.atoms_to_graph.max_num_neighbors = 20
@@ -100,6 +98,11 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--ckpt_path",
+        type=str,
+        default="/net/csefiles/coc-fung-cluster/nima/shared/checkpoints/eqV2_31M_mp.pt",
+    )
     parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
     parser.add_argument("--train_split", type=float, default=0.03)
     parser.add_argument("--batch_size", type=int, default=8)
