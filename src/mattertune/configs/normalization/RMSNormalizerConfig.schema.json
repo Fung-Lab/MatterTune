@@ -1,0 +1,14 @@
+{
+    "properties": {
+        "rms": {
+            "description": "The root mean square of the property values.",
+            "title": "Rms",
+            "type": "number"
+        }
+    },
+    "required": [
+        "rms"
+    ],
+    "title": "RMSNormalizerConfig",
+    "type": "object"
+}

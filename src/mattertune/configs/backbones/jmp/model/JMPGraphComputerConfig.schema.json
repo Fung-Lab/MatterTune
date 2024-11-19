@@ -1,0 +1,98 @@
+{
+    "$defs": {
+        "CutoffsConfig": {
+            "properties": {
+                "main": {
+                    "title": "Main",
+                    "type": "number"
+                },
+                "aeaint": {
+                    "title": "Aeaint",
+                    "type": "number"
+                },
+                "qint": {
+                    "title": "Qint",
+                    "type": "number"
+                },
+                "aint": {
+                    "title": "Aint",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "main",
+                "aeaint",
+                "qint",
+                "aint"
+            ],
+            "title": "CutoffsConfig",
+            "type": "object"
+        },
+        "MaxNeighborsConfig": {
+            "properties": {
+                "main": {
+                    "title": "Main",
+                    "type": "integer"
+                },
+                "aeaint": {
+                    "title": "Aeaint",
+                    "type": "integer"
+                },
+                "qint": {
+                    "title": "Qint",
+                    "type": "integer"
+                },
+                "aint": {
+                    "title": "Aint",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "main",
+                "aeaint",
+                "qint",
+                "aint"
+            ],
+            "title": "MaxNeighborsConfig",
+            "type": "object"
+        }
+    },
+    "properties": {
+        "pbc": {
+            "description": "Whether to use periodic boundary conditions.",
+            "title": "Pbc",
+            "type": "boolean"
+        },
+        "cutoffs": {
+            "$ref": "#/$defs/CutoffsConfig",
+            "default": {
+                "main": 12.0,
+                "aeaint": 12.0,
+                "qint": 12.0,
+                "aint": 12.0
+            },
+            "description": "The cutoff for the radius graph."
+        },
+        "max_neighbors": {
+            "$ref": "#/$defs/MaxNeighborsConfig",
+            "default": {
+                "main": 30,
+                "aeaint": 20,
+                "qint": 8,
+                "aint": 1000
+            },
+            "description": "The maximum number of neighbors for the radius graph."
+        },
+        "per_graph_radius_graph": {
+            "default": false,
+            "description": "Whether to compute the radius graph per graph.",
+            "title": "Per Graph Radius Graph",
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "pbc"
+    ],
+    "title": "JMPGraphComputerConfig",
+    "type": "object"
+}

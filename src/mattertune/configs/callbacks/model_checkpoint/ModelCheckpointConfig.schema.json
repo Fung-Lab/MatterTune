@@ -1,0 +1,155 @@
+{
+    "properties": {
+        "dirpath": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Directory to save the model file. Default: ``None``.",
+            "title": "Dirpath"
+        },
+        "filename": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Checkpoint filename. Can contain named formatting options. Default: ``None``.",
+            "title": "Filename"
+        },
+        "monitor": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Quantity to monitor. Default: ``None``.",
+            "title": "Monitor"
+        },
+        "verbose": {
+            "default": false,
+            "description": "Verbosity mode. Default: ``False``.",
+            "title": "Verbose",
+            "type": "boolean"
+        },
+        "save_last": {
+            "anyOf": [
+                {
+                    "enum": [
+                        true,
+                        false,
+                        "link"
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "When True or \"link\", saves a 'last.ckpt' checkpoint when a checkpoint is saved. Default: ``None``.",
+            "title": "Save Last"
+        },
+        "save_top_k": {
+            "default": 1,
+            "description": "If save_top_k=k, save k models with best monitored quantity. Default: ``1``.",
+            "title": "Save Top K",
+            "type": "integer"
+        },
+        "save_weights_only": {
+            "default": false,
+            "description": "If True, only save model weights. Default: ``False``.",
+            "title": "Save Weights Only",
+            "type": "boolean"
+        },
+        "mode": {
+            "default": "min",
+            "description": "One of {'min', 'max'}. For 'min' training stops when monitored quantity stops decreasing. Default: ``'min'``.",
+            "enum": [
+                "min",
+                "max"
+            ],
+            "title": "Mode",
+            "type": "string"
+        },
+        "auto_insert_metric_name": {
+            "default": true,
+            "description": "Whether to automatically insert metric name in checkpoint filename. Default: ``True``.",
+            "title": "Auto Insert Metric Name",
+            "type": "boolean"
+        },
+        "every_n_train_steps": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Number of training steps between checkpoints. Default: ``None``.",
+            "title": "Every N Train Steps"
+        },
+        "train_time_interval": {
+            "anyOf": [
+                {
+                    "format": "duration",
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Checkpoints are monitored at the specified time interval. Default: ``None``.",
+            "title": "Train Time Interval"
+        },
+        "every_n_epochs": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Number of epochs between checkpoints. Default: ``None``.",
+            "title": "Every N Epochs"
+        },
+        "save_on_train_epoch_end": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Whether to run checkpointing at end of training epoch. Default: ``None``.",
+            "title": "Save On Train Epoch End"
+        },
+        "enable_version_counter": {
+            "default": true,
+            "description": "Whether to append version to existing filenames. Default: ``True``.",
+            "title": "Enable Version Counter",
+            "type": "boolean"
+        }
+    },
+    "title": "ModelCheckpointConfig",
+    "type": "object"
+}
