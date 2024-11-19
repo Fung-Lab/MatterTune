@@ -23,6 +23,11 @@ nshconfig = "*"
 nshconfig_extra = "*"
 scikit-learn = "*"
 
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pre-commit = "*"
+ruff = "*"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,37 @@
+{
+    "properties": {
+        "batch_size": {
+            "description": "The batch size for the dataloaders.",
+            "title": "Batch Size",
+            "type": "integer"
+        },
+        "num_workers": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "const": "auto",
+                    "enum": [
+                        "auto"
+                    ],
+                    "type": "string"
+                }
+            ],
+            "default": "auto",
+            "description": "The number of workers for the dataloaders.\n\nThis is the number of processes that generate batches in parallel.\nIf set to \"auto\", the number of workers will be automatically\n    set based on the number of available CPUs.\nSet to 0 to disable parallelism.",
+            "title": "Num Workers"
+        },
+        "pin_memory": {
+            "default": true,
+            "description": "Whether to pin memory in the dataloaders.\n\nThis is useful for speeding up GPU data transfer.",
+            "title": "Pin Memory",
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "batch_size"
+    ],
+    "title": "DataModuleBaseConfig",
+    "type": "object"
+}

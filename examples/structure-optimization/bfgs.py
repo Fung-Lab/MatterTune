@@ -9,9 +9,8 @@ from ase import Atoms
 from ase.constraints import UnitCellFilter
 from ase.io import read, write
 from ase.optimize import LBFGS
-from tqdm import tqdm
-
 from mattertune.backbones import JMPBackboneModule
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)

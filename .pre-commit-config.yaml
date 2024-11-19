@@ -1,0 +1,23 @@
+# .pre-commit-config.yaml
+repos:
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.3.0
+      hooks:
+          - id: ruff
+            args: [--fix, --select, I] # Fix import sorting
+          - id: ruff
+            args: [--fix] # Fix other issues
+          - id: ruff-format # Format code
+          - id: ruff
+            name: ruff-check
+            args: [--no-fix] # Just check for issues
+
+    - repo: local
+      hooks:
+          - id: pyright
+            name: pyright
+            entry: pyright
+            language: node
+            types: [python]
+            pass_filenames: false
+            additional_dependencies: ["pyright"]

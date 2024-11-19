@@ -1,0 +1,21 @@
+{
+    "description": "Config controlling how to featurize a system of atoms.",
+    "properties": {
+        "radius": {
+            "description": "The radius for edge construction.",
+            "title": "Radius",
+            "type": "number"
+        },
+        "max_num_neighbors": {
+            "description": "The maximum number of neighbours each node can send messages to.",
+            "title": "Max Num Neighbors",
+            "type": "integer"
+        }
+    },
+    "required": [
+        "radius",
+        "max_num_neighbors"
+    ],
+    "title": "ORBSystemConfig",
+    "type": "object"
+}
