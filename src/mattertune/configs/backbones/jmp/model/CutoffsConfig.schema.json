@@ -1,0 +1,28 @@
+{
+    "properties": {
+        "main": {
+            "title": "Main",
+            "type": "number"
+        },
+        "aeaint": {
+            "title": "Aeaint",
+            "type": "number"
+        },
+        "qint": {
+            "title": "Qint",
+            "type": "number"
+        },
+        "aint": {
+            "title": "Aint",
+            "type": "number"
+        }
+    },
+    "required": [
+        "main",
+        "aeaint",
+        "qint",
+        "aint"
+    ],
+    "title": "CutoffsConfig",
+    "type": "object"
+}

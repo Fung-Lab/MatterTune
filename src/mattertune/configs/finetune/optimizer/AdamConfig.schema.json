@@ -1,0 +1,66 @@
+{
+    "properties": {
+        "name": {
+            "const": "Adam",
+            "default": "Adam",
+            "description": "name of the optimizer.",
+            "enum": [
+                "Adam"
+            ],
+            "title": "Name",
+            "type": "string"
+        },
+        "lr": {
+            "description": "Learning rate.",
+            "exclusiveMinimum": 0.0,
+            "title": "Lr",
+            "type": "number"
+        },
+        "eps": {
+            "default": 1e-08,
+            "description": "Epsilon.",
+            "minimum": 0.0,
+            "title": "Eps",
+            "type": "number"
+        },
+        "betas": {
+            "default": [
+                0.9,
+                0.999
+            ],
+            "description": "Betas.",
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+                {
+                    "exclusiveMinimum": 0.0,
+                    "type": "number"
+                },
+                {
+                    "exclusiveMinimum": 0.0,
+                    "type": "number"
+                }
+            ],
+            "title": "Betas",
+            "type": "array"
+        },
+        "weight_decay": {
+            "default": 0.0,
+            "description": "Weight decay.",
+            "minimum": 0.0,
+            "title": "Weight Decay",
+            "type": "number"
+        },
+        "amsgrad": {
+            "default": false,
+            "description": "Whether to use AMSGrad variant of Adam.",
+            "title": "Amsgrad",
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "lr"
+    ],
+    "title": "AdamConfig",
+    "type": "object"
+}

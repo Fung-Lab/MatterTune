@@ -1,0 +1,24 @@
+{
+    "properties": {
+        "type": {
+            "const": "ExponentialLR",
+            "default": "ExponentialLR",
+            "description": "Type of the learning rate scheduler.",
+            "enum": [
+                "ExponentialLR"
+            ],
+            "title": "Type",
+            "type": "string"
+        },
+        "gamma": {
+            "description": "Multiplicative factor of learning rate decay.",
+            "title": "Gamma",
+            "type": "number"
+        }
+    },
+    "required": [
+        "gamma"
+    ],
+    "title": "ExponentialConfig",
+    "type": "object"
+}

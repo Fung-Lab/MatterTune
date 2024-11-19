@@ -1,0 +1,28 @@
+{
+    "properties": {
+        "main": {
+            "title": "Main",
+            "type": "integer"
+        },
+        "aeaint": {
+            "title": "Aeaint",
+            "type": "integer"
+        },
+        "qint": {
+            "title": "Qint",
+            "type": "integer"
+        },
+        "aint": {
+            "title": "Aint",
+            "type": "integer"
+        }
+    },
+    "required": [
+        "main",
+        "aeaint",
+        "qint",
+        "aint"
+    ],
+    "title": "MaxNeighborsConfig",
+    "type": "object"
+}

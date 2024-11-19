@@ -1,0 +1,23 @@
+{
+    "properties": {
+        "reduction": {
+            "default": "mean",
+            "description": "The reduction to use for the output.",
+            "enum": [
+                "mean",
+                "sum",
+                "max"
+            ],
+            "title": "Reduction",
+            "type": "string"
+        },
+        "num_mlps": {
+            "default": 1,
+            "description": "Number of MLPs in the output layer.",
+            "title": "Num Mlps",
+            "type": "integer"
+        }
+    },
+    "title": "GraphScalarTargetConfig",
+    "type": "object"
+}
