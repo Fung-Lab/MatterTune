@@ -9,13 +9,14 @@ from typing import Any, Literal, NamedTuple
 import nshconfig as C
 from lightning.fabric.plugins.precision.precision import _PRECISION_INPUT
 from lightning.pytorch import Trainer
+from lightning.pytorch.strategies.strategy import Strategy
 
 from .backbones import ModelConfig
 from .callbacks.early_stopping import EarlyStoppingConfig
 from .callbacks.model_checkpoint import ModelCheckpointConfig
 from .data import DataModuleConfig, MatterTuneDataModule
 from .finetune.base import FinetuneModuleBase
-from .loggers import LoggerConfig
+from .loggers import CSVLoggerConfig, LoggerConfig
 from .registry import backbone_registry, data_registry
 
 log = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class TrainerConfig(C.Config):
     """Supports passing different accelerator types ("cpu", "gpu", "tpu", "ipu", "hpu", "mps", "auto")
     as well as custom accelerator instances."""
 
-    strategy: str = "auto"
+    strategy: str | Strategy = "auto"
     """Supports different training strategies with aliases as well custom strategies.
     Default: ``"auto"``.
     """
@@ -119,10 +120,10 @@ class TrainerConfig(C.Config):
     be set to ``"norm"``.
     """
 
-    checkpoint: ModelCheckpointConfig | None = ModelCheckpointConfig()
+    checkpoint: ModelCheckpointConfig | None = None
     """The configuration for the model checkpoint."""
 
-    early_stopping: EarlyStoppingConfig | None = EarlyStoppingConfig()
+    early_stopping: EarlyStoppingConfig | None = None
     """The configuration for early stopping."""
 
     loggers: Sequence[LoggerConfig] | Literal["default"] = "default"
@@ -146,6 +147,13 @@ class TrainerConfig(C.Config):
         if self.early_stopping is not None:
             callbacks.append(self.early_stopping.create_callback())
 
+        loggers = []
+        if self.loggers == "default":
+            loggers.append(CSVLoggerConfig(save_dir="./logs").create_logger())
+        else:
+            for logger_config in self.loggers:
+                loggers.append(logger_config.create_logger())
+
         kwargs = {
             "callbacks": callbacks,
             "accelerator": self.accelerator,
@@ -164,6 +172,7 @@ class TrainerConfig(C.Config):
             "log_every_n_steps": self.log_every_n_steps,
             "gradient_clip_val": self.gradient_clip_val,
             "gradient_clip_algorithm": self.gradient_clip_algorithm,
+            "logger": loggers,
         }
 
         # Add the additional trainer kwargs
