@@ -91,7 +91,7 @@ class WandbLoggerConfig(C.Config):
         base_params = {
             k: v
             for k, v in self.model_dump().items()
-            if k != "additional_init_parameters"
+            if k != "additional_init_parameters" and k != "type"
         }
 
         # Merge with additional init parameters
@@ -135,7 +135,9 @@ class TensorBoardLoggerConfig(C.Config):
 
         # Pass all parameters except additional_params to constructor
         base_params = {
-            k: v for k, v in self.model_dump().items() if k != "additional_params"
+            k: v
+            for k, v in self.model_dump().items()
+            if k != "additional_params" and k != "type"
         }
 
         # Merge with additional tensorboard parameters
