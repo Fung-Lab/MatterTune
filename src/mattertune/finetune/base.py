@@ -342,14 +342,14 @@ class FinetuneModuleBase(
         Returns:
             Normalized properties.
         """
-        return {
-            prop_name: properties[prop_name]
-            if (normalizer := self.normalizers.get(prop_name)) is None
-            else cast(ComposeNormalizers, normalizer).normalize(
-                properties[prop_name], ctx
-            )
-            for prop_name in properties
-        }
+        normalized_properties = {}
+        for prop_name, prop_value in properties.items():
+            if prop_name in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[prop_name])
+                normalized_properties[prop_name] = normalizer.normalize(prop_value, ctx)
+            else:
+                normalized_properties[prop_name] = prop_value
+        return normalized_properties
 
     def denormalize(
         self,
@@ -369,14 +369,16 @@ class FinetuneModuleBase(
         Returns:
             Denormalized properties.
         """
-        return {
-            prop_name: properties[prop_name]
-            if (normalizer := self.normalizers.get(prop_name)) is None
-            else cast(ComposeNormalizers, normalizer).denormalize(
-                properties[prop_name], ctx
-            )
-            for prop_name in properties
-        }
+        denormalized_properties = {}
+        for prop_name, prop_value in properties.items():
+            if prop_name in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[prop_name])
+                denormalized_properties[prop_name] = normalizer.denormalize(
+                    prop_value, ctx
+                )
+            else:
+                denormalized_properties[prop_name] = prop_value
+        return denormalized_properties
 
     @override
     def forward(
