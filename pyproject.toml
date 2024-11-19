@@ -21,6 +21,7 @@ nshtrainer = "*"
 nshutils = "*"
 nshconfig = "*"
 nshconfig_extra = "*"
+scikit-learn = "*"
 
 [build-system]
 requires = ["poetry-core"]
