@@ -92,6 +92,13 @@ def compute_loss(
     Returns:
         The computed loss value.
     """
+    try:
+        prediction = prediction.reshape(label.shape)
+    except RuntimeError:
+        raise ValueError(
+            f"Prediction shape {prediction.shape} does not match ground truth shape {label.shape}"
+        )
+
     match config:
         case MAELossConfig():
             return F.l1_loss(prediction, label, reduction=config.reduction)
