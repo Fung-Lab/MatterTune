@@ -17,6 +17,7 @@ import mattertune as mt
 
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
+from ...normalization import NormalizationContext
 from ...registry import backbone_registry
 
 if TYPE_CHECKING:
@@ -376,3 +377,22 @@ class M3GNetBackboneModule(
                     value = torch.from_numpy(value).float().reshape(1, 3, 3)
                 labels[prop.name] = value
         return MatGLData(graph, line_graph, state_attr, lattice, labels)
+
+    @override
+    def create_normalization_context_from_batch(self, batch):
+        import dgl
+        import torch.nn.functional as F
+        from matgl.config import DEFAULT_ELEMENTS
+
+        g = batch.g
+        atomic_numbers: torch.Tensor = g.ndata["node_type"].long()  # (n_atoms,)
+
+        # Convert atomic numbers to one-hot encoding
+        g.ndata["atom_types_onehot"] = F.one_hot(
+            atomic_numbers, num_classes=len(DEFAULT_ELEMENTS)
+        ).float()
+
+        # Sum the one-hot encoded atom types for each graph in the batch
+        compositions = dgl.readout_nodes(g, feat="atom_types_onehot", op="sum")
+
+        return NormalizationContext(compositions=compositions)
