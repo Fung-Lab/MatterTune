@@ -51,8 +51,24 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
 
     @override
     @classmethod
-    def model_cls(cls):
-        return EqV2BackboneModule
+    def ensure_dependencies(cls):
+        # Make sure the fairchem module is available
+        if importlib.util.find_spec("fairchem") is None:
+            raise ImportError(
+                "The fairchem module is not installed. Please install it by running"
+                " pip install fairchem-core."
+            )
+
+        # Make sure torch-geometric is available
+        if importlib.util.find_spec("torch_geometric") is None:
+            raise ImportError(
+                "The torch-geometric module is not installed. Please install it by running"
+                " pip install torch-geometric."
+            )
+
+    @override
+    def create_model(self):
+        return EqV2BackboneModule(self)
 
 
 def _combine_scalar_irrep2(stress_head: "Rank2SymmetricTensorHead", scalar, irrep2):
@@ -167,23 +183,6 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     @classmethod
     def hparams_cls(cls):
         return EqV2BackboneConfig
-
-    @override
-    @classmethod
-    def ensure_dependencies(cls):
-        # Make sure the fairchem module is available
-        if importlib.util.find_spec("fairchem") is None:
-            raise ImportError(
-                "The fairchem module is not installed. Please install it by running"
-                " pip install fairchem-core."
-            )
-
-        # Make sure torch-geometric is available
-        if importlib.util.find_spec("torch_geometric") is None:
-            raise ImportError(
-                "The torch-geometric module is not installed. Please install it by running"
-                " pip install torch-geometric."
-            )
 
     @override
     def requires_disabled_inference_mode(self):

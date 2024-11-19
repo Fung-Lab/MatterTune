@@ -1,0 +1,70 @@
+{
+    "description": "Configuration for a dataset stored in the Materials Project database.",
+    "properties": {
+        "type": {
+            "const": "mptraj",
+            "default": "mptraj",
+            "description": "Discriminator for the MPTraj dataset.",
+            "enum": [
+                "mptraj"
+            ],
+            "title": "Type",
+            "type": "string"
+        },
+        "split": {
+            "default": "train",
+            "description": "Split of the dataset to use.",
+            "enum": [
+                "train",
+                "val",
+                "test"
+            ],
+            "title": "Split",
+            "type": "string"
+        },
+        "min_num_atoms": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": 5,
+            "description": "Minimum number of atoms to be considered. Drops structures with fewer atoms.",
+            "title": "Min Num Atoms"
+        },
+        "max_num_atoms": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Maximum number of atoms to be considered. Drops structures with more atoms.",
+            "title": "Max Num Atoms"
+        },
+        "elements": {
+            "anyOf": [
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "List of elements to be considered. Drops structures with elements not in the list.\nSubsets are also allowed. For example, [\"Li\", \"Na\"] will keep structures with either Li or Na.",
+            "title": "Elements"
+        }
+    },
+    "title": "MPTrajDatasetConfig",
+    "type": "object"
+}

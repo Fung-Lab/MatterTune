@@ -118,17 +118,8 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
     """The configuration for the graph computer."""
 
     @override
-    @classmethod
-    def model_cls(cls):
-        return JMPBackboneModule
-
-
-@final
-class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
-    @override
-    @classmethod
-    def hparams_cls(cls):
-        return JMPBackboneConfig
+    def create_model(self):
+        return JMPBackboneModule(self)
 
     @override
     @classmethod
@@ -146,6 +137,14 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                 "The torch-geometric module is not installed. Please install it by running"
                 " pip install torch-geometric."
             )
+
+
+@final
+class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
+    @override
+    @classmethod
+    def hparams_cls(cls):
+        return JMPBackboneConfig
 
     @override
     def requires_disabled_inference_mode(self):

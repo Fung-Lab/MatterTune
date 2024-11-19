@@ -7,7 +7,6 @@ This guide covers advanced topics for extending MatterTune with custom component
     - [Table of Contents](#table-of-contents)
     - [Implementing Custom Backbones](#implementing-custom-backbones)
         - [Basic Structure](#basic-structure)
-        - [Required Methods](#required-methods)
     - [Implementing Custom Datasets](#implementing-custom-datasets)
         - [Dataset Structure](#dataset-structure)
     - [Usage](#usage)
@@ -36,9 +35,14 @@ class MyBackboneConfig(mt.FinetuneModuleBaseConfig):
     num_layers: int
 
     @override
+    def create_model(self):
+        return MyBackboneModule(self)
+
+    @override
     @classmethod
-    def model_cls(cls):
-        return MyBackboneModule
+    def ensure_dependencies(cls):
+        # Check for required packages
+        pass
 
 class MyBackboneModule(mt.FinetuneModuleBase["MyData", "MyBatch", MyBackboneConfig]):
     @override
@@ -46,19 +50,7 @@ class MyBackboneModule(mt.FinetuneModuleBase["MyData", "MyBatch", MyBackboneConf
     def hparams_cls(cls):
         return MyBackboneConfig
 
-    @override
-    @classmethod
-    def ensure_dependencies(cls):
-        # Check for required packages
-        pass
-```
-
-### Required Methods
-
-Your backbone module must implement these abstract methods:
-
-```python
-class MyBackboneModule(mt.FinetuneModuleBase):
+    # Your backbone module must implement these abstract methods:
     @override
     def create_model(self):
         """Initialize your model architecture here"""

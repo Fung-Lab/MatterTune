@@ -56,7 +56,21 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
 
     @classmethod
     @abstractmethod
-    def model_cls(cls) -> type[FinetuneModuleBase]: ...
+    def ensure_dependencies(cls):
+        """
+        Ensure that all dependencies are installed.
+
+        This method should raise an exception if any dependencies are missing,
+            with a message indicating which dependencies are missing and
+            how to install them.
+        """
+        ...
+
+    @abstractmethod
+    def create_model(self) -> FinetuneModuleBase:
+        """
+        Creates an instance of the finetune module for this configuration.
+        """
 
     @override
     def __post_init__(self):
@@ -122,18 +136,6 @@ class FinetuneModuleBase(
     @abstractmethod
     def hparams_cls(cls) -> type[TFinetuneModuleConfig]:
         """Return the hyperparameters config class for this module."""
-        ...
-
-    @classmethod
-    @abstractmethod
-    def ensure_dependencies(cls):
-        """
-        Ensure that all dependencies are installed.
-
-        This method should raise an exception if any dependencies are missing,
-            with a message indicating which dependencies are missing and
-            how to install them.
-        """
         ...
 
     # region ABC methods for output heads and model forward pass
@@ -597,7 +599,7 @@ class FinetuneModuleBase(
         >>> print("Atoms 2 forces:", predictions[1]["forces"])
         """
 
-        from ..wrappers.potential import MatterTunePropertyPredictor
+        from ..wrappers.property_predictor import MatterTunePropertyPredictor
 
         return MatterTunePropertyPredictor(
             self,

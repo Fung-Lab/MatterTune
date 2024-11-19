@@ -36,6 +36,7 @@ MatterTune is a flexible and powerful machine learning library designed specific
 
 
 
+
 ## Motivation
 
 Atomistic Foundation Models have emerged as powerful tools in molecular and materials science. However, the diverse implementations of these open-source models, with their varying architectures and interfaces, create significant barriers for customized fine-tuning and downstream applications.
@@ -471,7 +472,16 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## License
 
- This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MatterTune's core framework is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Note that each supported model backbone is subject to its own licensing terms:
+
+- JMP backbone: Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0) - [JMP License](https://github.com/facebookresearch/JMP/blob/main/LICENSE.md)
+- EquiformerV2 backbone: Meta Research License - [EquiformerV2 License](https://huggingface.co/fairchem/OMAT24/blob/main/LICENSE)
+- M3GNet backbone: BSD 3-Clause License - [M3GNet License](https://github.com/materialsvirtuallab/m3gnet/blob/main/LICENSE)
+- ORB backbone: Apache License 2.0 - [ORB License](https://github.com/orbital-materials/orb-models/blob/main/LICENSE)
+
+Please ensure compliance with the respective licenses when using specific model backbones in your project. For commercial use cases, carefully review each backbone's license terms or contact the respective authors for licensing options.
 
 ## Citation
 
