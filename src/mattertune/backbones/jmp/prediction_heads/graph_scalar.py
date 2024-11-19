@@ -7,10 +7,10 @@ import nshconfig as C
 import nshutils.typecheck as tc
 import torch
 import torch.nn as nn
-from einops import rearrange
 from typing_extensions import TypedDict, override
 
 if TYPE_CHECKING:
+    from einops import rearrange
     from jmp.models.gemnet.backbone import GOCBackboneOutput
     from torch_geometric.data.data import BaseData
 

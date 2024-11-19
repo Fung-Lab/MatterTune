@@ -11,7 +11,6 @@ import nshconfig_extra as CE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.data.batch import Batch
 from typing_extensions import assert_never, final, override
 
 from ...finetune import properties as props
@@ -23,7 +22,7 @@ if TYPE_CHECKING:
     from fairchem.core.models.equiformer_v2.prediction_heads.rank2 import (
         Rank2SymmetricTensorHead,
     )
-    from torch_geometric.data import Batch
+    from torch_geometric.data.batch import Batch
     from torch_geometric.data.data import BaseData
 
 log = logging.getLogger(__name__)
