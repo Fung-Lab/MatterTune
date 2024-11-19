@@ -144,7 +144,7 @@ Clone the repo and install by:
 ```bash
 git clone https://github.com/hackingmaterials/matbench
 cd matbench
-pip install -e . -r requirement.txt
+pip install -e . -r requirement-dev.txt
 ```
 
 #### Materials Project
