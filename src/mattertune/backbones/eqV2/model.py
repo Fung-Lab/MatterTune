@@ -398,7 +398,8 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         batch_idx: torch.Tensor = batch.batch  # (n_atoms,)
 
         # Convert atomic numbers to one-hot encoding
-        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
+        max_atomic_number = int(atomic_numbers.max().item())
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=max_atomic_number + 1)
         # ^ (n_atoms, 120)
 
         compositions = scatter(

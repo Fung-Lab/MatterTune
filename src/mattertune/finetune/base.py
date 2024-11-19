@@ -62,7 +62,8 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     def __post_init__(self):
         # VALIDATION: Any key for `normalizers` or `referencers` should be a property name.
         for key in self.normalizers.keys():
-            if key not in self.properties:
+            property_names = [prop.name for prop in self.properties]
+            if key not in property_names:
                 raise ValueError(
                     f"Key '{key}' in 'normalizers' is not a valid property name."
                 )
