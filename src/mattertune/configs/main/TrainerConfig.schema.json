@@ -824,22 +824,7 @@
                     "type": "null"
                 }
             ],
-            "default": {
-                "dirpath": null,
-                "filename": null,
-                "monitor": null,
-                "verbose": false,
-                "save_last": null,
-                "save_top_k": 1,
-                "save_weights_only": false,
-                "mode": "min",
-                "auto_insert_metric_name": true,
-                "every_n_train_steps": null,
-                "train_time_interval": null,
-                "every_n_epochs": null,
-                "save_on_train_epoch_end": null,
-                "enable_version_counter": true
-            },
+            "default": null,
             "description": "The configuration for the model checkpoint."
         },
         "early_stopping": {
@@ -851,19 +836,7 @@
                     "type": "null"
                 }
             ],
-            "default": {
-                "monitor": "val/total_loss",
-                "min_delta": 0.0,
-                "patience": 3,
-                "verbose": false,
-                "mode": "min",
-                "strict": true,
-                "check_finite": true,
-                "stopping_threshold": null,
-                "divergence_threshold": null,
-                "check_on_train_epoch_end": null,
-                "log_rank_zero_only": false
-            },
+            "default": null,
             "description": "The configuration for early stopping."
         },
         "loggers": {

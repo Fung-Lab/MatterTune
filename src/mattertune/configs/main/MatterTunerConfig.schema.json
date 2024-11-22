@@ -2813,22 +2813,7 @@
                             "type": "null"
                         }
                     ],
-                    "default": {
-                        "dirpath": null,
-                        "filename": null,
-                        "monitor": null,
-                        "verbose": false,
-                        "save_last": null,
-                        "save_top_k": 1,
-                        "save_weights_only": false,
-                        "mode": "min",
-                        "auto_insert_metric_name": true,
-                        "every_n_train_steps": null,
-                        "train_time_interval": null,
-                        "every_n_epochs": null,
-                        "save_on_train_epoch_end": null,
-                        "enable_version_counter": true
-                    },
+                    "default": null,
                     "description": "The configuration for the model checkpoint."
                 },
                 "early_stopping": {
@@ -2840,19 +2825,7 @@
                             "type": "null"
                         }
                     ],
-                    "default": {
-                        "monitor": "val/total_loss",
-                        "min_delta": 0.0,
-                        "patience": 3,
-                        "verbose": false,
-                        "mode": "min",
-                        "strict": true,
-                        "check_finite": true,
-                        "stopping_threshold": null,
-                        "divergence_threshold": null,
-                        "check_on_train_epoch_end": null,
-                        "log_rank_zero_only": false
-                    },
+                    "default": null,
                     "description": "The configuration for early stopping."
                 },
                 "loggers": {
@@ -3110,13 +3083,34 @@
         },
         "trainer": {
             "$ref": "#/$defs/TrainerConfig",
+            "default": {
+                "accelerator": "auto",
+                "strategy": "auto",
+                "num_nodes": 1,
+                "devices": "auto",
+                "precision": "32-true",
+                "deterministic": null,
+                "max_epochs": null,
+                "min_epochs": null,
+                "max_steps": -1,
+                "min_steps": null,
+                "max_time": null,
+                "val_check_interval": null,
+                "check_val_every_n_epoch": 1,
+                "log_every_n_steps": null,
+                "gradient_clip_val": null,
+                "gradient_clip_algorithm": null,
+                "checkpoint": null,
+                "early_stopping": null,
+                "loggers": "default",
+                "additional_trainer_kwargs": {}
+            },
             "description": "The configuration for the trainer."
         }
     },
     "required": [
         "data",
-        "model",
-        "trainer"
+        "model"
     ],
     "title": "MatterTunerConfig",
     "type": "object"
