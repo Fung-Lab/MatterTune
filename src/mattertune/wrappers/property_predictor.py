@@ -132,7 +132,7 @@ def _create_trainer(
     lightning_module: FinetuneModuleBase,
 ):
     # Resolve the full trainer kwargs
-    trainer_kwargs_resolved: dict[str, Any] = {}
+    trainer_kwargs_resolved: dict[str, Any] = {"barebones": True}
     if lightning_module.requires_disabled_inference_mode():
         if (
             user_inference_mode := trainer_kwargs.get("inference_mode")
