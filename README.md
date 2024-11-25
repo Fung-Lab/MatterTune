@@ -118,6 +118,10 @@ Please follow the installation instructions in the [jmp-backbone repository](htt
 
 Please follow the installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models). 
 
+```bash
+pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git
+```
+
 #### EquiformerV2
 
 ```bash
