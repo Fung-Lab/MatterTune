@@ -71,13 +71,15 @@ def main(args_dict: dict):
     plt.tight_layout()
     plt.savefig(f"rdf-{elements[0]}-{elements[1]}.png")
 
+    np.savez(f"rdf-{elements[0]}-{elements[1]}.npz", rdf_x=rdf_x, rdf_y=rdf_y)
+
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--md_traj", type=str, default="./md_results/md_traj.xyz")
-    parser.add_argument("--n_frames", type=int, default=1000)
+    parser.add_argument("--n_frames", type=int, default=5000)
     parser.add_argument("--r_max", type=float, default=6.0)
     parser.add_argument("--n_bins", type=int, default=100)
     parser.add_argument("--elements", type=str, nargs="+", default=["O", "O"])
