@@ -8,9 +8,10 @@ import numpy as np
 from ase import Atoms
 from ase.constraints import UnitCellFilter
 from ase.io import read, write
-from ase.optimize import LBFGS
-from mattertune.backbones import JMPBackboneModule
+from ase.optimize import BFGS
 from tqdm import tqdm
+
+from mattertune.backbones import JMPBackboneModule
 
 logging.basicConfig(level=logging.ERROR)
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
@@ -37,31 +38,24 @@ def main(args_dict: dict):
     os.makedirs(args_dict["save_dir"], exist_ok=True)
     files = os.listdir(args_dict["init_structs"])
     for file in files:
+        if os.path.exists(os.path.join(args_dict["save_dir"], file)):
+            continue
         atoms: Atoms = read(os.path.join(args_dict["init_structs"], file))
         relax_traj = []
-        idx = int(file.split(".")[0])
         atoms.pbc = True
         atoms.calc = calc
-        energy_0 = atoms.get_potential_energy()
         ucf = UnitCellFilter(atoms, scalar_pressure=0.0)
-        opt = LBFGS(
+        opt = BFGS(
             ucf,
             logfile=None,
         )
-        pbar = tqdm(total=args_dict["max_steps"], desc=f"Structure {idx}")
-        for step in range(args_dict["max_steps"]):
-            opt.run(fmax=0.01, steps=1)
-            energy_1 = atoms.get_potential_energy()
-            pbar.set_postfix(
-                {"Energy_0": f"{energy_0:.2f}", "Energy_1": f"{energy_1:.2f}"}
-            )
+
+        def write_traj():
             relax_traj.append(copy.deepcopy(atoms))
-            pbar.update(1)
-        pbar.close()
-        write(
-            os.path.join(args_dict["save_dir"], f"{idx}.xyz"),
-            relax_traj,
-        )
+
+        opt.attach(write_traj)
+        opt.run(fmax=0.01)
+        write(os.path.join(args_dict["save_dir"], file), relax_traj)
 
 
 if __name__ == "__main__":
@@ -73,7 +67,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--init_structs", type=str, default="./ZnMn2O4_random")
     parser.add_argument("--save_dir", type=str, default="./ZnMn2O4_mlrelaxed")
-    parser.add_argument("--max_steps", type=int, default=1000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[2])
+    parser.add_argument("--max_steps", type=int, default=None)
+    parser.add_argument("--devices", type=int, nargs="+", default=[0])
     args_dict = vars(parser.parse_args())
     main(args_dict)
