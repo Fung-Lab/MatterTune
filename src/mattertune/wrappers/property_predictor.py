@@ -55,6 +55,7 @@ class MatterTunePropertyPredictor:
         self,
         atoms_list: list[ase.Atoms],
         properties: Sequence[str | PropertyConfig] | None = None,
+        *,
         batch_size: int = 1,
     ) -> list[dict[str, torch.Tensor]]:
         """
