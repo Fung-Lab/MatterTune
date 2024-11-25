@@ -222,4 +222,5 @@ checkpoints*/
 md_results/
 results_backup/
 ZnMn2O4_*/
-# examples/matbench/data/
+examples/matbench/data/
+bfg.jar
