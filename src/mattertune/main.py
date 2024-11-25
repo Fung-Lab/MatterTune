@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from datetime import timedelta
-from pathlib import Path
 from typing import Any, Literal, NamedTuple
 
 import nshconfig as C
@@ -190,7 +189,7 @@ class MatterTunerConfig(C.Config):
     model: ModelConfig
     """The configuration for the model."""
 
-    trainer: TrainerConfig
+    trainer: TrainerConfig = TrainerConfig()
     """The configuration for the trainer."""
 
 
