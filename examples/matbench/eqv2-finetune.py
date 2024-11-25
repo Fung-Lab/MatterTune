@@ -105,12 +105,12 @@ if __name__ == "__main__":
         type=str,
         default="/net/csefiles/coc-fung-cluster/nima/shared/checkpoints/eqV2_31M_mp.pt",
     )
-    parser.add_argument("--task", type=str, default="matbench_log_kvrh")
+    parser.add_argument("--task", type=str, default="matbench_mp_gap")
     parser.add_argument("--train_split", type=float, default=0.9)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=2)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--max_epochs", type=int, default=2000)
+    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
