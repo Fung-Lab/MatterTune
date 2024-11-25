@@ -4,35 +4,35 @@ MatterTune is a flexible and powerful machine learning library designed specific
 
 ## Table of Contents
 - [MatterTune: A Unified Platform for Atomistic Foundation Model Fine-Tuning](#mattertune-a-unified-platform-for-atomistic-foundation-model-fine-tuning)
-  - [Table of Contents](#table-of-contents)
-  - [Motivation](#motivation)
-  - [Features](#features)
-  - [Installation](#installation)
-    - [Backbone Installation](#backbone-installation)
-      - [M3GNet](#m3gnet)
-      - [JMP](#jmp)
-      - [ORB](#orb)
-      - [EquiformerV2](#equiformerv2)
-    - [MatterTune Package Installation](#mattertune-package-installation)
-    - [External Dataset Installation](#external-dataset-installation)
-      - [Matbench](#matbench)
-      - [Materials Project](#materials-project)
-      - [Materials Project Trajectories](#materials-project-trajectories)
-  - [Quick Start: Fine-Tuning a Pre-trained Model](#quick-start-fine-tuning-a-pre-trained-model)
-    - [Training Process](#training-process)
-    - [Checkpoints](#checkpoints)
-  - [Model Usage](#model-usage)
-    - [Making Predictions](#making-predictions)
-    - [Using as ASE Calculator](#using-as-ase-calculator)
-  - [Training Configuration](#training-configuration)
-    - [Model Configuration](#model-configuration)
-    - [Data Configuration](#data-configuration)
-    - [Training Process Configuration](#training-process-configuration)
-    - [Configuration Management](#configuration-management)
-  - [Extending MatterTune](#extending-mattertune)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [Citation](#citation)
+    - [Table of Contents](#table-of-contents)
+    - [Motivation](#motivation)
+    - [Features](#features)
+    - [Installation](#installation)
+        - [Backbone Installation](#backbone-installation)
+            - [M3GNet](#m3gnet)
+            - [JMP](#jmp)
+            - [ORB](#orb)
+            - [EquiformerV2](#equiformerv2)
+        - [MatterTune Package Installation](#mattertune-package-installation)
+        - [External Dataset Installation](#external-dataset-installation)
+            - [Matbench](#matbench)
+            - [Materials Project](#materials-project)
+            - [Materials Project Trajectories](#materials-project-trajectories)
+    - [Quick Start: Fine-Tuning a Pre-trained Model](#quick-start-fine-tuning-a-pre-trained-model)
+        - [Training Process](#training-process)
+        - [Checkpoints](#checkpoints)
+    - [Model Usage](#model-usage)
+        - [Making Predictions](#making-predictions)
+        - [Using as ASE Calculator](#using-as-ase-calculator)
+    - [Training Configuration](#training-configuration)
+        - [Model Configuration](#model-configuration)
+        - [Data Configuration](#data-configuration)
+        - [Training Process Configuration](#training-process-configuration)
+        - [Configuration Management](#configuration-management)
+    - [Extending MatterTune](#extending-mattertune)
+    - [Contributing](#contributing)
+    - [License](#license)
+    - [Citation](#citation)
 
 
 
@@ -112,11 +112,11 @@ pip install dglgo -f https://data.dgl.ai/wheels-test/repo.html
 
 #### JMP
 
-Please follow the installation instructions in the [jmp-backbone repository](https://github.com/nimashoghi/jmp-backbone/blob/lingyu-grad/README.md). 
+Please follow the installation instructions in the [jmp-backbone repository](https://github.com/nimashoghi/jmp-backbone/blob/lingyu-grad/README.md).
 
 #### ORB
 
-Please follow the installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models). 
+Please follow the installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models).
 
 ```bash
 pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git
@@ -133,7 +133,7 @@ pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pym
 
 ### MatterTune Package Installation
 
-**Important**: MatterTune should better be installed after setting up the backbone model dependencies. 
+**Important**: MatterTune should better be installed after setting up the backbone model dependencies.
 
 Clone this repository and install MatterTune by:
 
@@ -250,7 +250,7 @@ model = JMPBackboneModule.load_from_checkpoint("path/to/checkpoint.ckpt")
 ```
 
 ### Making Predictions
-The `Potential` interface provides a simple way to make predictions for a single or batch of atoms:
+The `MatterTunePropertyPredictor` interface provides a simple way to make predictions for a single or batch of atoms:
 
 ```python
 from ase import Atoms
@@ -266,9 +266,9 @@ atoms2 = Atoms('H2O',
                 positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
                 cell=[10, 10, 10],
                 pbc=True)
-# Get predictions using the model's potential interface
-potential = model.potential()
-predictions = potential.predict([atoms1, atoms2], ["energy", "forces"])
+# Get predictions using the model's property predictor interface
+property_predictor = model.property_predictor()
+predictions = property_predictor.predict([atoms1, atoms2], ["energy", "forces"])
 
 print("Energy:", predictions[0]["energy"], predictions[1]["energy"])
 print("Forces:", predictions[0]["forces"], predictions[1]["forces"])
