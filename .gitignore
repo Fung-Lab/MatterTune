@@ -218,5 +218,7 @@ wandb/
 abandoned/
 .ruff_cache/
 examples/hidden/
-checkpoints/
+checkpoints*/
 md_results/
+results_backup/
+ZnMn2O4_*/

@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import mattertune.configs as MC
 import nshutils as nu
 from lightning.pytorch.strategies import DDPStrategy
+
+import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
 
@@ -99,12 +100,12 @@ if __name__ == "__main__":
         type=str,
         default="/net/csefiles/coc-fung-cluster/lingyu/checkpoints/jmp-s.pt",
     )
-    parser.add_argument("--task", type=str, default="matbench_log_kvrh")
+    parser.add_argument("--task", type=str, default="matbench_mp_gap")
     parser.add_argument("--train_split", type=float, default=0.9)
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=2)
-    parser.add_argument("--devices", type=int, nargs="+", default=[1, 3])
+    parser.add_argument("--max_epochs", type=int, default=2000)
+    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
