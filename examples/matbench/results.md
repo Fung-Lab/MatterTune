@@ -1,6 +1,6 @@
 # Property Screening
 
-Three models are finetuned with Matbench-MP-Gap data and do property screening on GNoME equilibrium structures (389918 samples with ground truth band-gap labels)
+Three models are fine-tuned with Matbench-MP-Gap data and do property screening on GNoME equilibrium structures (389918 samples with ground truth band-gap labels)
 
 We do property screening to find structures whose band-gaps are within 1.0eV-3.0eV, which implies probably to be medium bandgap semiconductors that could be used in areas like integrated circuits and solar cells. 
 
@@ -8,7 +8,13 @@ We do property screening to find structures whose band-gaps are within 1.0eV-3.0
 
 ![](./plots/bandgap_distribution.png)
 
-## Prediction vs Ground Truth
+## Fine-tuning on Matbench-MP-Gap
+
+|           |JMP  |EqV2 | ORB |
+|-          |-    |-    |-    |
+|val-mae(eV)|0.153|0.106|0.094|     
+
+## Prediction on GNoME
 
 ### JMP
 
