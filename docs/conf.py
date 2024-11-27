@@ -15,6 +15,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "myst_parser",
+    "sphinx_copybutton",
 ]
 
 # MyST Markdown settings
