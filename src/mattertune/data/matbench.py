@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import ase
-from pymatgen.core.structure import Structure
-from pymatgen.io.ase import AseAtomsAdaptor
 from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
 from .base import DatasetConfigBase
+
+if TYPE_CHECKING:
+    from pymatgen.core.structure import Structure
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +82,8 @@ class MatbenchDataset(Dataset[ase.Atoms]):
         Returns:
             List of ASE ase.Atoms objects.
         """
+        from pymatgen.io.ase import AseAtomsAdaptor
+
         adapter = AseAtomsAdaptor()
         atoms_list = []
         prop_name = (

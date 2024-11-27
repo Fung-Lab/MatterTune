@@ -4,7 +4,6 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Literal
 
 import nshconfig as C
-import nshutils.typecheck as tc
 import torch
 import torch.nn as nn
 from typing_extensions import TypedDict, override
@@ -66,9 +65,9 @@ class GraphScalarOutputHead(nn.Module):
 
         # Compute node-level scalars from node embeddings
         per_atom_scalars = backbone_output["energy"]
-        tc.tassert(tc.Float[torch.Tensor, "n d_model"], per_atom_scalars)
+        # per_atom_scalars: n d_model
         per_atom_scalars = self.out_mlp_node(per_atom_scalars)
-        tc.tassert(tc.Float[torch.Tensor, "n 1"], per_atom_scalars)
+        # per_atom_scalars: n 1
 
         from torch_scatter import scatter
 
@@ -80,7 +79,7 @@ class GraphScalarOutputHead(nn.Module):
             dim_size=data.num_graphs,
             reduce=self.hparams.reduction,
         )
-        tc.tassert(tc.Float[torch.Tensor, "b 1"], per_system_scalars)
+        # per_system_scalars: b 1
 
         per_system_scalars = rearrange(per_system_scalars, "b 1 -> b")
         return per_system_scalars
