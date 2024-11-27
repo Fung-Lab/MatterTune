@@ -1,6 +1,6 @@
 # MatterTune: A Unified Platform for Atomistic Foundation Model Fine-Tuning
 
-[![Documentation Status](https://github.com/Fung-Lab/MatterTune/actions/workflows/docs.yml/badge.svg)](https://nimashoghi.github.io/mattertune/)
+[![Documentation Status](https://github.com/Fung-Lab/MatterTune/actions/workflows/docs.yml/badge.svg)](https://fung-lab.github.io/mattertune/)
 
 MatterTune is a flexible and powerful machine learning library designed specifically for fine-tuning state-of-the-art chemistry models. It provides intuitive interfaces for computational chemists to fine-tune pre-trained models on their specific use cases.
 
