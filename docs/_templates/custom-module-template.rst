@@ -4,16 +4,35 @@
    :members:
    :undoc-members:
    :show-inheritance:
-   :special-members: __init__
+   :variables:
+   :module-variables:
+
+   {% block attributes %}
+   {% if attributes %}
+   .. rubric:: Module Variables
+
+   .. autosummary::
+      {% for item in attributes %}
+      {{ item }}
+      {%- endfor %}
+
+   {% for item in attributes %}
+   .. autodata:: {{ item }}
+      :annotation:
+   {%- endfor %}
+   {% endif %}
+   {% endblock %}
 
    {% block modules %}
    {% if modules %}
    .. rubric:: Submodules
+
    .. autosummary::
       :toctree:
       :recursive:
-   {% for item in modules %}
+
+      {% for item in modules %}
       {{ item }}
-   {%- endfor %}
+      {%- endfor %}
    {% endif %}
    {% endblock %}

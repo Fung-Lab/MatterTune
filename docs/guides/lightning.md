@@ -1,4 +1,4 @@
-# Lightning Integration in MatterTune
+# Advanced: Lightning Integration
 
 MatterTune uses PyTorch Lightning as its core training framework. This document outlines how Lightning is integrated and what functionality it provides.
 
