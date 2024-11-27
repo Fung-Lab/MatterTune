@@ -7,3 +7,8 @@ from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
 )
 
 from . import graph_scalar as graph_scalar
+
+__all__ = [
+    "GraphScalarTargetConfig",
+    "graph_scalar",
+]

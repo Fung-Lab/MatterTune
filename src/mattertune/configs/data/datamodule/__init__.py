@@ -9,3 +9,9 @@ from mattertune.data.datamodule import DataModuleBaseConfig as DataModuleBaseCon
 from mattertune.data.datamodule import (
     ManualSplitDataModuleConfig as ManualSplitDataModuleConfig,
 )
+
+__all__ = [
+    "AutoSplitDataModuleConfig",
+    "DataModuleBaseConfig",
+    "ManualSplitDataModuleConfig",
+]

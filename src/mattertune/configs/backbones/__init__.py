@@ -27,3 +27,22 @@ from . import eqV2 as eqV2
 from . import jmp as jmp
 from . import m3gnet as m3gnet
 from . import orb as orb
+
+__all__ = [
+    "CutoffsConfig",
+    "EqV2BackboneConfig",
+    "FAIRChemAtomsToGraphSystemConfig",
+    "FinetuneModuleBaseConfig",
+    "GraphScalarTargetConfig",
+    "JMPBackboneConfig",
+    "JMPGraphComputerConfig",
+    "M3GNetBackboneConfig",
+    "M3GNetGraphComputerConfig",
+    "MaxNeighborsConfig",
+    "ORBBackboneConfig",
+    "ORBSystemConfig",
+    "eqV2",
+    "jmp",
+    "m3gnet",
+    "orb",
+]
