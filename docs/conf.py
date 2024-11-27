@@ -16,6 +16,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "myst_parser",
     "sphinx_copybutton",
+    "sphinx.ext.autosummary",
 ]
 
 # MyST Markdown settings
@@ -44,3 +45,21 @@ source_suffix = {
 }
 master_doc = "index"
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+# AutoDoc settings
+autodoc_default_options = {
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+    "undoc-members": True,
+    "exclude-members": "__weakref__",
+}
+
+# Type hints settings
+autodoc_typehints = "description"
+autodoc_typehints_format = "short"
+
+# Add autosummary settings
+autosummary_generate = True
+autosummary_imported_members = True
+templates_path = ["_templates"]

@@ -34,6 +34,7 @@ backbones/eqv2
 :maxdepth: 1
 :caption: Development
 
+api
 contributing
 license
 ```
