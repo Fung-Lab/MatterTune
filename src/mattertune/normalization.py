@@ -185,7 +185,12 @@ class PerAtomReferencingNormalizerModule(nn.Module, NormalizerModule):
     @override
     def normalize(self, value: torch.Tensor, ctx: NormalizationContext) -> torch.Tensor:
         # Compute references for each composition in the batch
-        references = torch.einsum("ij,j->i", ctx.compositions, self.references)
+        references = self.references
+        max_atomic_number = len(references)
+        compositions = ctx.compositions[:, :max_atomic_number].to(references.dtype)
+        references = torch.einsum("ij,j->i", compositions, references).reshape(
+            value.shape
+        )
         # Subtract references from values
         return value - references
 
@@ -193,8 +198,13 @@ class PerAtomReferencingNormalizerModule(nn.Module, NormalizerModule):
     def denormalize(
         self, value: torch.Tensor, ctx: NormalizationContext
     ) -> torch.Tensor:
-        # Add references back to get original values
-        references = torch.einsum("ij,j->i", ctx.compositions, self.references)
+        # Add references back to get original valuesreferences = self.references
+        references = self.references
+        max_atomic_number = len(references)
+        compositions = ctx.compositions[:, :max_atomic_number].to(references.dtype)
+        references = torch.einsum("ij,j->i", compositions, references).reshape(
+            value.shape
+        )
         return value + references
 
 

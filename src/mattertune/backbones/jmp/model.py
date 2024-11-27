@@ -365,9 +365,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         batch_idx: torch.Tensor = batch.batch  # (n_atoms,)
 
         # Convert atomic numbers to one-hot encoding
-        max_atomic_number = int(atomic_numbers.max().item())
-        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=max_atomic_number + 1)
-        # ^ (n_atoms, 120)
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)  # (n_atoms, 120)
 
         compositions = scatter(
             atom_types_onehot,
@@ -376,8 +374,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             dim_size=batch.num_graphs,
             reduce="sum",
         )
-        # ^ (n_graphs, 120)
-
+        compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
 
 
