@@ -11,3 +11,10 @@ from mattertune.backbones.eqV2.model import (
 )
 
 from . import model as model
+
+__all__ = [
+    "EqV2BackboneConfig",
+    "FAIRChemAtomsToGraphSystemConfig",
+    "FinetuneModuleBaseConfig",
+    "model",
+]
