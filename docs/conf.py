@@ -78,9 +78,9 @@ def setup(app):
 
 autodoc_mock_imports = [
     # "torch",
-    "pytorch_lightning",
-    "torch-geometric",
-    "torchmetrics",
+    # "pytorch_lightning",
+    # "torch-geometric",
+    # "torchmetrics",
 ]
 
 # Type hints settings
