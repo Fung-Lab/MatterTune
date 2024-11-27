@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import mattertune.configs as MC
 import nshutils as nu
+
+import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
 
@@ -32,13 +33,9 @@ def main(args_dict: dict):
         energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
+            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=100.0
         )
         hparams.model.properties.append(forces)
-        stresses = MC.StressesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=0.0
-        )
-        hparams.model.properties.append(stresses)
 
         ## Data Hyperparameters
         hparams.data = MC.AutoSplitDataModuleConfig.draft()
@@ -65,6 +62,11 @@ def main(args_dict: dict):
         hparams.trainer.gradient_clip_algorithm = "value"
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "32"
+
+        # Configure Early Stopping
+        hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
+            monitor=f"val/forces_mae", patience=200, mode="min"
+        )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(

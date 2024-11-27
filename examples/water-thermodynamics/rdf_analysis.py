@@ -52,7 +52,7 @@ def main(args_dict: dict):
     md_traj = read(args_dict["md_traj"], ":")
     md_traj = md_traj[-args_dict["n_frames"] :]
     r_max = args_dict["r_max"]
-    n_bins = args_dict["n_bins"]
+    n_bins = int(args_dict["r_max"] / args_dict["r_step"])
 
     elements = ["O", "O"]
     if not args_dict["load"]:
@@ -105,7 +105,7 @@ def main(args_dict: dict):
     data = np.load(f"./plots/rdf-{elements[0]}-{elements[1]}.npz")
     rdf_x = data["rdf_x"]
     rdf_y = data["rdf_y"]
-    sigma = 1.0
+    sigma = 2.0
     smoothed_rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
     plt.figure(figsize=(6, 3))
     plt.plot(rdf_x, smoothed_rdf_y, color="green", linewidth=2)
@@ -164,10 +164,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--md_traj", type=str, default="./md_results/md_traj.xyz")
-    parser.add_argument("--n_frames", type=int, default=5000)
+    parser.add_argument(
+        "--md_traj", type=str, default="./md_results/md_traj_fric0.05_orb-best-0.03.xyz"
+    )
+    parser.add_argument("--n_frames", type=int, default=2000)
     parser.add_argument("--r_max", type=float, default=6.0)
-    parser.add_argument("--n_bins", type=int, default=100)
+    parser.add_argument("--r_step", type=float, default=0.06)
     parser.add_argument("--transparent", action="store_true")
     parser.add_argument("--load", action="store_true")
     args_dict = vars(parser.parse_args())
