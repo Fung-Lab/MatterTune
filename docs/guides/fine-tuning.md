@@ -1,4 +1,4 @@
-## Quick Start: Fine-Tuning a Pre-trained Model
+# Fine-Tuning a Pre-trained Model
 
 This guide will walk you through fine-tuning a pre-trained model for predicting molecular properties. We'll use a complete example with detailed explanations.
 
@@ -89,7 +89,7 @@ predictions = property_predictor.predict([water], ["energy"])
 print(f"Predicted energy: {predictions[0]['energy']} eV")
 ```
 
-### Key Components Explained
+## Key Components Explained
 
 1. **Configuration Structure**:
    - `MatterTunerConfig`: The main configuration container
@@ -107,7 +107,7 @@ print(f"Predicted energy: {predictions[0]['energy']} eV")
    - Automatic train/validation splitting
    - Configurable batch size for memory management
 
-### Common Customizations
+## Common Customizations
 
 ```python
 # Add force prediction
@@ -143,7 +143,7 @@ trainer=mt.configs.TrainerConfig(
 )
 ```
 
-### Tips for Successful Fine-Tuning
+## Tips for Successful Fine-Tuning
 
 1. **Data Quality**:
    - Ensure your training data is clean and properly formatted
