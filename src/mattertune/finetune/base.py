@@ -482,6 +482,9 @@ class FinetuneModuleBase(
         #   it can lead to numerical instability in the loss computation.
         normalized_labels = self.normalize(labels, normalization_ctx)
 
+        for key, value in normalized_labels.items():
+            normalized_labels[key] = value.contiguous()
+
         # Compute loss
         loss = self._compute_loss(
             predictions,

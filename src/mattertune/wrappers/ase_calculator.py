@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING
 
+import torch
 from ase import Atoms
 from ase.calculators.calculator import Calculator
 from typing_extensions import override
@@ -109,7 +110,7 @@ class MatterTuneCalculator(Calculator):
             #   `PropertyPredictor.predict` returns the predictions as a
             #   `dict[str, torch.Tensor]`, but the ASE calculator expects the
             #   properties as numpy arrays/floats.
-            value = prediction[prop.name].detach().cpu().numpy()
+            value = prediction[prop.name].detach().to(torch.float32).cpu().numpy()
             value = value.astype(prop._numpy_dtype())
 
             # Finally, some properties may define their own conversion functions
