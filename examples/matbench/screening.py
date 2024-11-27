@@ -17,14 +17,17 @@ from mattertune.backbones import (
 def main(args_dict: dict):
     ## Load Checkpoint
     if "jmp" in args_dict["ckpt_path"]:
+        model_type = "jmp"
         model = JMPBackboneModule.load_from_checkpoint(
             checkpoint_path=args_dict["ckpt_path"], map_location="cpu"
         )
     elif "orb" in args_dict["ckpt_path"]:
+        model_type = "orb"
         model = ORBBackboneModule.load_from_checkpoint(
             checkpoint_path=args_dict["ckpt_path"], map_location="cpu"
         )
     elif "eqv2" in args_dict["ckpt_path"]:
+        model_type = "eqv2"
         model = EqV2BackboneModule.load_from_checkpoint(
             checkpoint_path=args_dict["ckpt_path"], map_location="cpu"
         )
@@ -56,6 +59,7 @@ def main(args_dict: dict):
             "enable_progress_bar": True,
             "enable_model_summary": False,
             "logger": False,
+            "barebones": False,
         }
     )
     model_outs = property_predictor.predict(
@@ -129,15 +133,17 @@ def main(args_dict: dict):
     pred_properties = pred_properties[sorted_indices]
     import matplotlib.pyplot as plt
 
-    plt.figure()
+    plt.figure(figsize=(6, 3))
     plt.plot(pred_properties, label="Predicted Bandgap", alpha=0.5)
     plt.plot(true_properties, label="True Bandgap", alpha=0.5)
     plt.xlabel("Index")
     plt.ylabel("Bandgap (eV)")
     plt.legend()
-    plt.yscale("log")
+    # plt.yscale("log")
 
     wandb.log({"Bandgap Distribution": plt})
+
+    plt.savefig(f"./plots/{model_type}-gnome.png")
 
 
 if __name__ == "__main__":
@@ -145,9 +151,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--ckpt_path", type=str, default="./checkpoints-matbench_mp_gap/jmp-best.ckpt"
+        "--ckpt_path", type=str, default="./checkpoints-matbench_mp_gap/eqv2-best.ckpt"
     )
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--devices", type=int, nargs="+", default=[3])
     parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--thresholds", type=float, nargs="+", default=[1.0, 3.0])
     args = parser.parse_args()

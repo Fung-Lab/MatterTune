@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import mattertune.configs as MC
 import nshutils as nu
 from lightning.pytorch.strategies import DDPStrategy
+
+import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
 
@@ -34,15 +35,9 @@ def main(args_dict: dict):
 
         # Add forces property
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=10.0
+            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=100.0
         )
         hparams.model.properties.append(forces)
-
-        # Add stresses property
-        stresses = MC.StressesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=0.0
-        )  # Here we used gradient-based stress prediction, but it is not used in the loss
-        hparams.model.properties.append(stresses)
 
         ## Data Hyperparameters
         hparams.data = MC.AutoSplitDataModuleConfig.draft()
@@ -50,6 +45,15 @@ def main(args_dict: dict):
         hparams.data.dataset.src = Path(args_dict["xyz_path"])
         hparams.data.train_split = args_dict["train_split"]
         hparams.data.batch_size = args_dict["batch_size"]
+
+        ## Add Normalization for Energy
+        hparams.model.normalizers = {
+            "energy": [
+                MC.PerAtomReferencingNormalizerConfig(
+                    per_atom_references=Path("./data/energy_reference.json")
+                )
+            ]
+        }
 
         ## Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
@@ -110,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
