@@ -4,8 +4,6 @@ myst-parser
 sphinx-autodoc-typehints
 sphinx-copybutton
 nshconfig
---index-url https://download.pytorch.org/whl/cpu
-torch
 ase
 scikit-learn
 lightning
