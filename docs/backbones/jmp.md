@@ -69,53 +69,7 @@ config = {
                 "aint": 1000
             }
         }
-    },
-    # ... rest of config
+    }
 }
 
 tuner = MatterTuner(config)
-```
-
-## Property Prediction
-
-The JMP backbone supports predicting:
-
-1. System-level properties:
-   - Total energy
-   - Stress tensor
-   - Other graph-level scalar properties
-
-2. Atom-level properties:
-   - Per-atom forces
-
-Both conservative and non-conservative forces/stresses can be predicted.
-
-## Implementation Details
-
-The backbone is implemented in the `JMPBackboneModule` class which:
-
-- Loads pre-trained weights from checkpoints
-- Constructs atomic graphs using the configured settings
-- Handles normalization of inputs/outputs
-- Manages training and inference
-
-The implementation includes:
-
-- Graph construction
-- Property prediction heads
-- Normalization utilities
-- ASE calculator interface
-
-## Requirements
-
-The JMP backbone requires:
-- JMP library
-- PyTorch Geometric
-- PyTorch
-
-These dependencies will be checked and validated when using the backbone.
-
-## References
-
-- JMP Paper/Documentation
-- Source code in `mattertune/backbones/jmp/`
