@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal
 
 import nshconfig as C
 import torch
-from typing_extensions import assert_never
+from typing_extensions import TypeAliasType, assert_never
 
 
 class StepLRConfig(C.Config):
@@ -65,14 +64,17 @@ class CosineAnnealingLRConfig(C.Config):
     """The index of last epoch."""
 
 
-LRSchedulerConfig: TypeAlias = Annotated[
-    StepLRConfig
-    | MultiStepLRConfig
-    | ExponentialConfig
-    | ReduceOnPlateauConfig
-    | CosineAnnealingLRConfig,
-    C.Field(discriminator="type"),
-]
+LRSchedulerConfig = TypeAliasType(
+    "LRSchedulerConfig",
+    Annotated[
+        StepLRConfig
+        | MultiStepLRConfig
+        | ExponentialConfig
+        | ReduceOnPlateauConfig
+        | CosineAnnealingLRConfig,
+        C.Field(discriminator="type"),
+    ],
+)
 
 
 def create_lr_scheduler(
