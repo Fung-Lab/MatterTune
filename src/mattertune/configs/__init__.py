@@ -14,9 +14,6 @@ from mattertune.backbones.jmp.model import (
     JMPGraphComputerConfig as JMPGraphComputerConfig,
 )
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
-from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
-    GraphScalarTargetConfig as GraphScalarTargetConfig,
-)
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
@@ -100,7 +97,6 @@ __all__ = [
     "FinetuneModuleBaseConfig",
     "ForcesPropertyConfig",
     "GraphPropertyConfig",
-    "GraphScalarTargetConfig",
     "HuberLossConfig",
     "JMPBackboneConfig",
     "JMPGraphComputerConfig",
