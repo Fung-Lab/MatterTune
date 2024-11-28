@@ -7,5 +7,14 @@
    :toctree: _autosummary
    :recursive:
 
-   mattertune
+   backbones
+   callbacks
+   configs
+   data
+   finetune
+   loggers
+   main
+   normalization
+   registry
+   wrappers
 ```

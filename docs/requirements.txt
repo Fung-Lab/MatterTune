@@ -1,11 +1,14 @@
 sphinx
+sphinx-autoapi
+sphinx-autodoc-typehints
 sphinx-rtd-theme
 myst-parser
 sphinx-autodoc-typehints
 sphinx-copybutton
-nshconfig
+nshconfig[extra]
+nshconfig-extra[extra]
+numpy
 ase
 scikit-learn
 lightning
-numpy
 torchmetrics
