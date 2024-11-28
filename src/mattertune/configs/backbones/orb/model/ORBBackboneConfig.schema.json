@@ -168,6 +168,13 @@
             "title": "CosineAnnealingLRConfig",
             "type": "object"
         },
+        "DType": {
+            "const": "float",
+            "enum": [
+                "float"
+            ],
+            "type": "string"
+        },
         "EnergyPropertyConfig": {
             "properties": {
                 "name": {
@@ -177,41 +184,13 @@
                     "type": "string"
                 },
                 "dtype": {
-                    "const": "float",
+                    "$ref": "#/$defs/DType",
                     "default": "float",
-                    "description": "The type of the property values.",
-                    "enum": [
-                        "float"
-                    ],
-                    "title": "Dtype",
-                    "type": "string"
+                    "description": "The type of the property values."
                 },
                 "loss": {
-                    "description": "The loss function to use when training the model on this property.",
-                    "discriminator": {
-                        "mapping": {
-                            "huber": "#/$defs/HuberLossConfig",
-                            "l2_mae": "#/$defs/L2MAELossConfig",
-                            "mae": "#/$defs/MAELossConfig",
-                            "mse": "#/$defs/MSELossConfig"
-                        },
-                        "propertyName": "name"
-                    },
-                    "oneOf": [
-                        {
-                            "$ref": "#/$defs/MAELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/MSELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/HuberLossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/L2MAELossConfig"
-                        }
-                    ],
-                    "title": "Loss"
+                    "$ref": "#/$defs/LossConfig",
+                    "description": "The loss function to use when training the model on this property."
                 },
                 "loss_coefficient": {
                     "default": 1.0,
@@ -268,41 +247,13 @@
                     "type": "string"
                 },
                 "dtype": {
-                    "const": "float",
+                    "$ref": "#/$defs/DType",
                     "default": "float",
-                    "description": "The type of the property values.",
-                    "enum": [
-                        "float"
-                    ],
-                    "title": "Dtype",
-                    "type": "string"
+                    "description": "The type of the property values."
                 },
                 "loss": {
-                    "description": "The loss function to use when training the model on this property.",
-                    "discriminator": {
-                        "mapping": {
-                            "huber": "#/$defs/HuberLossConfig",
-                            "l2_mae": "#/$defs/L2MAELossConfig",
-                            "mae": "#/$defs/MAELossConfig",
-                            "mse": "#/$defs/MSELossConfig"
-                        },
-                        "propertyName": "name"
-                    },
-                    "oneOf": [
-                        {
-                            "$ref": "#/$defs/MAELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/MSELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/HuberLossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/L2MAELossConfig"
-                        }
-                    ],
-                    "title": "Loss"
+                    "$ref": "#/$defs/LossConfig",
+                    "description": "The loss function to use when training the model on this property."
                 },
                 "loss_coefficient": {
                     "default": 1.0,
@@ -340,40 +291,12 @@
                     "type": "string"
                 },
                 "dtype": {
-                    "const": "float",
-                    "description": "The type of the property values.",
-                    "enum": [
-                        "float"
-                    ],
-                    "title": "Dtype",
-                    "type": "string"
+                    "$ref": "#/$defs/DType",
+                    "description": "The type of the property values."
                 },
                 "loss": {
-                    "description": "The loss function to use when training the model on this property.",
-                    "discriminator": {
-                        "mapping": {
-                            "huber": "#/$defs/HuberLossConfig",
-                            "l2_mae": "#/$defs/L2MAELossConfig",
-                            "mae": "#/$defs/MAELossConfig",
-                            "mse": "#/$defs/MSELossConfig"
-                        },
-                        "propertyName": "name"
-                    },
-                    "oneOf": [
-                        {
-                            "$ref": "#/$defs/MAELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/MSELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/HuberLossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/L2MAELossConfig"
-                        }
-                    ],
-                    "title": "Loss"
+                    "$ref": "#/$defs/LossConfig",
+                    "description": "The loss function to use when training the model on this property."
                 },
                 "loss_coefficient": {
                     "default": 1.0,
@@ -465,6 +388,60 @@
             },
             "title": "L2MAELossConfig",
             "type": "object"
+        },
+        "LRSchedulerConfig": {
+            "discriminator": {
+                "mapping": {
+                    "CosineAnnealingLR": "#/$defs/CosineAnnealingLRConfig",
+                    "ExponentialLR": "#/$defs/ExponentialConfig",
+                    "MultiStepLR": "#/$defs/MultiStepLRConfig",
+                    "ReduceLROnPlateau": "#/$defs/ReduceOnPlateauConfig",
+                    "StepLR": "#/$defs/StepLRConfig"
+                },
+                "propertyName": "type"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/StepLRConfig"
+                },
+                {
+                    "$ref": "#/$defs/MultiStepLRConfig"
+                },
+                {
+                    "$ref": "#/$defs/ExponentialConfig"
+                },
+                {
+                    "$ref": "#/$defs/ReduceOnPlateauConfig"
+                },
+                {
+                    "$ref": "#/$defs/CosineAnnealingLRConfig"
+                }
+            ]
+        },
+        "LossConfig": {
+            "discriminator": {
+                "mapping": {
+                    "huber": "#/$defs/HuberLossConfig",
+                    "l2_mae": "#/$defs/L2MAELossConfig",
+                    "mae": "#/$defs/MAELossConfig",
+                    "mse": "#/$defs/MSELossConfig"
+                },
+                "propertyName": "name"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/MAELossConfig"
+                },
+                {
+                    "$ref": "#/$defs/MSELossConfig"
+                },
+                {
+                    "$ref": "#/$defs/HuberLossConfig"
+                },
+                {
+                    "$ref": "#/$defs/L2MAELossConfig"
+                }
+            ]
         },
         "MAELossConfig": {
             "properties": {
@@ -603,6 +580,27 @@
             "title": "ORBSystemConfig",
             "type": "object"
         },
+        "OptimizerConfig": {
+            "discriminator": {
+                "mapping": {
+                    "Adam": "#/$defs/AdamConfig",
+                    "AdamW": "#/$defs/AdamWConfig",
+                    "SGD": "#/$defs/SGDConfig"
+                },
+                "propertyName": "name"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/AdamConfig"
+                },
+                {
+                    "$ref": "#/$defs/AdamWConfig"
+                },
+                {
+                    "$ref": "#/$defs/SGDConfig"
+                }
+            ]
+        },
         "PerAtomReferencingNormalizerConfig": {
             "properties": {
                 "per_atom_references": {
@@ -633,6 +631,31 @@
             ],
             "title": "PerAtomReferencingNormalizerConfig",
             "type": "object"
+        },
+        "PropertyConfig": {
+            "discriminator": {
+                "mapping": {
+                    "energy": "#/$defs/EnergyPropertyConfig",
+                    "forces": "#/$defs/ForcesPropertyConfig",
+                    "graph_property": "#/$defs/GraphPropertyConfig",
+                    "stresses": "#/$defs/StressesPropertyConfig"
+                },
+                "propertyName": "type"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/GraphPropertyConfig"
+                },
+                {
+                    "$ref": "#/$defs/EnergyPropertyConfig"
+                },
+                {
+                    "$ref": "#/$defs/ForcesPropertyConfig"
+                },
+                {
+                    "$ref": "#/$defs/StressesPropertyConfig"
+                }
+            ]
         },
         "RMSNormalizerConfig": {
             "properties": {
@@ -798,41 +821,13 @@
                     "type": "string"
                 },
                 "dtype": {
-                    "const": "float",
+                    "$ref": "#/$defs/DType",
                     "default": "float",
-                    "description": "The type of the property values.",
-                    "enum": [
-                        "float"
-                    ],
-                    "title": "Dtype",
-                    "type": "string"
+                    "description": "The type of the property values."
                 },
                 "loss": {
-                    "description": "The loss function to use when training the model on this property.",
-                    "discriminator": {
-                        "mapping": {
-                            "huber": "#/$defs/HuberLossConfig",
-                            "l2_mae": "#/$defs/L2MAELossConfig",
-                            "mae": "#/$defs/MAELossConfig",
-                            "mse": "#/$defs/MSELossConfig"
-                        },
-                        "propertyName": "name"
-                    },
-                    "oneOf": [
-                        {
-                            "$ref": "#/$defs/MAELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/MSELossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/HuberLossConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/L2MAELossConfig"
-                        }
-                    ],
-                    "title": "Loss"
+                    "$ref": "#/$defs/LossConfig",
+                    "description": "The loss function to use when training the model on this property."
                 },
                 "loss_coefficient": {
                     "default": 1.0,
@@ -867,95 +862,26 @@
         "properties": {
             "type": "array",
             "items": {
-                "description": "The configuration for the property.",
-                "discriminator": {
-                    "mapping": {
-                        "energy": "#/$defs/EnergyPropertyConfig",
-                        "forces": "#/$defs/ForcesPropertyConfig",
-                        "graph_property": "#/$defs/GraphPropertyConfig",
-                        "stresses": "#/$defs/StressesPropertyConfig"
-                    },
-                    "propertyName": "type"
-                },
-                "oneOf": [
-                    {
-                        "$ref": "#/$defs/GraphPropertyConfig"
-                    },
-                    {
-                        "$ref": "#/$defs/EnergyPropertyConfig"
-                    },
-                    {
-                        "$ref": "#/$defs/ForcesPropertyConfig"
-                    },
-                    {
-                        "$ref": "#/$defs/StressesPropertyConfig"
-                    }
-                ]
+                "$ref": "#/$defs/PropertyConfig"
             },
             "description": "Properties to predict.",
             "title": "Properties"
         },
         "optimizer": {
-            "description": "Optimizer.",
-            "discriminator": {
-                "mapping": {
-                    "Adam": "#/$defs/AdamConfig",
-                    "AdamW": "#/$defs/AdamWConfig",
-                    "SGD": "#/$defs/SGDConfig"
-                },
-                "propertyName": "name"
-            },
-            "oneOf": [
-                {
-                    "$ref": "#/$defs/AdamConfig"
-                },
-                {
-                    "$ref": "#/$defs/AdamWConfig"
-                },
-                {
-                    "$ref": "#/$defs/SGDConfig"
-                }
-            ],
-            "title": "Optimizer"
+            "$ref": "#/$defs/OptimizerConfig",
+            "description": "Optimizer."
         },
         "lr_scheduler": {
             "anyOf": [
                 {
-                    "discriminator": {
-                        "mapping": {
-                            "CosineAnnealingLR": "#/$defs/CosineAnnealingLRConfig",
-                            "ExponentialLR": "#/$defs/ExponentialConfig",
-                            "MultiStepLR": "#/$defs/MultiStepLRConfig",
-                            "ReduceLROnPlateau": "#/$defs/ReduceOnPlateauConfig",
-                            "StepLR": "#/$defs/StepLRConfig"
-                        },
-                        "propertyName": "type"
-                    },
-                    "oneOf": [
-                        {
-                            "$ref": "#/$defs/StepLRConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/MultiStepLRConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/ExponentialConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/ReduceOnPlateauConfig"
-                        },
-                        {
-                            "$ref": "#/$defs/CosineAnnealingLRConfig"
-                        }
-                    ]
+                    "$ref": "#/$defs/LRSchedulerConfig"
                 },
                 {
                     "type": "null"
                 }
             ],
             "default": null,
-            "description": "Learning Rate Scheduler",
-            "title": "Lr Scheduler"
+            "description": "Learning Rate Scheduler"
         },
         "ignore_gpu_batch_transform_error": {
             "default": true,
