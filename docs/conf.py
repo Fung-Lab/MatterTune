@@ -86,6 +86,8 @@ autodoc_mock_imports = [
 # Type hints settings
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
+typehints_use_rtype = False
+typehints_defaults = "comma"
 
 # Enable automatic doc generation
 autosummary_generate = True
