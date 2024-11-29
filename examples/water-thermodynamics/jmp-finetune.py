@@ -35,7 +35,7 @@ def main(args_dict: dict):
 
         # Add forces property
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=False, loss_coefficient=100.0
+            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
         )
         hparams.model.properties.append(forces)
 
@@ -111,10 +111,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
     parser.add_argument("--train_split", type=float, default=0.03)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)

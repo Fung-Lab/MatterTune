@@ -78,3 +78,23 @@ Recall: 91.28%
 F1 Score: 0.8796
 
 ![](./plots/orb-gnome.png)
+
+## Other Properties Prediction
+
+### Matbench-Log-Kvrh
+
+90% for training and 10% for valizdation
+
+| | JMP | ORB | EqV2 |
+|-|-|-|-|
+|val-mae|0.0517|0.0542|0.0497|
+|val-mse|0.0109|0.0101|0.0094|
+
+### Matbench-Perovskites
+
+90% for training and 10% for valizdation
+
+| | JMP | ORB | EqV2 |
+|-|-|-|-|
+|val-mae|0.0333|0.0346|0.0317|
+|val-mse|0.0044|0.0042|0.0043|

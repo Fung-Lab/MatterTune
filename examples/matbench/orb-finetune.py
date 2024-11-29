@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, default="orb-v2")
     parser.add_argument("--task", type=str, default="matbench_mp_gap")
     parser.add_argument("--train_split", type=float, default=0.9)
-    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
     parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
