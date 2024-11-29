@@ -9,3 +9,9 @@ from mattertune.backbones.eqV2.model import (
 from mattertune.backbones.eqV2.model import (
     FinetuneModuleBaseConfig as FinetuneModuleBaseConfig,
 )
+
+__all__ = [
+    "EqV2BackboneConfig",
+    "FAIRChemAtomsToGraphSystemConfig",
+    "FinetuneModuleBaseConfig",
+]

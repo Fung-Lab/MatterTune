@@ -128,7 +128,7 @@ class GraphPropertyConfig:
     loss_coefficient: float = 1.0
     reduction: Literal["mean", "sum", "max"]  # How to aggregate atomic features
 
-PropertyConfig: TypeAlias = EnergyPropertyConfig | ForcesPropertyConfig | StressesPropertyConfig | GraphPropertyConfig
+PropertyConfig = TypeAliasType("PropertyConfig", EnergyPropertyConfig | ForcesPropertyConfig | StressesPropertyConfig | GraphPropertyConfig)
 ```
 
 Benefits:

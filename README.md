@@ -1,5 +1,7 @@
 # MatterTune: A Unified Platform for Atomistic Foundation Model Fine-Tuning
 
+[![Documentation Status](https://github.com/Fung-Lab/MatterTune/actions/workflows/docs.yml/badge.svg)](https://fung-lab.github.io/MatterTune/)
+
 MatterTune is a flexible and powerful machine learning library designed specifically for fine-tuning state-of-the-art chemistry models. It provides intuitive interfaces for computational chemists to fine-tune pre-trained models on their specific use cases.
 
 ## Table of Contents
@@ -181,7 +183,7 @@ Note: MatterTune requires PyTorch >= 2.0 and additional backbone-specific depend
 For development installation:
 
 ```bash
-git clone https://github.com/nimashoghi/mattertune.git
+git clone https://github.com/Fung-Lab/MatterTune.git
 cd mattertune
 pip install -e .
 ``` -->

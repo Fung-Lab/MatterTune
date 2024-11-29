@@ -5,7 +5,6 @@ from typing import Literal
 
 import ase
 from ase import Atoms
-from pymatgen.io.ase import AseAtomsAdaptor
 from torch.utils.data import Dataset
 from typing_extensions import override
 
@@ -50,6 +49,8 @@ class MPDataset(Dataset[ase.Atoms]):
 
     @override
     def __getitem__(self, idx: int) -> Atoms:
+        from pymatgen.io.ase import AseAtomsAdaptor
+
         doc = self.docs[idx]
         mid = doc.material_id
         structure = self.mpr.get_structure_by_material_id(mid)

@@ -9,3 +9,10 @@ from mattertune.backbones.orb.model import (
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 
 from . import model as model
+
+__all__ = [
+    "FinetuneModuleBaseConfig",
+    "ORBBackboneConfig",
+    "ORBSystemConfig",
+    "model",
+]

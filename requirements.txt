@@ -1,0 +1,9 @@
+nshconfig
+torch
+ase
+scikit-learn
+lightning
+numpy
+torchmetrics
+nshconfig[extra]
+nshconfig-extra[extra]

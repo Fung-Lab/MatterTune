@@ -11,3 +11,9 @@ from mattertune.backbones.m3gnet.model import (
 from mattertune.backbones.m3gnet.model import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
+
+__all__ = [
+    "FinetuneModuleBaseConfig",
+    "M3GNetBackboneConfig",
+    "M3GNetGraphComputerConfig",
+]

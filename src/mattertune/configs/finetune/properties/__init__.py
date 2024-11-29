@@ -9,3 +9,11 @@ from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigB
 from mattertune.finetune.properties import (
     StressesPropertyConfig as StressesPropertyConfig,
 )
+
+__all__ = [
+    "EnergyPropertyConfig",
+    "ForcesPropertyConfig",
+    "GraphPropertyConfig",
+    "PropertyConfigBase",
+    "StressesPropertyConfig",
+]

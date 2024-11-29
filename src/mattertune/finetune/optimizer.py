@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal
 
 import nshconfig as C
 import torch
 import torch.nn as nn
-from typing_extensions import assert_never
+from typing_extensions import TypeAliasType, assert_never
 
 
 class AdamConfig(C.Config):
@@ -52,10 +52,13 @@ class SGDConfig(C.Config):
     """Whether to use nestrov."""
 
 
-OptimizerConfig: TypeAlias = Annotated[
-    AdamConfig | AdamWConfig | SGDConfig,
-    C.Field(discriminator="name"),
-]
+OptimizerConfig = TypeAliasType(
+    "OptimizerConfig",
+    Annotated[
+        AdamConfig | AdamWConfig | SGDConfig,
+        C.Field(discriminator="name"),
+    ],
+)
 
 
 def create_optimizer(
@@ -90,6 +93,6 @@ def create_optimizer(
                 nesterov=config.nestrov,
             )
         case _:
-            assert_never(optimizer)
+            assert_never(config)
 
     return optimizer
