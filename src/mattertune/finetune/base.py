@@ -407,9 +407,16 @@ class FinetuneModuleBase(
                 batch = self.gpu_batch_transform(batch)
 
             # Run the model
-            return self.model_forward(
+            model_output = self.model_forward(
                 batch, return_backbone_output=return_backbone_output
             )
+            
+            model_output['predicted_properties'] = {
+                prop_name: prop_value.contiguous()
+                for prop_name, prop_value in model_output['predicted_properties'].items()
+            }
+            
+            return model_output
 
     def _compute_loss(
         self,
