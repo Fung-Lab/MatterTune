@@ -14,9 +14,6 @@ from mattertune.backbones.jmp.model import (
     JMPGraphComputerConfig as JMPGraphComputerConfig,
 )
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
-from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
-    GraphScalarTargetConfig as GraphScalarTargetConfig,
-)
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
@@ -81,3 +78,63 @@ from . import loggers as loggers
 from . import main as main
 from . import normalization as normalization
 from . import registry as registry
+
+__all__ = [
+    "AdamConfig",
+    "AdamWConfig",
+    "AutoSplitDataModuleConfig",
+    "CSVLoggerConfig",
+    "CosineAnnealingLRConfig",
+    "CutoffsConfig",
+    "DBDatasetConfig",
+    "DataModuleBaseConfig",
+    "DatasetConfigBase",
+    "EarlyStoppingConfig",
+    "EnergyPropertyConfig",
+    "EqV2BackboneConfig",
+    "ExponentialConfig",
+    "FAIRChemAtomsToGraphSystemConfig",
+    "FinetuneModuleBaseConfig",
+    "ForcesPropertyConfig",
+    "GraphPropertyConfig",
+    "HuberLossConfig",
+    "JMPBackboneConfig",
+    "JMPGraphComputerConfig",
+    "L2MAELossConfig",
+    "M3GNetBackboneConfig",
+    "M3GNetGraphComputerConfig",
+    "MAELossConfig",
+    "MPDatasetConfig",
+    "MPTrajDatasetConfig",
+    "MSELossConfig",
+    "ManualSplitDataModuleConfig",
+    "MatbenchDatasetConfig",
+    "MatterTunerConfig",
+    "MaxNeighborsConfig",
+    "MeanStdNormalizerConfig",
+    "ModelCheckpointConfig",
+    "MultiStepLRConfig",
+    "NormalizerConfigBase",
+    "OMAT24DatasetConfig",
+    "ORBBackboneConfig",
+    "ORBSystemConfig",
+    "PerAtomReferencingNormalizerConfig",
+    "PropertyConfigBase",
+    "RMSNormalizerConfig",
+    "ReduceOnPlateauConfig",
+    "SGDConfig",
+    "StepLRConfig",
+    "StressesPropertyConfig",
+    "TensorBoardLoggerConfig",
+    "TrainerConfig",
+    "WandbLoggerConfig",
+    "XYZDatasetConfig",
+    "backbones",
+    "callbacks",
+    "data",
+    "finetune",
+    "loggers",
+    "main",
+    "normalization",
+    "registry",
+]

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-import jaxtyping as jt
 import nshconfig as C
 import torch
 from torch.autograd import grad
@@ -35,7 +34,7 @@ class MatGLData:
     """The DGL edge graph for three-body interactions."""
     state_attr: torch.Tensor
     """The global state attributes"""
-    lattice: jt.Float[torch.Tensor, "1 3 3"]
+    lattice: torch.Tensor  # 1 3 3
     """The atomic lattice vectors"""
     labels: dict[str, torch.Tensor]
     """The ground truth labels"""
@@ -49,9 +48,9 @@ class MatGLBatch:
     """The DGL edge graph for three-body interactions."""
     state_attr: torch.Tensor
     """The global state attributes"""
-    lattice: jt.Float[torch.Tensor, "batch_size 3 3"]
+    lattice: torch.Tensor  # batch_size 3 3
     """The atomic lattice vectors"""
-    strain: jt.Float[torch.Tensor, "batch_size 3 3"]
+    strain: torch.Tensor  # batch_size 3 3
     """The strain tensor"""
     labels: dict[str, torch.Tensor]
     """The ground truth labels"""

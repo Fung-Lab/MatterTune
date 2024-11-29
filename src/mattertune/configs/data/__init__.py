@@ -25,3 +25,24 @@ from . import mp as mp
 from . import mptraj as mptraj
 from . import omat24 as omat24
 from . import xyz as xyz
+
+__all__ = [
+    "AutoSplitDataModuleConfig",
+    "DBDatasetConfig",
+    "DataModuleBaseConfig",
+    "DatasetConfigBase",
+    "MPDatasetConfig",
+    "MPTrajDatasetConfig",
+    "ManualSplitDataModuleConfig",
+    "MatbenchDatasetConfig",
+    "OMAT24DatasetConfig",
+    "XYZDatasetConfig",
+    "base",
+    "datamodule",
+    "db",
+    "matbench",
+    "mp",
+    "mptraj",
+    "omat24",
+    "xyz",
+]

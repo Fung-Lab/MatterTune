@@ -5,3 +5,7 @@ __codegen__ = True
 from mattertune.finetune.base import (
     FinetuneModuleBaseConfig as FinetuneModuleBaseConfig,
 )
+
+__all__ = [
+    "FinetuneModuleBaseConfig",
+]

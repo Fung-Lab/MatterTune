@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Literal, TypeAlias
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import nshconfig as C
 import numpy as np
 import torch
 from ase import Atoms
-from typing_extensions import assert_never, override
+from typing_extensions import TypeAliasType, assert_never, override
 
 from .loss import LossConfig
 
@@ -19,18 +19,21 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-DType: TypeAlias = Literal["float"]
+DType = TypeAliasType("DType", Literal["float"])
 """The type of the property values."""
 
-ASECalculatorPropertyName: TypeAlias = Literal[
-    "energy",
-    "forces",
-    "stress",
-    "dipole",
-    "charges",
-    "magmom",
-    "magmoms",
-]
+ASECalculatorPropertyName = TypeAliasType(
+    "ASECalculatorPropertyName",
+    Literal[
+        "energy",
+        "forces",
+        "stress",
+        "dipole",
+        "charges",
+        "magmom",
+        "magmoms",
+    ],
+)
 
 
 class PropertyConfigBase(C.Config, ABC):
@@ -234,13 +237,16 @@ class StressesPropertyConfig(PropertyConfigBase):
         return "system"
 
 
-PropertyConfig: TypeAlias = Annotated[
-    GraphPropertyConfig
-    | EnergyPropertyConfig
-    | ForcesPropertyConfig
-    | StressesPropertyConfig,
-    C.Field(
-        description="The configuration for the property.",
-        discriminator="type",
-    ),
-]
+PropertyConfig = TypeAliasType(
+    "PropertyConfig",
+    Annotated[
+        GraphPropertyConfig
+        | EnergyPropertyConfig
+        | ForcesPropertyConfig
+        | StressesPropertyConfig,
+        C.Field(
+            description="The configuration for the property.",
+            discriminator="type",
+        ),
+    ],
+)

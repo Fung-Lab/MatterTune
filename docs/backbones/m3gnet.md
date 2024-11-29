@@ -71,23 +71,7 @@ The backbone is implemented in `M3GNetBackboneModule` which:
 4. Manages normalization of inputs/outputs
 
 Key features:
-
 - Energy-conserving force prediction
 - Three-body interactions for improved accuracy
 - Efficient graph construction
 - Support for periodic boundary conditions
-
-## Requirements
-
-The M3GNet backbone requires:
-- matgl
-- dgl (Deep Graph Library)
-- torch
-
-These dependencies are automatically checked when using the backbone.
-
-## References
-
-- [M3GNet Paper](https://www.nature.com/articles/s43588-022-00349-3)
-- [MatGL Documentation](https://materialsvirtuallab.github.io/matgl/)
-- Source code in `src/mattertune/backbones/m3gnet/`

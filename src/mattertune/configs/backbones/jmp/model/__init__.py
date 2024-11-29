@@ -11,3 +11,11 @@ from mattertune.backbones.jmp.model import (
     JMPGraphComputerConfig as JMPGraphComputerConfig,
 )
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
+
+__all__ = [
+    "CutoffsConfig",
+    "FinetuneModuleBaseConfig",
+    "JMPBackboneConfig",
+    "JMPGraphComputerConfig",
+    "MaxNeighborsConfig",
+]

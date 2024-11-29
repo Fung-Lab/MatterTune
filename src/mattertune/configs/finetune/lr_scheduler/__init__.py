@@ -11,3 +11,11 @@ from mattertune.finetune.lr_scheduler import (
     ReduceOnPlateauConfig as ReduceOnPlateauConfig,
 )
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
+
+__all__ = [
+    "CosineAnnealingLRConfig",
+    "ExponentialConfig",
+    "MultiStepLRConfig",
+    "ReduceOnPlateauConfig",
+    "StepLRConfig",
+]

@@ -1,5 +1,12 @@
 {
     "$defs": {
+        "DType": {
+            "const": "float",
+            "enum": [
+                "float"
+            ],
+            "type": "string"
+        },
         "HuberLossConfig": {
             "properties": {
                 "name": {
@@ -55,6 +62,31 @@
             },
             "title": "L2MAELossConfig",
             "type": "object"
+        },
+        "LossConfig": {
+            "discriminator": {
+                "mapping": {
+                    "huber": "#/$defs/HuberLossConfig",
+                    "l2_mae": "#/$defs/L2MAELossConfig",
+                    "mae": "#/$defs/MAELossConfig",
+                    "mse": "#/$defs/MSELossConfig"
+                },
+                "propertyName": "name"
+            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/MAELossConfig"
+                },
+                {
+                    "$ref": "#/$defs/MSELossConfig"
+                },
+                {
+                    "$ref": "#/$defs/HuberLossConfig"
+                },
+                {
+                    "$ref": "#/$defs/L2MAELossConfig"
+                }
+            ]
         },
         "MAELossConfig": {
             "properties": {
@@ -115,41 +147,13 @@
             "type": "string"
         },
         "dtype": {
-            "const": "float",
+            "$ref": "#/$defs/DType",
             "default": "float",
-            "description": "The type of the property values.",
-            "enum": [
-                "float"
-            ],
-            "title": "Dtype",
-            "type": "string"
+            "description": "The type of the property values."
         },
         "loss": {
-            "description": "The loss function to use when training the model on this property.",
-            "discriminator": {
-                "mapping": {
-                    "huber": "#/$defs/HuberLossConfig",
-                    "l2_mae": "#/$defs/L2MAELossConfig",
-                    "mae": "#/$defs/MAELossConfig",
-                    "mse": "#/$defs/MSELossConfig"
-                },
-                "propertyName": "name"
-            },
-            "oneOf": [
-                {
-                    "$ref": "#/$defs/MAELossConfig"
-                },
-                {
-                    "$ref": "#/$defs/MSELossConfig"
-                },
-                {
-                    "$ref": "#/$defs/HuberLossConfig"
-                },
-                {
-                    "$ref": "#/$defs/L2MAELossConfig"
-                }
-            ],
-            "title": "Loss"
+            "$ref": "#/$defs/LossConfig",
+            "description": "The loss function to use when training the model on this property."
         },
         "loss_coefficient": {
             "default": 1.0,

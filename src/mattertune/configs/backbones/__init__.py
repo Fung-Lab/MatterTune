@@ -15,9 +15,6 @@ from mattertune.backbones.jmp.model import (
     JMPGraphComputerConfig as JMPGraphComputerConfig,
 )
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
-from mattertune.backbones.jmp.prediction_heads.graph_scalar import (
-    GraphScalarTargetConfig as GraphScalarTargetConfig,
-)
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
@@ -27,3 +24,21 @@ from . import eqV2 as eqV2
 from . import jmp as jmp
 from . import m3gnet as m3gnet
 from . import orb as orb
+
+__all__ = [
+    "CutoffsConfig",
+    "EqV2BackboneConfig",
+    "FAIRChemAtomsToGraphSystemConfig",
+    "FinetuneModuleBaseConfig",
+    "JMPBackboneConfig",
+    "JMPGraphComputerConfig",
+    "M3GNetBackboneConfig",
+    "M3GNetGraphComputerConfig",
+    "MaxNeighborsConfig",
+    "ORBBackboneConfig",
+    "ORBSystemConfig",
+    "eqV2",
+    "jmp",
+    "m3gnet",
+    "orb",
+]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated, TypeAlias
+from typing import Annotated
+
+from typing_extensions import TypeAliasType
 
 from ..finetune.base import FinetuneModuleBaseConfig
 from ..registry import backbone_registry
@@ -13,7 +15,10 @@ from .m3gnet import M3GNetBackboneModule as M3GNetBackboneModule
 from .orb import ORBBackboneConfig as ORBBackboneConfig
 from .orb import ORBBackboneModule as ORBBackboneModule
 
-ModelConfig: TypeAlias = Annotated[
-    FinetuneModuleBaseConfig,
-    backbone_registry.DynamicResolution(),
-]
+ModelConfig = TypeAliasType(
+    "ModelConfig",
+    Annotated[
+        FinetuneModuleBaseConfig,
+        backbone_registry.DynamicResolution(),
+    ],
+)
