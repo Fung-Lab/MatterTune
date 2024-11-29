@@ -407,9 +407,16 @@ class FinetuneModuleBase(
                 batch = self.gpu_batch_transform(batch)
 
             # Run the model
-            return self.model_forward(
+            model_output = self.model_forward(
                 batch, return_backbone_output=return_backbone_output
             )
+            
+            model_output['predicted_properties'] = {
+                prop_name: prop_value.contiguous()
+                for prop_name, prop_value in model_output['predicted_properties'].items()
+            }
+            
+            return model_output
 
     def _compute_loss(
         self,
@@ -532,10 +539,7 @@ class FinetuneModuleBase(
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
         output: ModelOutput = self(batch, ignore_gpu_batch_transform_error=False)
-        predictions = output["predicted_properties"]
-        normalization_ctx = self.create_normalization_context_from_batch(batch)
-        denormalized_predictions = self.denormalize(predictions, normalization_ctx)
-        return denormalized_predictions
+        return output["predicted_properties"]
 
     @override
     def configure_optimizers(self):
