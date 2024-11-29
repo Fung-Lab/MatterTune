@@ -20,6 +20,7 @@ from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 from . import base as base
 from . import datamodule as datamodule
 from . import db as db
+from . import json as json
 from . import matbench as matbench
 from . import mp as mp
 from . import mptraj as mptraj
@@ -45,4 +46,5 @@ __all__ = [
     "mptraj",
     "omat24",
     "xyz",
+    "json",
 ]

@@ -19,6 +19,7 @@ from mattertune.backbones.m3gnet import (
 )
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
+from mattertune.data import JSONDatasetConfig as JSONDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 from mattertune.data.datamodule import (
@@ -129,6 +130,7 @@ __all__ = [
     "TrainerConfig",
     "WandbLoggerConfig",
     "XYZDatasetConfig",
+    "JSONDatasetConfig",
     "backbones",
     "callbacks",
     "data",

@@ -1,0 +1,42 @@
+{
+    "properties": {
+        "type": {
+            "const": "json",
+            "default": "json",
+            "description": "Discriminator for the JSON dataset.",
+            "enum": [
+                "json"
+            ],
+            "title": "Type",
+            "type": "string"
+        },
+        "src": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "format": "path",
+                    "type": "string"
+                }
+            ],
+            "description": "The path to the JSON dataset.",
+            "title": "Src"
+        },
+        "tasks": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "The mapping of task names to descriptions.",
+            "title": "Tasks",
+            "minProperties": 1
+        }
+    },
+    "required": [
+        "src",
+        "tasks"
+    ],
+    "title": "JSONDatasetConfig",
+    "type": "object"
+}
