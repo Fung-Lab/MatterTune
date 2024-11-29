@@ -4,10 +4,10 @@ M3GNet pretrained on MPTraj dataset is fine-tuned on [water thermo-dynamics data
 
 ## Fine-tuning on Water Dataset
 
-| |M3GNet |
-|-|-|
-|val-e-mae(eV/atom)|0.0023|
-|val-f-mae(eV/Angstrom)|0.1165|
+| |M3GNet 80% | ORB 3% | ORB 80% | JMP 3% | JMP 80% |
+|-|-|-|-|-|-|
+|val-e-mae(eV/atom)|0.0023|0.0075|0.0042|0.0008|0.0045|
+|val-f-mae(eV/Angstrom)|0.1165|0.0725|0.0359|0.0077|0.0058
 
 ## Langevin MD Results
 
