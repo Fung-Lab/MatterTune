@@ -539,7 +539,10 @@ class FinetuneModuleBase(
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
         output: ModelOutput = self(batch, ignore_gpu_batch_transform_error=False)
-        return output["predicted_properties"]
+        predictions = output["predicted_properties"]
+        normalization_ctx = self.create_normalization_context_from_batch(batch)
+        denormalized_predictions = self.denormalize(predictions, normalization_ctx)
+        return denormalized_predictions
 
     @override
     def configure_optimizers(self):
