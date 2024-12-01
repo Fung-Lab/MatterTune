@@ -141,6 +141,12 @@ config = C.MatterTunerConfig(
 
 Please visit the [Meta AI OMAT24 model release page on Hugging Face](https://huggingface.co/fairchem/OMAT24) for more details.
 
+## Examples & Notebooks
+
+A notebook tutorial about how to fine-tune and use EquiformerV2 model can be found in ```notebooks/eqv2-omat.ipynb```([link](https://github.com/Fung-Lab/MatterTune/blob/main/notebooks/eqv2-omat.ipynb)). 
+
+Under ```matbench```([link](https://github.com/Fung-Lab/MatterTune/tree/main/examples/matbench)), we gave an advanced usage example fine-tuning EquiformerV2 on property prediction data and applying to property screening task. 
+
 ## License
 
 The EquiformerV2 backbone is subject to Meta's Research License. Please ensure compliance with the license terms when using this backbone, especially for commercial applications.

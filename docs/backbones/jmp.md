@@ -125,6 +125,14 @@ The JMP backbone uses a sophisticated multi-scale graph construction approach wi
   - `qint`: Charge interaction neighbors
   - `aint`: Auxiliary interaction neighbors
 
+## Examples & Notebooks
+
+A notebook tutorial about how to fine-tune and use JMP model can be found in ```notebooks/jmp-omat.ipynb```([link](https://github.com/Fung-Lab/MatterTune/blob/main/notebooks/jmp-omat.ipynb)) and ```notebooks/jmp-omat-autosplit.ipynb```([link](https://github.com/Fung-Lab/MatterTune/blob/main/notebooks/jmp-omat-autosplit.ipynb)). 
+
+Under ```matbench```([link](https://github.com/Fung-Lab/MatterTune/tree/main/examples/matbench)), we gave an advanced usage example fine-tuning JMP on property prediction data and applying to property screening task. 
+
+Under ```structure-optimization```([link](https://github.com/Fung-Lab/MatterTune/blob/main/examples/structure-optimization)), we fine-tuned JMP on a subset of MPTraj and applied it to perform structure relaxation. 
+
 ## License
 
 The JMP backbone is available under the CC BY-NC 4.0 License, which means:

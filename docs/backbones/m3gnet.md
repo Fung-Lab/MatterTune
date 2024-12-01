@@ -23,7 +23,7 @@ model = mt.configs.M3GNetBackboneConfig(
     # Graph computer settings
     graph_computer=mt.configs.M3GNetGraphComputerConfig(
         # Cutoff distance for neighbor list. If None, the cutoff is loaded from the checkpoint.
-        cutoff=6.0,
+        cutoff=5.0,
 
         # Cutoff for three-body interactions. If None, the cutoff is loaded from the checkpoint.
         threebody_cutoff=4.0,
@@ -75,3 +75,25 @@ Key features:
 - Three-body interactions for improved accuracy
 - Efficient graph construction
 - Support for periodic boundary conditions
+
+## Examples & Notebooks
+
+A notebook tutorial about how to fine-tune M3GNet model can be found in ```notebooks/m3gnet-waterthermo.ipynb```([link](https://github.com/Fung-Lab/MatterTune/blob/main/notebooks/m3gnet-waterthermo.ipynb)). 
+
+For advanced usage regarding fine-tuning models and applying them to downstream tasks (MD simulation for example), please refer to ```water-thermodynamics```([link](https://github.com/Fung-Lab/MatterTune/tree/main/examples/water-thermodynamics))
+
+## License
+
+We used the M3GNet model implemented in MatGL package, which is available under BSD 3-Clause License, which means redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.

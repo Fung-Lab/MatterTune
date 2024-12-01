@@ -141,6 +141,12 @@ config = MC.MatterTunerConfig(
 )
 ```
 
+## Examples & Notebooks
+
+A notebook tutorial about how to fine-tune and use ORB model can be found in ```notebooks/orb-omat.ipynb```([link](https://github.com/Fung-Lab/MatterTune/blob/main/notebooks/orb-omat.ipynb)). 
+
+Under ```matbench```([link](https://github.com/Fung-Lab/MatterTune/tree/main/examples/matbench)), we gave an advanced usage example fine-tuning ORB on property prediction data and applying to property screening task. 
+
 ## License
 
 The ORB backbone is available under the Apache 2.0 License, which allows both academic and commercial use with proper attribution.
