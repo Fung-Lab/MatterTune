@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
+from ..util import optional_import_error_message
 from .base import DatasetConfigBase
 
 
@@ -29,7 +30,8 @@ class OMAT24Dataset(Dataset[ase.Atoms]):
         super().__init__()
         self.config = config
 
-        from fairchem.core.datasets import AseDBDataset
+        with optional_import_error_message("fairchem"):
+            from fairchem.core.datasets import AseDBDataset  # type: ignore[reportMissingImports] # noqa
 
         self.dataset = AseDBDataset(config={"src": str(self.config.src)})
 

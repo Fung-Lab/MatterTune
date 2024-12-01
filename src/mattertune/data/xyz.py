@@ -34,7 +34,9 @@ class XYZDataset(Dataset[ase.Atoms]):
         super().__init__()
         self.config = config
 
-        self.atoms_list: list[Atoms] = read(str(self.config.src), index=":")
+        atoms_list = read(str(self.config.src), index=":")
+        assert isinstance(atoms_list, list), "Expected a list of Atoms objects"
+        self.atoms_list: list[Atoms] = atoms_list
         log.info(f"Loaded {len(self.atoms_list)} atoms from {self.config.src}")
 
     @override

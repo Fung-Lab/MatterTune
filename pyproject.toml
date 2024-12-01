@@ -38,7 +38,6 @@ strictListInference = true
 strictDictionaryInference = true
 strictSetInference = true
 reportPrivateImportUsage = false
-reportUnnecessaryTypeIgnoreComment = "warning"
 reportMatchNotExhaustive = "error"
 reportImplicitOverride = "warning"
 reportShadowedImports = "warning"
