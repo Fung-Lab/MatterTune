@@ -19,6 +19,7 @@ guides/datasets
 guides/fine-tuning
 guides/model_usage
 guides/training_config
+guides/normalization
 guides/lightning
 ```
 
