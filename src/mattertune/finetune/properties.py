@@ -39,7 +39,9 @@ ASECalculatorPropertyName = TypeAliasType(
 class PropertyConfigBase(C.Config, ABC):
     name: str
     """The name of the property.
+
     This is the key that will be used to access the property in the output of the model.
+
     This is also the key that will be used to access the property in the ASE Atoms object."""
 
     dtype: DType
@@ -86,23 +88,23 @@ class PropertyConfigBase(C.Config, ABC):
     def ase_calculator_property_name(self) -> ASECalculatorPropertyName | None:
         """
         If this property can be calculated by an ASE calculator, returns
-            the name of the property that the ASE calculator uses. Otherwise,
-            returns None.
+        the name of the property that the ASE calculator uses. Otherwise,
+        returns None.
 
         This should only return non-None for properties that are supported by
-            the ASE calculator interface, i.e.:
-            - 'energy'
-            - 'forces'
-            - 'stress'
-            - 'dipole'
-            - 'charges'
-            - 'magmom'
-            - 'magmoms'
+        the ASE calculator interface, i.e.:
+        - 'energy'
+        - 'forces'
+        - 'stress'
+        - 'dipole'
+        - 'charges'
+        - 'magmom'
+        - 'magmoms'
 
         Note that this does not refer to the new experimental custom property
-            prediction support feature in ASE, but rather the built-in properties
-            that ASE can calculate in the ``ase.calculators.calculator.Calculator``
-            class.
+        prediction support feature in ASE, but rather the built-in properties
+        that ASE can calculate in the ``ase.calculators.calculator.Calculator``
+        class.
         """
 
     @abstractmethod
@@ -119,11 +121,11 @@ class GraphPropertyConfig(PropertyConfigBase):
     reduction: Literal["mean", "sum", "max"]
     """The reduction to use for the output.
     - "sum": Sum the property values for all atoms in the system.
-        This is optimal for extensive properties (e.g. energy).
+    This is optimal for extensive properties (e.g. energy).
     - "mean": Take the mean of the property values for all atoms in the system.
-        This is optimal for intensive properties (e.g. density).
+    This is optimal for intensive properties (e.g. density).
     - "max": Take the maximum of the property values for all atoms in the system.
-        This is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.
+    This is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.
     """
 
     @override
@@ -144,6 +146,7 @@ class EnergyPropertyConfig(PropertyConfigBase):
 
     name: str = "energy"
     """The name of the property.
+
     This is the key that will be used to access the property in the output of the model."""
 
     dtype: DType = "float"
@@ -173,6 +176,7 @@ class ForcesPropertyConfig(PropertyConfigBase):
 
     name: str = "forces"
     """The name of the property.
+
     This is the key that will be used to access the property in the output of the model."""
 
     dtype: DType = "float"
@@ -181,10 +185,11 @@ class ForcesPropertyConfig(PropertyConfigBase):
     conservative: bool
     """
     Whether the forces are energy conserving.
+
     This is used by the backbone to decide the type of output head to use for
-        this property. Conservative force predictions are computed by taking the
-        negative gradient of the energy with respect to the atomic positions, whereas
-        non-conservative forces may be computed by other means.
+    this property. Conservative force predictions are computed by taking the
+    negative gradient of the energy with respect to the atomic positions, whereas
+    non-conservative forces may be computed by other means.
     """
 
     @override
@@ -205,6 +210,7 @@ class StressesPropertyConfig(PropertyConfigBase):
 
     name: str = "stresses"
     """The name of the property.
+
     This is the key that will be used to access the property in the output of the model."""
 
     dtype: DType = "float"
@@ -213,7 +219,7 @@ class StressesPropertyConfig(PropertyConfigBase):
     conservative: bool
     """
     Similar to the `conservative` parameter in `ForcesPropertyConfig`, this parameter
-        specifies whether the stresses should be computed in a conservative manner.
+    specifies whether the stresses should be computed in a conservative manner.
     """
 
     @override

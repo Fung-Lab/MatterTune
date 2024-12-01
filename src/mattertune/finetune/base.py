@@ -46,10 +46,10 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     """Normalizers for the properties.
 
     Any property can be associated with multiple normalizers. This is useful
-        for cases where we want to normalize the same property in different ways.
-        For example, we may want to normalize the energy by subtracting
-        the atomic reference energies, as well as by mean and standard deviation
-        normalization.
+    for cases where we want to normalize the same property in different ways.
+    For example, we may want to normalize the energy by subtracting
+    the atomic reference energies, as well as by mean and standard deviation
+    normalization.
 
     The normalizers are applied in the order they are defined in the list.
     """
@@ -61,8 +61,8 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
         Ensure that all dependencies are installed.
 
         This method should raise an exception if any dependencies are missing,
-            with a message indicating which dependencies are missing and
-            how to install them.
+        with a message indicating which dependencies are missing and
+        how to install them.
         """
         ...
 
@@ -86,20 +86,20 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
 class _SkipBatchError(Exception):
     """
     Exception to skip a batch in the forward pass. This is not a real error and
-        should not be logged.
+    should not be logged.
 
     Instead, this is basically a control flow mechanism to skip a batch
-        if an error occurs during the forward pass. This is useful for
-        handling edge cases where a batch may be invalid or cause an error
-        during the forward pass. In this case, we can throw this exception
-        anywhere in the forward pas and then catch it in the `_common_step`
-        method. If this exception is caught, we can just skip the batch
-        instead of logging an error.
+    if an error occurs during the forward pass. This is useful for
+    handling edge cases where a batch may be invalid or cause an error
+    during the forward pass. In this case, we can throw this exception
+    anywhere in the forward pas and then catch it in the `_common_step`
+    method. If this exception is caught, we can just skip the batch
+    instead of logging an error.
 
     This is primarily used to skip graph generation errors in messy data. E.g.,
-        if our dataset contains materials with so little atoms that we cannot
-        generate a graph, we can just skip these materials instead of
-        completely failing the training run.
+    if our dataset contains materials with so little atoms that we cannot
+    generate a graph, we can just skip these materials instead of
+    completely failing the training run.
     """
 
     pass
@@ -108,7 +108,7 @@ class _SkipBatchError(Exception):
 class ModelOutput(TypedDict):
     predicted_properties: dict[str, torch.Tensor]
     """Predicted properties. This dictionary should be exactly
-        in the same shape/format  as the output of `batch_to_labels`."""
+    in the same shape/format  as the output of `batch_to_labels`."""
 
     backbone_output: NotRequired[Any]
     """Output of the backbone model. Only set if `return_backbone_output` is True."""
@@ -142,11 +142,10 @@ class FinetuneModuleBase(
     @abstractmethod
     def create_model(self):
         """
-        Initialize both the pre-trained backbone and the
-            output heads for the properties to predict.
+        Initialize both the pre-trained backbone and the output heads for the properties to predict.
 
         You should also construct any other ``nn.Module`` instances
-            necessary for the forward pass here.
+        necessary for the forward pass here.
         """
         ...
 
@@ -156,7 +155,7 @@ class FinetuneModuleBase(
         Context manager for the model forward pass.
 
         This is used for any setup that needs to be done before the forward pass,
-            e.g., setting pos.requires_grad_() for gradient-based force prediction.
+        e.g., setting pos.requires_grad_() for gradient-based force prediction.
         """
         ...
 
@@ -222,7 +221,7 @@ class FinetuneModuleBase(
         Transform batch (on the GPU) before being fed to the model.
 
         This will mainly be used to compute the (radius or knn) graph from
-            the atomic positions.
+        the atomic positions.
         """
         ...
 
@@ -230,10 +229,10 @@ class FinetuneModuleBase(
     def batch_to_labels(self, batch: TBatch) -> dict[str, torch.Tensor]:
         """
         Extract ground truth values from a batch. The output of this function
-            should be a dictionary with keys corresponding to the target names
-            and values corresponding to the ground truth values. The values should
-            be torch tensors that match, in shape, the output of the corresponding
-            output head.
+        should be a dictionary with keys corresponding to the target names
+        and values corresponding to the ground truth values. The values should
+        be torch tensors that match, in shape, the output of the corresponding
+        output head.
         """
         ...
 
@@ -241,7 +240,7 @@ class FinetuneModuleBase(
     def atoms_to_data(self, atoms: Atoms, has_labels: bool) -> TData:
         """
         Convert an ASE atoms object to a data object. This is used to convert
-            the input data to the format expected by the model.
+        the input data to the format expected by the model.
 
         Args:
             atoms: ASE atoms object.
@@ -255,19 +254,19 @@ class FinetuneModuleBase(
     ) -> NormalizationContext:
         """
         Create a normalization context from a batch. This is used to normalize
-            and denormalize the properties.
+        and denormalize the properties.
 
         The normalization context contains all the information required to
-            normalize and denormalize the properties. Currently, this only
-            includes the compositions of the materials in the batch.
-            The compositions should be provided as an integer tensor of shape
-            (batch_size, num_elements), where each row (i.e., `compositions[i]`)
-            corresponds to the composition vector of the `i`-th material in the batch.
+        normalize and denormalize the properties. Currently, this only
+        includes the compositions of the materials in the batch.
+        The compositions should be provided as an integer tensor of shape
+        (batch_size, num_elements), where each row (i.e., `compositions[i]`)
+        corresponds to the composition vector of the `i`-th material in the batch.
 
         The composition vector is a vector that maps each element to the number of
-            atoms of that element in the material. For example, `compositions[:, 1]`
-            corresponds to the number of Hydrogen atoms in each material in the batch,
-            `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
+        atoms of that element in the material. For example, `compositions[:, 1]`
+        corresponds to the number of Hydrogen atoms in each material in the batch,
+        `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
 
         Args:
             batch: Input batch.
@@ -564,13 +563,14 @@ class FinetuneModuleBase(
     ):
         """
         Creates a wrapped DataLoader for the given dataset.
+
         This will wrap the dataset with the CPU data transform and the model's
-            collate function.
+        collate function.
 
         NOTE about `has_labels`: This is used to determine whether our data
-            loading pipeline should expect labels in the dataset. This should
-            be `True` for train/val/test datasets (as we compute loss and metrics
-            on these datasets) and `False` for prediction datasets.
+        loading pipeline should expect labels in the dataset. This should
+        be `True` for train/val/test datasets (as we compute loss and metrics
+        on these datasets) and `False` for prediction datasets.
 
         Args:
             dataset: Dataset to wrap.
@@ -584,7 +584,9 @@ class FinetuneModuleBase(
         self, lightning_trainer_kwargs: dict[str, Any] | None = None
     ):
         """Return a wrapper for easy prediction without explicitly setting up a lightning trainer.
+
         This method provides a high-level interface for making predictions with the trained model.
+
         This can be used for various prediction tasks including but not limited to:
         - Interatomic potential energy and forces
         - Material property prediction
@@ -626,6 +628,7 @@ class FinetuneModuleBase(
 
         This method creates an ASE (Atomic Simulation Environment) calculator that can be used
         to compute energies and forces using the trained interatomic potential model.
+
         The calculator integrates with ASE's standard interfaces for molecular dynamics
         and structure optimization.
 

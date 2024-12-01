@@ -31,8 +31,8 @@ class DatasetConfigBase(C.Config, ABC):
         Ensure that all dependencies are installed.
 
         This method should raise an exception if any dependencies are missing,
-            with a message indicating which dependencies are missing and
-            how to install them.
+        with a message indicating which dependencies are missing and
+        how to install them.
         """
         pass
 
