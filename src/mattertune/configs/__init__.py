@@ -19,6 +19,8 @@ from mattertune.backbones.m3gnet import (
 )
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
+from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
+from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 from mattertune.data.datamodule import (
@@ -29,8 +31,6 @@ from mattertune.data.datamodule import (
     ManualSplitDataModuleConfig as ManualSplitDataModuleConfig,
 )
 from mattertune.data.db import DBDatasetConfig as DBDatasetConfig
-from mattertune.data.matbench import MatbenchDatasetConfig as MatbenchDatasetConfig
-from mattertune.data.mp import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 from mattertune.finetune.loss import HuberLossConfig as HuberLossConfig
 from mattertune.finetune.loss import L2MAELossConfig as L2MAELossConfig
