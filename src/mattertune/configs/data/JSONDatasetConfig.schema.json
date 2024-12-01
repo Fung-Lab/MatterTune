@@ -24,13 +24,12 @@
             "title": "Src"
         },
         "tasks": {
-            "type": "object",
             "additionalProperties": {
                 "type": "string"
             },
-            "description": "The mapping of task names to descriptions.",
+            "description": "Attributes in the JSON file that correspond to the tasks to be predicted.",
             "title": "Tasks",
-            "minProperties": 1
+            "type": "object"
         }
     },
     "required": [
