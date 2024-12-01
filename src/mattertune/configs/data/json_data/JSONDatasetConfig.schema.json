@@ -22,10 +22,19 @@
             ],
             "description": "The path to the JSON dataset.",
             "title": "Src"
+        },
+        "tasks": {
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Attributes in the JSON file that correspond to the tasks to be predicted.",
+            "title": "Tasks",
+            "type": "object"
         }
     },
     "required": [
-        "src"
+        "src",
+        "tasks"
     ],
     "title": "JSONDatasetConfig",
     "type": "object"

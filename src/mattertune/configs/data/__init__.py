@@ -3,6 +3,7 @@ from __future__ import annotations
 __codegen__ = True
 
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
+from mattertune.data import JSONDatasetConfig as JSONDatasetConfig
 from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
@@ -20,7 +21,7 @@ from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 from . import base as base
 from . import datamodule as datamodule
 from . import db as db
-from . import json as json
+from . import json_data as json_data
 from . import matbench as matbench
 from . import mp as mp
 from . import mptraj as mptraj
@@ -32,6 +33,7 @@ __all__ = [
     "DBDatasetConfig",
     "DataModuleBaseConfig",
     "DatasetConfigBase",
+    "JSONDatasetConfig",
     "MPDatasetConfig",
     "MPTrajDatasetConfig",
     "ManualSplitDataModuleConfig",
@@ -41,10 +43,10 @@ __all__ = [
     "base",
     "datamodule",
     "db",
+    "json_data",
     "matbench",
     "mp",
     "mptraj",
     "omat24",
     "xyz",
-    "json",
 ]
