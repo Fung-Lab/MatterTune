@@ -5,7 +5,7 @@ MatterTune provides support for various dataset formats and sources commonly use
 ## XYZ Dataset
 Simple and widely used atomic structure format that can be read from XYZ files.
 
-API Reference: {py:class}`mattertune.data.xyz.XYZDatasetConfig`
+API Reference: {py:class}`mattertune.configs.XYZDatasetConfig`
 
 ```python
 config = mt.configs.MatterTunerConfig(
@@ -24,7 +24,7 @@ config = mt.configs.MatterTunerConfig(
 ## ASE Database
 Direct interface with ASE database files, supporting custom property keys for energy, forces, and stress.
 
-API Reference: {py:class}`mattertune.data.db.DBDatasetConfig`
+API Reference: {py:class}`mattertune.configs.DBDatasetConfig`
 
 ```python
 config = mt.configs.MatterTunerConfig(
@@ -47,7 +47,7 @@ config = mt.configs.MatterTunerConfig(
 ## Materials Project Dataset
 Direct integration with the Materials Project database, allowing for custom queries and property retrieval.
 
-API Reference: {py:class}`mattertune.data.mp.MPDatasetConfig`
+API Reference: {py:class}`mattertune.configs.MPDatasetConfig`
 
 ```python
 config = mt.configs.MatterTunerConfig(
@@ -68,7 +68,7 @@ config = mt.configs.MatterTunerConfig(
 ## Materials Project Trajectories (MPTraj)
 Access to molecular dynamics trajectories from the Materials Project, with filtering options for system size and composition.
 
-API Reference: {py:class}`mattertune.data.mptraj.MPTrajDatasetConfig`
+API Reference: {py:class}`mattertune.configs.MPTrajDatasetConfig`
 
 ```python
 config = mt.configs.MatterTunerConfig(
@@ -90,7 +90,7 @@ config = mt.configs.MatterTunerConfig(
 ## Matbench Dataset
 Access to the Matbench benchmark datasets for materials property prediction tasks.
 
-API Reference: {py:class}`mattertune.data.matbench.MatbenchDatasetConfig`
+API Reference: {py:class}`mattertune.configs.MatbenchDatasetConfig`
 
 ```python
 config = mt.configs.MatterTunerConfig(
@@ -111,7 +111,7 @@ config = mt.configs.MatterTunerConfig(
 ## OMAT24 Dataset
 Access to the OMAT24 dataset used from FAIR Chemistry.
 
-API Reference: {py:class}`mattertune.data.omat24.OMAT24DatasetConfig`
+API Reference: {py:class}`mattertune.configs.OMAT24DatasetConfig`
 
 ```python
 config = mt.configs.MatterTunerConfig(
@@ -130,7 +130,7 @@ config = mt.configs.MatterTunerConfig(
 ## JSON Dataset
 Allows reading atomic structures and properties from JSON files with a specific schema.
 
-API Reference: {py:class}`mattertune.data.json.JSONDatasetConfig`
+API Reference: {py:class}`mattertune.configs.JSONDatasetConfig`
 
 Expected JSON format:
 ```json
@@ -168,7 +168,7 @@ config = mt.configs.MatterTunerConfig(
 
 The `tasks` dictionary maps property names to the corresponding JSON keys in your data file.
 
-Each dataset configuration can be used with either `AutoSplitDataModuleConfig` for automatic train/validation splitting or `ManualSplitDataModuleConfig` for manual split specification. The examples above use `AutoSplitDataModuleConfig` for simplicity.
+Each dataset configuration can be used with either {py:class}`mattertune.configs.AutoSplitDataModuleConfig` for automatic train/validation splitting or {py:class}`mattertune.configs.ManualSplitDataModuleConfig` for manual split specification. The examples above use {py:class}`mattertune.configs.AutoSplitDataModuleConfig` for simplicity.
 
 Note that some datasets may require additional dependencies:
 - Materials Project dataset requires the `mp-api` package
