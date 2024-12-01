@@ -9,7 +9,6 @@ import numpy as np
 from ase import Atoms
 from ase.io import read, write
 from ase.md.langevin import Langevin
-
 from tqdm import tqdm
 
 from mattertune.backbones import (
@@ -55,7 +54,8 @@ def main(args_dict: dict):
             "barebones": True,
         }
     )
-    atoms: Atoms = read(args_dict["init_struct"])
+    atoms = read(args_dict["init_struct"])
+    assert isinstance(atoms, Atoms), "Expected an Atoms object"
     atoms.pbc = True
     atoms.calc = calc
 

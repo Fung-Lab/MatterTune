@@ -11,15 +11,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing_extensions import assert_never, final, override
 
-from mattertune.normalization import NormalizationContext
-
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
+from ...normalization import NormalizationContext
 from ...registry import backbone_registry
+from ...util import optional_import_error_message
 from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
-    from orb_models.forcefield.base import AtomGraphs
+    from orb_models.forcefield.base import AtomGraphs  # type: ignore[reportMissingImports] # noqa
 
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,8 @@ class ORBSystemConfig(C.Config):
     """The maximum number of neighbours each node can send messages to."""
 
     def _to_orb_system_config(self):
-        from orb_models.forcefield.atomic_system import SystemConfig
+        with optional_import_error_message("orb-models"):
+            from orb_models.forcefield.atomic_system import SystemConfig  # type: ignore[reportMissingImports] # noqa
 
         return SystemConfig(
             radius=self.radius,
@@ -99,7 +100,8 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig):
         match prop:
             case props.EnergyPropertyConfig():
-                from orb_models.forcefield.graph_regressor import EnergyHead
+                with optional_import_error_message("orb-models"):
+                    from orb_models.forcefield.graph_regressor import EnergyHead  # type: ignore[reportMissingImports] # noqa
 
                 return EnergyHead(
                     latent_dim=256,
@@ -112,7 +114,8 @@ class ORBBackboneModule(
                     predict_atom_avg=True,
                 )
             case props.ForcesPropertyConfig(conservative=False):
-                from orb_models.forcefield.graph_regressor import NodeHead
+                with optional_import_error_message("orb-models"):
+                    from orb_models.forcefield.graph_regressor import NodeHead  # type: ignore[reportMissingImports] # noqa
 
                 return NodeHead(
                     latent_dim=256,
@@ -122,7 +125,8 @@ class ORBBackboneModule(
                     remove_mean=True,
                 )
             case props.StressesPropertyConfig(conservative=False):
-                from orb_models.forcefield.graph_regressor import GraphHead
+                with optional_import_error_message("orb-models"):
+                    from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
 
                 return GraphHead(
                     latent_dim=256,
@@ -133,10 +137,11 @@ class ORBBackboneModule(
                 )
 
             case props.GraphPropertyConfig():
-                from orb_models.forcefield.graph_regressor import GraphHead
-                from orb_models.forcefield.property_definitions import (
-                    PropertyDefinition,
-                )
+                with optional_import_error_message("orb-models"):
+                    from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
+                    from orb_models.forcefield.property_definitions import (  # type: ignore[reportMissingImports] # noqa
+                        PropertyDefinition,
+                    )
 
                 return GraphHead(
                     latent_dim=256,
@@ -157,9 +162,11 @@ class ORBBackboneModule(
 
     @override
     def create_model(self):
-        # Get the pre-trained backbone
-        from orb_models.forcefield import pretrained
+        with optional_import_error_message("orb-models"):
+            from orb_models.forcefield import pretrained  # type: ignore[reportMissingImports] # noqa
+            from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
 
+        # Get the pre-trained backbone
         # Load the pre-trained model from the ORB package
         if (
             backbone_fn := pretrained.ORB_PRETRAINED_MODELS.get(
@@ -175,8 +182,6 @@ class ORBBackboneModule(
         assert backbone is not None, "The pretrained model is not available"
 
         # This should be a `GraphRegressor` object, so we need to extract the backbone.
-        from orb_models.forcefield.graph_regressor import GraphRegressor
-
         assert isinstance(
             backbone, GraphRegressor
         ), f"Expected a GraphRegressor object, but got {type(backbone)}"
@@ -245,7 +250,8 @@ class ORBBackboneModule(
 
         pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
         if return_backbone_output:
-            from orb_models.forcefield.gns import _KEY
+            with optional_import_error_message("orb-models"):
+                from orb_models.forcefield.gns import _KEY  # type: ignore[reportMissingImports] # noqa
 
             pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
 
@@ -266,7 +272,8 @@ class ORBBackboneModule(
 
     @override
     def collate_fn(self, data_list):
-        from orb_models.forcefield.base import batch_graphs
+        with optional_import_error_message("orb-models"):
+            from orb_models.forcefield.base import batch_graphs  # type: ignore[reportMissingImports] # noqa
 
         return batch_graphs(data_list)
 
@@ -296,7 +303,8 @@ class ORBBackboneModule(
 
     @override
     def atoms_to_data(self, atoms, has_labels):
-        from orb_models.forcefield import atomic_system
+        with optional_import_error_message("orb-models"):
+            from orb_models.forcefield import atomic_system  # type: ignore[reportMissingImports] # noqa
 
         # This is the dataset transform; we can't use GPU here.
         # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect

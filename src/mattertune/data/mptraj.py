@@ -12,6 +12,7 @@ from tqdm import tqdm
 from typing_extensions import override
 
 from ..registry import data_registry
+from ..util import optional_import_error_message
 from .base import DatasetConfigBase
 
 log = logging.getLogger(__name__)
@@ -47,8 +48,11 @@ class MPTrajDatasetConfig(DatasetConfigBase):
 class MPTrajDataset(Dataset[ase.Atoms]):
     def __init__(self, config: MPTrajDatasetConfig):
         super().__init__()
+
+        with optional_import_error_message("datasets"):
+            import datasets  # type: ignore[reportMissingImports] # noqa
+
         self.config = config
-        import datasets
 
         dataset = datasets.load_dataset("nimashoghi/mptrj", split=self.config.split)
         assert isinstance(dataset, datasets.Dataset)

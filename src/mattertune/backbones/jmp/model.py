@@ -5,7 +5,7 @@ import importlib.util
 import logging
 from contextlib import ExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import nshconfig as C
 import nshconfig_extra as CE
@@ -13,6 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from ase import Atoms
 from typing_extensions import final, override
 
 from ...finetune import properties as props
@@ -24,12 +25,12 @@ from ...finetune.base import (
 )
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
+from ...util import optional_import_error_message
 from .util import get_activation_cls
 
 if TYPE_CHECKING:
-    from ase import Atoms
-    from torch_geometric.data import Batch, Data
-    from torch_geometric.data.data import BaseData
+    from torch_geometric.data import Batch, Data  # type: ignore[reportMissingImports] # noqa
+    from torch_geometric.data.data import BaseData  # type: ignore[reportMissingImports] # noqa
 
 log = logging.getLogger(__name__)
 
@@ -82,11 +83,8 @@ class JMPGraphComputerConfig(C.Config):
     """Whether to compute the radius graph per graph."""
 
     def _to_jmp_graph_computer_config(self):
-        from jmp.models.gemnet.graph import (
-            CutoffsConfig,
-            GraphComputerConfig,
-            MaxNeighborsConfig,
-        )
+        with optional_import_error_message("jmp"):
+            from jmp.models.gemnet.graph import CutoffsConfig, GraphComputerConfig, MaxNeighborsConfig  # type: ignore[reportMissingImports] # noqa # fmt: skip
 
         return GraphComputerConfig(
             pbc=self.pbc,
@@ -160,7 +158,8 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         activation_cls = get_activation_cls(self.backbone.hparams.activation)
         match prop:
             case props.EnergyPropertyConfig():
-                from jmp.nn.energy_head import EnergyTargetConfig
+                with optional_import_error_message("jmp"):
+                    from jmp.nn.energy_head import EnergyTargetConfig  # type: ignore[reportMissingImports] # noqa
 
                 return EnergyTargetConfig(
                     max_atomic_number=self.backbone.hparams.num_elements
@@ -171,13 +170,15 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                 )
             case props.ForcesPropertyConfig():
                 if not prop.conservative:
-                    from jmp.nn.force_head import ForceTargetConfig
+                    with optional_import_error_message("jmp"):
+                        from jmp.nn.force_head import ForceTargetConfig  # type: ignore[reportMissingImports] # noqa
 
                     return ForceTargetConfig().create_model(
                         self.backbone.hparams.emb_size_edge, activation_cls
                     )
                 else:
-                    from jmp.nn.force_head import ConservativeForceTargetConfig
+                    with optional_import_error_message("jmp"):
+                        from jmp.nn.force_head import ConservativeForceTargetConfig  # type: ignore[reportMissingImports] # noqa
 
                     force_config = ConservativeForceTargetConfig(
                         energy_prop_name=self._find_potential_energy_prop_name()
@@ -186,20 +187,23 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
             case props.StressesPropertyConfig():
                 if not prop.conservative:
-                    from jmp.nn.stress_head import StressTargetConfig
+                    with optional_import_error_message("jmp"):
+                        from jmp.nn.stress_head import StressTargetConfig  # type: ignore[reportMissingImports] # noqa
 
                     return StressTargetConfig().create_model(
                         self.backbone.hparams.emb_size_edge, activation_cls
                     )
                 else:
-                    from jmp.nn.stress_head import ConservativeStressTargetConfig
+                    with optional_import_error_message("jmp"):
+                        from jmp.nn.stress_head import ConservativeStressTargetConfig  # type: ignore[reportMissingImports] # noqa
 
                     stress_config = ConservativeStressTargetConfig(
                         energy_prop_name=self._find_potential_energy_prop_name()
                     )
                     return stress_config.create_model()
             case props.GraphPropertyConfig():
-                from jmp.nn.graph_scaler import GraphScalarTargetConfig
+                with optional_import_error_message("jmp"):
+                    from jmp.nn.graph_scaler import GraphScalarTargetConfig  # type: ignore[reportMissingImports] # noqa
 
                 return GraphScalarTargetConfig(reduction=prop.reduction).create_model(
                     self.backbone.hparams.emb_size_atom,
@@ -218,8 +222,9 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             ckpt_path = ckpt_path.resolve()
 
         # Load the backbone from the checkpoint
-        from jmp.models.gemnet import GemNetOCBackbone
-        from jmp.models.gemnet.graph import GraphComputer
+        with optional_import_error_message("jmp"):
+            from jmp.models.gemnet import GemNetOCBackbone  # type: ignore[reportMissingImports] # noqa
+            from jmp.models.gemnet.graph import GraphComputer  # type: ignore[reportMissingImports] # noqa
 
         self.backbone = GemNetOCBackbone.from_pretrained_ckpt(ckpt_path)
         log.info(
@@ -263,7 +268,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
 
-        head_input = {
+        head_input: dict[str, Any] = {
             "data": batch,
             "backbone_output": backbone_output,
             "predicted_props": predicted_properties,
@@ -294,7 +299,8 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
     @override
     def collate_fn(self, data_list):
-        from torch_geometric.data import Batch
+        with optional_import_error_message("torch_geometric"):
+            from torch_geometric.data import Batch  # type: ignore[reportMissingImports] # noqa
 
         return Batch.from_data_list(cast("list[BaseData]", data_list))
 
@@ -311,7 +317,8 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
     @override
     def atoms_to_data(self, atoms, has_labels):
-        from torch_geometric.data import Data
+        with optional_import_error_message("torch_geometric"):
+            from torch_geometric.data import Data  # type: ignore[reportMissingImports] # noqa
 
         # For JMP, your PyG object should have the following attributes:
         # - pos: Node positions (shape: (N, 3))
@@ -359,10 +366,11 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
     @override
     def create_normalization_context_from_batch(self, batch):
-        from torch_scatter import scatter
+        with optional_import_error_message("torch_scatter"):
+            from torch_scatter import scatter  # type: ignore[reportMissingImports] # noqa
 
-        atomic_numbers: torch.Tensor = batch.atomic_numbers.long()  # (n_atoms,)
-        batch_idx: torch.Tensor = batch.batch  # (n_atoms,)
+        atomic_numbers: torch.Tensor = batch["atomic_numbers"].long()  # (n_atoms,)
+        batch_idx: torch.Tensor = batch["batch"]  # (n_atoms,)
 
         # Convert atomic numbers to one-hot encoding
         atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)  # (n_atoms, 120)

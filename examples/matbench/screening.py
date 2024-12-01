@@ -37,7 +37,8 @@ def main(args_dict: dict):
         )
 
     ## Load Screening Data
-    atoms_list: list[Atoms] = read("./data/gnome_Bandgap.xyz", index=":")
+    atoms_list = read("./data/gnome_Bandgap.xyz", index=":")
+    assert isinstance(atoms_list, list), "Expected a list of Atoms objects"
     true_properties = [atoms.info["bandgap"] for atoms in atoms_list]
 
     ## Run Property Prediction
