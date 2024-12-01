@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .base import DatasetConfig as DatasetConfig
 from .base import DatasetConfigBase as DatasetConfigBase
+from .json_data import JSONDataset as JSONDataset
 from .json_data import JSONDatasetConfig as JSONDatasetConfig
 from .matbench import MatbenchDataset as MatbenchDataset
 from .matbench import MatbenchDatasetConfig as MatbenchDatasetConfig
