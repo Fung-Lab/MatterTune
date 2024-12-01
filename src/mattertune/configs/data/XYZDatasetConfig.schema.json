@@ -1,15 +1,5 @@
 {
     "properties": {
-        "type": {
-            "const": "xyz",
-            "default": "xyz",
-            "description": "Discriminator for the XYZ dataset.",
-            "enum": [
-                "xyz"
-            ],
-            "title": "Type",
-            "type": "string"
-        },
         "src": {
             "anyOf": [
                 {
@@ -22,6 +12,16 @@
             ],
             "description": "The path to the XYZ dataset.",
             "title": "Src"
+        },
+        "type": {
+            "const": "xyz",
+            "default": "xyz",
+            "description": "Discriminator for the XYZ dataset.",
+            "enum": [
+                "xyz"
+            ],
+            "title": "Type",
+            "type": "string"
         }
     },
     "required": [

@@ -1,15 +1,15 @@
 {
     "description": "Configuration for converting ASE Atoms to a graph for the FAIRChem model.",
     "properties": {
-        "radius": {
-            "description": "The radius for edge construction.",
-            "title": "Radius",
-            "type": "number"
-        },
         "max_num_neighbors": {
             "description": "The maximum number of neighbours each node can send messages to.",
             "title": "Max Num Neighbors",
             "type": "integer"
+        },
+        "radius": {
+            "description": "The radius for edge construction.",
+            "title": "Radius",
+            "type": "number"
         }
     },
     "required": [

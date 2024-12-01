@@ -2,20 +2,20 @@
     "$defs": {
         "CutoffsConfig": {
             "properties": {
-                "main": {
-                    "title": "Main",
-                    "type": "number"
-                },
                 "aeaint": {
                     "title": "Aeaint",
                     "type": "number"
                 },
-                "qint": {
-                    "title": "Qint",
-                    "type": "number"
-                },
                 "aint": {
                     "title": "Aint",
+                    "type": "number"
+                },
+                "main": {
+                    "title": "Main",
+                    "type": "number"
+                },
+                "qint": {
+                    "title": "Qint",
                     "type": "number"
                 }
             },
@@ -30,20 +30,20 @@
         },
         "MaxNeighborsConfig": {
             "properties": {
-                "main": {
-                    "title": "Main",
-                    "type": "integer"
-                },
                 "aeaint": {
                     "title": "Aeaint",
                     "type": "integer"
                 },
-                "qint": {
-                    "title": "Qint",
-                    "type": "integer"
-                },
                 "aint": {
                     "title": "Aint",
+                    "type": "integer"
+                },
+                "main": {
+                    "title": "Main",
+                    "type": "integer"
+                },
+                "qint": {
+                    "title": "Qint",
                     "type": "integer"
                 }
             },
@@ -58,30 +58,30 @@
         }
     },
     "properties": {
-        "pbc": {
-            "description": "Whether to use periodic boundary conditions.",
-            "title": "Pbc",
-            "type": "boolean"
-        },
         "cutoffs": {
             "$ref": "#/$defs/CutoffsConfig",
             "default": {
-                "main": 12.0,
                 "aeaint": 12.0,
-                "qint": 12.0,
-                "aint": 12.0
+                "aint": 12.0,
+                "main": 12.0,
+                "qint": 12.0
             },
             "description": "The cutoff for the radius graph."
         },
         "max_neighbors": {
             "$ref": "#/$defs/MaxNeighborsConfig",
             "default": {
-                "main": 30,
                 "aeaint": 20,
-                "qint": 8,
-                "aint": 1000
+                "aint": 1000,
+                "main": 30,
+                "qint": 8
             },
             "description": "The maximum number of neighbors for the radius graph."
+        },
+        "pbc": {
+            "description": "Whether to use periodic boundary conditions.",
+            "title": "Pbc",
+            "type": "boolean"
         },
         "per_graph_radius_graph": {
             "default": false,

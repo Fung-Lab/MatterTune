@@ -1,5 +1,15 @@
 {
     "properties": {
+        "gamma": {
+            "description": "Multiplicative factor of learning rate decay.",
+            "title": "Gamma",
+            "type": "number"
+        },
+        "step_size": {
+            "description": "Period of learning rate decay.",
+            "title": "Step Size",
+            "type": "integer"
+        },
         "type": {
             "const": "StepLR",
             "default": "StepLR",
@@ -9,16 +19,6 @@
             ],
             "title": "Type",
             "type": "string"
-        },
-        "step_size": {
-            "description": "Period of learning rate decay.",
-            "title": "Step Size",
-            "type": "integer"
-        },
-        "gamma": {
-            "description": "Multiplicative factor of learning rate decay.",
-            "title": "Gamma",
-            "type": "number"
         }
     },
     "required": [

@@ -1,15 +1,5 @@
 {
     "properties": {
-        "type": {
-            "const": "json",
-            "default": "json",
-            "description": "Discriminator for the JSON dataset.",
-            "enum": [
-                "json"
-            ],
-            "title": "Type",
-            "type": "string"
-        },
         "src": {
             "anyOf": [
                 {
@@ -30,6 +20,16 @@
             "description": "Attributes in the JSON file that correspond to the tasks to be predicted.",
             "title": "Tasks",
             "type": "object"
+        },
+        "type": {
+            "const": "json",
+            "default": "json",
+            "description": "Discriminator for the JSON dataset.",
+            "enum": [
+                "json"
+            ],
+            "title": "Type",
+            "type": "string"
         }
     },
     "required": [

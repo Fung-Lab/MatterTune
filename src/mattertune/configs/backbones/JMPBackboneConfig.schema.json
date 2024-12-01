@@ -2,6 +2,46 @@
     "$defs": {
         "AdamConfig": {
             "properties": {
+                "amsgrad": {
+                    "default": false,
+                    "description": "Whether to use AMSGrad variant of Adam.",
+                    "title": "Amsgrad",
+                    "type": "boolean"
+                },
+                "betas": {
+                    "default": [
+                        0.9,
+                        0.999
+                    ],
+                    "description": "Betas.",
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        },
+                        {
+                            "exclusiveMinimum": 0.0,
+                            "type": "number"
+                        }
+                    ],
+                    "title": "Betas",
+                    "type": "array"
+                },
+                "eps": {
+                    "default": 1e-08,
+                    "description": "Epsilon.",
+                    "minimum": 0.0,
+                    "title": "Eps",
+                    "type": "number"
+                },
+                "lr": {
+                    "description": "Learning rate.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Lr",
+                    "type": "number"
+                },
                 "name": {
                     "const": "Adam",
                     "default": "Adam",
@@ -12,52 +52,12 @@
                     "title": "Name",
                     "type": "string"
                 },
-                "lr": {
-                    "description": "Learning rate.",
-                    "exclusiveMinimum": 0.0,
-                    "title": "Lr",
-                    "type": "number"
-                },
-                "eps": {
-                    "default": 1e-08,
-                    "description": "Epsilon.",
-                    "minimum": 0.0,
-                    "title": "Eps",
-                    "type": "number"
-                },
-                "betas": {
-                    "default": [
-                        0.9,
-                        0.999
-                    ],
-                    "description": "Betas.",
-                    "maxItems": 2,
-                    "minItems": 2,
-                    "prefixItems": [
-                        {
-                            "exclusiveMinimum": 0.0,
-                            "type": "number"
-                        },
-                        {
-                            "exclusiveMinimum": 0.0,
-                            "type": "number"
-                        }
-                    ],
-                    "title": "Betas",
-                    "type": "array"
-                },
                 "weight_decay": {
                     "default": 0.0,
                     "description": "Weight decay.",
                     "minimum": 0.0,
                     "title": "Weight Decay",
                     "type": "number"
-                },
-                "amsgrad": {
-                    "default": false,
-                    "description": "Whether to use AMSGrad variant of Adam.",
-                    "title": "Amsgrad",
-                    "type": "boolean"
                 }
             },
             "required": [
@@ -68,28 +68,11 @@
         },
         "AdamWConfig": {
             "properties": {
-                "name": {
-                    "const": "AdamW",
-                    "default": "AdamW",
-                    "description": "name of the optimizer.",
-                    "enum": [
-                        "AdamW"
-                    ],
-                    "title": "Name",
-                    "type": "string"
-                },
-                "lr": {
-                    "description": "Learning rate.",
-                    "exclusiveMinimum": 0.0,
-                    "title": "Lr",
-                    "type": "number"
-                },
-                "eps": {
-                    "default": 1e-08,
-                    "description": "Epsilon.",
-                    "minimum": 0.0,
-                    "title": "Eps",
-                    "type": "number"
+                "amsgrad": {
+                    "default": false,
+                    "description": "Whether to use AMSGrad variant of Adam.",
+                    "title": "Amsgrad",
+                    "type": "boolean"
                 },
                 "betas": {
                     "default": [
@@ -112,18 +95,35 @@
                     "title": "Betas",
                     "type": "array"
                 },
+                "eps": {
+                    "default": 1e-08,
+                    "description": "Epsilon.",
+                    "minimum": 0.0,
+                    "title": "Eps",
+                    "type": "number"
+                },
+                "lr": {
+                    "description": "Learning rate.",
+                    "exclusiveMinimum": 0.0,
+                    "title": "Lr",
+                    "type": "number"
+                },
+                "name": {
+                    "const": "AdamW",
+                    "default": "AdamW",
+                    "description": "name of the optimizer.",
+                    "enum": [
+                        "AdamW"
+                    ],
+                    "title": "Name",
+                    "type": "string"
+                },
                 "weight_decay": {
                     "default": 0.01,
                     "description": "Weight decay.",
                     "minimum": 0.0,
                     "title": "Weight Decay",
                     "type": "number"
-                },
-                "amsgrad": {
-                    "default": false,
-                    "description": "Whether to use AMSGrad variant of Adam.",
-                    "title": "Amsgrad",
-                    "type": "boolean"
                 }
             },
             "required": [
@@ -134,19 +134,6 @@
         },
         "CachedPath": {
             "properties": {
-                "uri": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "format": "path",
-                            "type": "string"
-                        }
-                    ],
-                    "description": "The origin of the cached path.\n\nThis can be a local path, a downloadable URL, an S3 URL, a GCS URL, or an Hugging Face Hub URL.",
-                    "title": "Uri"
-                },
                 "cache_dir": {
                     "anyOf": [
                         {
@@ -173,17 +160,30 @@
                     "title": "Force Extract",
                     "type": "boolean"
                 },
+                "is_local": {
+                    "default": false,
+                    "description": "Whether the cached path is a local path. If set, this completely bypasses the caching mechanism,\nand simply returns the path as-is.",
+                    "title": "Is Local",
+                    "type": "boolean"
+                },
                 "quiet": {
                     "default": false,
                     "description": "Whether to suppress the progress bar.",
                     "title": "Quiet",
                     "type": "boolean"
                 },
-                "is_local": {
-                    "default": false,
-                    "description": "Whether the cached path is a local path. If set, this completely bypasses the caching mechanism,\nand simply returns the path as-is.",
-                    "title": "Is Local",
-                    "type": "boolean"
+                "uri": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "format": "path",
+                            "type": "string"
+                        }
+                    ],
+                    "description": "The origin of the cached path.\n\nThis can be a local path, a downloadable URL, an S3 URL, a GCS URL, or an Hugging Face Hub URL.",
+                    "title": "Uri"
                 }
             },
             "required": [
@@ -194,16 +194,6 @@
         },
         "CosineAnnealingLRConfig": {
             "properties": {
-                "type": {
-                    "const": "CosineAnnealingLR",
-                    "default": "CosineAnnealingLR",
-                    "description": "Type of the learning rate scheduler.",
-                    "enum": [
-                        "CosineAnnealingLR"
-                    ],
-                    "title": "Type",
-                    "type": "string"
-                },
                 "T_max": {
                     "description": "Maximum number of iterations.",
                     "title": "T Max",
@@ -220,6 +210,16 @@
                     "description": "The index of last epoch.",
                     "title": "Last Epoch",
                     "type": "integer"
+                },
+                "type": {
+                    "const": "CosineAnnealingLR",
+                    "default": "CosineAnnealingLR",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "CosineAnnealingLR"
+                    ],
+                    "title": "Type",
+                    "type": "string"
                 }
             },
             "required": [
@@ -230,20 +230,20 @@
         },
         "CutoffsConfig": {
             "properties": {
-                "main": {
-                    "title": "Main",
-                    "type": "number"
-                },
                 "aeaint": {
                     "title": "Aeaint",
                     "type": "number"
                 },
-                "qint": {
-                    "title": "Qint",
-                    "type": "number"
-                },
                 "aint": {
                     "title": "Aint",
+                    "type": "number"
+                },
+                "main": {
+                    "title": "Main",
+                    "type": "number"
+                },
+                "qint": {
+                    "title": "Qint",
                     "type": "number"
                 }
             },
@@ -265,12 +265,6 @@
         },
         "EnergyPropertyConfig": {
             "properties": {
-                "name": {
-                    "default": "energy",
-                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
-                    "title": "Name",
-                    "type": "string"
-                },
                 "dtype": {
                     "$ref": "#/$defs/DType",
                     "default": "float",
@@ -285,6 +279,12 @@
                     "description": "The coefficient to apply to this property's loss function when training the model.",
                     "title": "Loss Coefficient",
                     "type": "number"
+                },
+                "name": {
+                    "default": "energy",
+                    "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.",
+                    "title": "Name",
+                    "type": "string"
                 },
                 "type": {
                     "const": "energy",
@@ -304,6 +304,11 @@
         },
         "ExponentialConfig": {
             "properties": {
+                "gamma": {
+                    "description": "Multiplicative factor of learning rate decay.",
+                    "title": "Gamma",
+                    "type": "number"
+                },
                 "type": {
                     "const": "ExponentialLR",
                     "default": "ExponentialLR",
@@ -313,11 +318,6 @@
                     ],
                     "title": "Type",
                     "type": "string"
-                },
-                "gamma": {
-                    "description": "Multiplicative factor of learning rate decay.",
-                    "title": "Gamma",
-                    "type": "number"
                 }
             },
             "required": [
@@ -328,11 +328,10 @@
         },
         "ForcesPropertyConfig": {
             "properties": {
-                "name": {
-                    "default": "forces",
-                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
-                    "title": "Name",
-                    "type": "string"
+                "conservative": {
+                    "description": "Whether the forces are energy conserving.\n\nThis is used by the backbone to decide the type of output head to use for\nthis property. Conservative force predictions are computed by taking the\nnegative gradient of the energy with respect to the atomic positions, whereas\nnon-conservative forces may be computed by other means.",
+                    "title": "Conservative",
+                    "type": "boolean"
                 },
                 "dtype": {
                     "$ref": "#/$defs/DType",
@@ -349,6 +348,12 @@
                     "title": "Loss Coefficient",
                     "type": "number"
                 },
+                "name": {
+                    "default": "forces",
+                    "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.",
+                    "title": "Name",
+                    "type": "string"
+                },
                 "type": {
                     "const": "forces",
                     "default": "forces",
@@ -357,11 +362,6 @@
                     ],
                     "title": "Type",
                     "type": "string"
-                },
-                "conservative": {
-                    "description": "Whether the forces are energy conserving.\nThis is used by the backbone to decide the type of output head to use for\n    this property. Conservative force predictions are computed by taking the\n    negative gradient of the energy with respect to the atomic positions, whereas\n    non-conservative forces may be computed by other means.",
-                    "title": "Conservative",
-                    "type": "boolean"
                 }
             },
             "required": [
@@ -373,11 +373,6 @@
         },
         "GraphPropertyConfig": {
             "properties": {
-                "name": {
-                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.\nThis is also the key that will be used to access the property in the ASE Atoms object.",
-                    "title": "Name",
-                    "type": "string"
-                },
                 "dtype": {
                     "$ref": "#/$defs/DType",
                     "description": "The type of the property values."
@@ -392,6 +387,21 @@
                     "title": "Loss Coefficient",
                     "type": "number"
                 },
+                "name": {
+                    "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.\n\nThis is also the key that will be used to access the property in the ASE Atoms object.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "reduction": {
+                    "description": "The reduction to use for the output.\n- \"sum\": Sum the property values for all atoms in the system.\nThis is optimal for extensive properties (e.g. energy).\n- \"mean\": Take the mean of the property values for all atoms in the system.\nThis is optimal for intensive properties (e.g. density).\n- \"max\": Take the maximum of the property values for all atoms in the system.\nThis is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.",
+                    "enum": [
+                        "mean",
+                        "sum",
+                        "max"
+                    ],
+                    "title": "Reduction",
+                    "type": "string"
+                },
                 "type": {
                     "const": "graph_property",
                     "default": "graph_property",
@@ -399,16 +409,6 @@
                         "graph_property"
                     ],
                     "title": "Type",
-                    "type": "string"
-                },
-                "reduction": {
-                    "description": "The reduction to use for the output.\n- \"sum\": Sum the property values for all atoms in the system.\n    This is optimal for extensive properties (e.g. energy).\n- \"mean\": Take the mean of the property values for all atoms in the system.\n    This is optimal for intensive properties (e.g. density).\n- \"max\": Take the maximum of the property values for all atoms in the system.\n    This is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.",
-                    "enum": [
-                        "mean",
-                        "sum",
-                        "max"
-                    ],
-                    "title": "Reduction",
                     "type": "string"
                 }
             },
@@ -423,6 +423,12 @@
         },
         "HuberLossConfig": {
             "properties": {
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
                 "name": {
                     "const": "huber",
                     "default": "huber",
@@ -431,12 +437,6 @@
                     ],
                     "title": "Name",
                     "type": "string"
-                },
-                "delta": {
-                    "default": 1.0,
-                    "description": "The threshold value for the Huber loss function.",
-                    "title": "Delta",
-                    "type": "number"
                 },
                 "reduction": {
                     "default": "mean",
@@ -454,30 +454,30 @@
         },
         "JMPGraphComputerConfig": {
             "properties": {
-                "pbc": {
-                    "description": "Whether to use periodic boundary conditions.",
-                    "title": "Pbc",
-                    "type": "boolean"
-                },
                 "cutoffs": {
                     "$ref": "#/$defs/CutoffsConfig",
                     "default": {
-                        "main": 12.0,
                         "aeaint": 12.0,
-                        "qint": 12.0,
-                        "aint": 12.0
+                        "aint": 12.0,
+                        "main": 12.0,
+                        "qint": 12.0
                     },
                     "description": "The cutoff for the radius graph."
                 },
                 "max_neighbors": {
                     "$ref": "#/$defs/MaxNeighborsConfig",
                     "default": {
-                        "main": 30,
                         "aeaint": 20,
-                        "qint": 8,
-                        "aint": 1000
+                        "aint": 1000,
+                        "main": 30,
+                        "qint": 8
                     },
                     "description": "The maximum number of neighbors for the radius graph."
+                },
+                "pbc": {
+                    "description": "Whether to use periodic boundary conditions.",
+                    "title": "Pbc",
+                    "type": "boolean"
                 },
                 "per_graph_radius_graph": {
                     "default": false,
@@ -623,20 +623,20 @@
         },
         "MaxNeighborsConfig": {
             "properties": {
-                "main": {
-                    "title": "Main",
-                    "type": "integer"
-                },
                 "aeaint": {
                     "title": "Aeaint",
                     "type": "integer"
                 },
-                "qint": {
-                    "title": "Qint",
-                    "type": "integer"
-                },
                 "aint": {
                     "title": "Aint",
+                    "type": "integer"
+                },
+                "main": {
+                    "title": "Main",
+                    "type": "integer"
+                },
+                "qint": {
+                    "title": "Qint",
                     "type": "integer"
                 }
             },
@@ -671,15 +671,10 @@
         },
         "MultiStepLRConfig": {
             "properties": {
-                "type": {
-                    "const": "MultiStepLR",
-                    "default": "MultiStepLR",
-                    "description": "Type of the learning rate scheduler.",
-                    "enum": [
-                        "MultiStepLR"
-                    ],
-                    "title": "Type",
-                    "type": "string"
+                "gamma": {
+                    "description": "Multiplicative factor of learning rate decay.",
+                    "title": "Gamma",
+                    "type": "number"
                 },
                 "milestones": {
                     "description": "List of epoch indices. Must be increasing.",
@@ -689,10 +684,15 @@
                     "title": "Milestones",
                     "type": "array"
                 },
-                "gamma": {
-                    "description": "Multiplicative factor of learning rate decay.",
-                    "title": "Gamma",
-                    "type": "number"
+                "type": {
+                    "const": "MultiStepLR",
+                    "default": "MultiStepLR",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "MultiStepLR"
+                    ],
+                    "title": "Type",
+                    "type": "string"
                 }
             },
             "required": [
@@ -808,25 +808,33 @@
         },
         "ReduceOnPlateauConfig": {
             "properties": {
-                "type": {
-                    "const": "ReduceLROnPlateau",
-                    "default": "ReduceLROnPlateau",
-                    "description": "Type of the learning rate scheduler.",
-                    "enum": [
-                        "ReduceLROnPlateau"
-                    ],
-                    "title": "Type",
-                    "type": "string"
+                "cooldown": {
+                    "default": 0,
+                    "description": "Number of epochs to wait before resuming normal operation.",
+                    "title": "Cooldown",
+                    "type": "integer"
                 },
-                "mode": {
-                    "description": "One of {\"min\", \"max\"}. Determines when to reduce the learning rate.",
-                    "title": "Mode",
-                    "type": "string"
+                "eps": {
+                    "default": 1e-08,
+                    "description": "Threshold for testing the new optimum.",
+                    "title": "Eps",
+                    "type": "number"
                 },
                 "factor": {
                     "description": "Factor by which the learning rate will be reduced.",
                     "title": "Factor",
                     "type": "number"
+                },
+                "min_lr": {
+                    "default": 0,
+                    "description": "A lower bound on the learning rate.",
+                    "title": "Min Lr",
+                    "type": "number"
+                },
+                "mode": {
+                    "description": "One of {\"min\", \"max\"}. Determines when to reduce the learning rate.",
+                    "title": "Mode",
+                    "type": "string"
                 },
                 "patience": {
                     "description": "Number of epochs with no improvement after which learning rate will be reduced.",
@@ -845,23 +853,15 @@
                     "title": "Threshold Mode",
                     "type": "string"
                 },
-                "cooldown": {
-                    "default": 0,
-                    "description": "Number of epochs to wait before resuming normal operation.",
-                    "title": "Cooldown",
-                    "type": "integer"
-                },
-                "min_lr": {
-                    "default": 0,
-                    "description": "A lower bound on the learning rate.",
-                    "title": "Min Lr",
-                    "type": "number"
-                },
-                "eps": {
-                    "default": 1e-08,
-                    "description": "Threshold for testing the new optimum.",
-                    "title": "Eps",
-                    "type": "number"
+                "type": {
+                    "const": "ReduceLROnPlateau",
+                    "default": "ReduceLROnPlateau",
+                    "description": "Type of the learning rate scheduler.",
+                    "enum": [
+                        "ReduceLROnPlateau"
+                    ],
+                    "title": "Type",
+                    "type": "string"
                 }
             },
             "required": [
@@ -874,16 +874,6 @@
         },
         "SGDConfig": {
             "properties": {
-                "name": {
-                    "const": "SGD",
-                    "default": "SGD",
-                    "description": "name of the optimizer.",
-                    "enum": [
-                        "SGD"
-                    ],
-                    "title": "Name",
-                    "type": "string"
-                },
                 "lr": {
                     "description": "Learning rate.",
                     "exclusiveMinimum": 0.0,
@@ -897,18 +887,28 @@
                     "title": "Momentum",
                     "type": "number"
                 },
-                "weight_decay": {
-                    "default": 0.0,
-                    "description": "Weight decay.",
-                    "minimum": 0.0,
-                    "title": "Weight Decay",
-                    "type": "number"
+                "name": {
+                    "const": "SGD",
+                    "default": "SGD",
+                    "description": "name of the optimizer.",
+                    "enum": [
+                        "SGD"
+                    ],
+                    "title": "Name",
+                    "type": "string"
                 },
                 "nestrov": {
                     "default": false,
                     "description": "Whether to use nestrov.",
                     "title": "Nestrov",
                     "type": "boolean"
+                },
+                "weight_decay": {
+                    "default": 0.0,
+                    "description": "Weight decay.",
+                    "minimum": 0.0,
+                    "title": "Weight Decay",
+                    "type": "number"
                 }
             },
             "required": [
@@ -919,6 +919,16 @@
         },
         "StepLRConfig": {
             "properties": {
+                "gamma": {
+                    "description": "Multiplicative factor of learning rate decay.",
+                    "title": "Gamma",
+                    "type": "number"
+                },
+                "step_size": {
+                    "description": "Period of learning rate decay.",
+                    "title": "Step Size",
+                    "type": "integer"
+                },
                 "type": {
                     "const": "StepLR",
                     "default": "StepLR",
@@ -928,16 +938,6 @@
                     ],
                     "title": "Type",
                     "type": "string"
-                },
-                "step_size": {
-                    "description": "Period of learning rate decay.",
-                    "title": "Step Size",
-                    "type": "integer"
-                },
-                "gamma": {
-                    "description": "Multiplicative factor of learning rate decay.",
-                    "title": "Gamma",
-                    "type": "number"
                 }
             },
             "required": [
@@ -949,11 +949,10 @@
         },
         "StressesPropertyConfig": {
             "properties": {
-                "name": {
-                    "default": "stresses",
-                    "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
-                    "title": "Name",
-                    "type": "string"
+                "conservative": {
+                    "description": "Similar to the `conservative` parameter in `ForcesPropertyConfig`, this parameter\nspecifies whether the stresses should be computed in a conservative manner.",
+                    "title": "Conservative",
+                    "type": "boolean"
                 },
                 "dtype": {
                     "$ref": "#/$defs/DType",
@@ -970,6 +969,12 @@
                     "title": "Loss Coefficient",
                     "type": "number"
                 },
+                "name": {
+                    "default": "stresses",
+                    "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.",
+                    "title": "Name",
+                    "type": "string"
+                },
                 "type": {
                     "const": "stresses",
                     "default": "stresses",
@@ -978,11 +983,6 @@
                     ],
                     "title": "Type",
                     "type": "string"
-                },
-                "conservative": {
-                    "description": "Similar to the `conservative` parameter in `ForcesPropertyConfig`, this parameter\n    specifies whether the stresses should be computed in a conservative manner.",
-                    "title": "Conservative",
-                    "type": "boolean"
                 }
             },
             "required": [
@@ -994,58 +994,6 @@
         }
     },
     "properties": {
-        "properties": {
-            "type": "array",
-            "items": {
-                "$ref": "#/$defs/PropertyConfig"
-            },
-            "description": "Properties to predict.",
-            "title": "Properties"
-        },
-        "optimizer": {
-            "$ref": "#/$defs/OptimizerConfig",
-            "description": "Optimizer."
-        },
-        "lr_scheduler": {
-            "anyOf": [
-                {
-                    "$ref": "#/$defs/LRSchedulerConfig"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "Learning Rate Scheduler"
-        },
-        "ignore_gpu_batch_transform_error": {
-            "default": true,
-            "description": "Whether to ignore data processing errors during training.",
-            "title": "Ignore Gpu Batch Transform Error",
-            "type": "boolean"
-        },
-        "normalizers": {
-            "additionalProperties": {
-                "items": {
-                    "$ref": "#/$defs/NormalizerConfig"
-                },
-                "type": "array"
-            },
-            "default": {},
-            "description": "Normalizers for the properties.\n\nAny property can be associated with multiple normalizers. This is useful\n    for cases where we want to normalize the same property in different ways.\n    For example, we may want to normalize the energy by subtracting\n    the atomic reference energies, as well as by mean and standard deviation\n    normalization.\n\nThe normalizers are applied in the order they are defined in the list.",
-            "title": "Normalizers",
-            "type": "object"
-        },
-        "name": {
-            "const": "jmp",
-            "default": "jmp",
-            "description": "The type of the backbone.",
-            "enum": [
-                "jmp"
-            ],
-            "title": "Name",
-            "type": "string"
-        },
         "ckpt_path": {
             "anyOf": [
                 {
@@ -1062,6 +1010,58 @@
         "graph_computer": {
             "$ref": "#/$defs/JMPGraphComputerConfig",
             "description": "The configuration for the graph computer."
+        },
+        "ignore_gpu_batch_transform_error": {
+            "default": true,
+            "description": "Whether to ignore data processing errors during training.",
+            "title": "Ignore Gpu Batch Transform Error",
+            "type": "boolean"
+        },
+        "lr_scheduler": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/LRSchedulerConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Learning Rate Scheduler"
+        },
+        "name": {
+            "const": "jmp",
+            "default": "jmp",
+            "description": "The type of the backbone.",
+            "enum": [
+                "jmp"
+            ],
+            "title": "Name",
+            "type": "string"
+        },
+        "normalizers": {
+            "additionalProperties": {
+                "items": {
+                    "$ref": "#/$defs/NormalizerConfig"
+                },
+                "type": "array"
+            },
+            "default": {},
+            "description": "Normalizers for the properties.\n\nAny property can be associated with multiple normalizers. This is useful\nfor cases where we want to normalize the same property in different ways.\nFor example, we may want to normalize the energy by subtracting\nthe atomic reference energies, as well as by mean and standard deviation\nnormalization.\n\nThe normalizers are applied in the order they are defined in the list.",
+            "title": "Normalizers",
+            "type": "object"
+        },
+        "optimizer": {
+            "$ref": "#/$defs/OptimizerConfig",
+            "description": "Optimizer."
+        },
+        "properties": {
+            "description": "Properties to predict.",
+            "items": {
+                "$ref": "#/$defs/PropertyConfig"
+            },
+            "title": "Properties",
+            "type": "array"
         }
     },
     "required": [

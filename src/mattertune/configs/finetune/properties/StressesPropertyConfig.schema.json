@@ -9,6 +9,12 @@
         },
         "HuberLossConfig": {
             "properties": {
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
                 "name": {
                     "const": "huber",
                     "default": "huber",
@@ -17,12 +23,6 @@
                     ],
                     "title": "Name",
                     "type": "string"
-                },
-                "delta": {
-                    "default": 1.0,
-                    "description": "The threshold value for the Huber loss function.",
-                    "title": "Delta",
-                    "type": "number"
                 },
                 "reduction": {
                     "default": "mean",
@@ -140,11 +140,10 @@
         }
     },
     "properties": {
-        "name": {
-            "default": "stresses",
-            "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
-            "title": "Name",
-            "type": "string"
+        "conservative": {
+            "description": "Similar to the `conservative` parameter in `ForcesPropertyConfig`, this parameter\nspecifies whether the stresses should be computed in a conservative manner.",
+            "title": "Conservative",
+            "type": "boolean"
         },
         "dtype": {
             "$ref": "#/$defs/DType",
@@ -161,6 +160,12 @@
             "title": "Loss Coefficient",
             "type": "number"
         },
+        "name": {
+            "default": "stresses",
+            "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.",
+            "title": "Name",
+            "type": "string"
+        },
         "type": {
             "const": "stresses",
             "default": "stresses",
@@ -169,11 +174,6 @@
             ],
             "title": "Type",
             "type": "string"
-        },
-        "conservative": {
-            "description": "Similar to the `conservative` parameter in `ForcesPropertyConfig`, this parameter\n    specifies whether the stresses should be computed in a conservative manner.",
-            "title": "Conservative",
-            "type": "boolean"
         }
     },
     "required": [

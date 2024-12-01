@@ -1,27 +1,10 @@
 {
     "properties": {
-        "name": {
-            "const": "Adam",
-            "default": "Adam",
-            "description": "name of the optimizer.",
-            "enum": [
-                "Adam"
-            ],
-            "title": "Name",
-            "type": "string"
-        },
-        "lr": {
-            "description": "Learning rate.",
-            "exclusiveMinimum": 0.0,
-            "title": "Lr",
-            "type": "number"
-        },
-        "eps": {
-            "default": 1e-08,
-            "description": "Epsilon.",
-            "minimum": 0.0,
-            "title": "Eps",
-            "type": "number"
+        "amsgrad": {
+            "default": false,
+            "description": "Whether to use AMSGrad variant of Adam.",
+            "title": "Amsgrad",
+            "type": "boolean"
         },
         "betas": {
             "default": [
@@ -44,18 +27,35 @@
             "title": "Betas",
             "type": "array"
         },
+        "eps": {
+            "default": 1e-08,
+            "description": "Epsilon.",
+            "minimum": 0.0,
+            "title": "Eps",
+            "type": "number"
+        },
+        "lr": {
+            "description": "Learning rate.",
+            "exclusiveMinimum": 0.0,
+            "title": "Lr",
+            "type": "number"
+        },
+        "name": {
+            "const": "Adam",
+            "default": "Adam",
+            "description": "name of the optimizer.",
+            "enum": [
+                "Adam"
+            ],
+            "title": "Name",
+            "type": "string"
+        },
         "weight_decay": {
             "default": 0.0,
             "description": "Weight decay.",
             "minimum": 0.0,
             "title": "Weight Decay",
             "type": "number"
-        },
-        "amsgrad": {
-            "default": false,
-            "description": "Whether to use AMSGrad variant of Adam.",
-            "title": "Amsgrad",
-            "type": "boolean"
         }
     },
     "required": [

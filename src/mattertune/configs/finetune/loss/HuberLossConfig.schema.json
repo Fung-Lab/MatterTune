@@ -1,5 +1,11 @@
 {
     "properties": {
+        "delta": {
+            "default": 1.0,
+            "description": "The threshold value for the Huber loss function.",
+            "title": "Delta",
+            "type": "number"
+        },
         "name": {
             "const": "huber",
             "default": "huber",
@@ -8,12 +14,6 @@
             ],
             "title": "Name",
             "type": "string"
-        },
-        "delta": {
-            "default": 1.0,
-            "description": "The threshold value for the Huber loss function.",
-            "title": "Delta",
-            "type": "number"
         },
         "reduction": {
             "default": "mean",
