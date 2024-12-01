@@ -41,6 +41,7 @@ class MatterTuneCalculator(Calculator):
         This method implements the calculation of properties like energy, forces, etc. for an ASE Atoms
         object using the underlying MatterTune property predictor. It converts between ASE and MatterTune
         property names and handles proper type conversions of the predicted values.
+
         Args:
             atoms (Atoms | None, optional): ASE Atoms object to calculate properties for. If None,
                 uses previously set atoms. Defaults to None.

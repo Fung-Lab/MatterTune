@@ -27,25 +27,25 @@ log = logging.getLogger(__name__)
 class NormalizationContext:
     """
     The normalization context contains all the information required to
-        normalize and denormalize the properties. Currently, this only
-        includes the compositions of the materials in the batch.
+    normalize and denormalize the properties. Currently, this only
+    includes the compositions of the materials in the batch.
 
     This flexibility allows for the "Normalizer" interface to be used for
-        other types of normalization, beyond just simple mean and standard
-        deviation normalization. For example, subtracting linear references
-        from total energies can be implemented using this interface.
+    other types of normalization, beyond just simple mean and standard
+    deviation normalization. For example, subtracting linear references
+    from total energies can be implemented using this interface.
     """
 
     compositions: torch.Tensor  # (num_samples, num_elements)
     """
     The compositions should be provided as an integer tensor of shape
-        (batch_size, num_elements), where each row (i.e., `compositions[i]`)
-        corresponds to the composition vector of the `i`-th material in the batch.
+    `(batch_size, num_elements)`, where each row (i.e., `compositions[i]`)
+    corresponds to the composition vector of the `i`-th material in the batch.
 
     The composition vector is a vector that maps each element to the number of
-        atoms of that element in the material. For example, `compositions[:, 1]`
-        corresponds to the number of Hydrogen atoms in each material in the batch,
-        `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
+    atoms of that element in the material. For example, `compositions[:, 1]`
+    corresponds to the number of Hydrogen atoms in each material in the batch,
+    `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
     """
 
 

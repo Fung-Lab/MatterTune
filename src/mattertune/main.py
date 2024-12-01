@@ -135,8 +135,9 @@ class TrainerConfig(C.Config):
     additional_trainer_kwargs: dict[str, Any] = {}
     """
     Additional keyword arguments for the Lightning Trainer.
+
     This is for advanced users who want to customize the Lightning Trainer,
-        and is not recommended for beginners.
+    and is not recommended for beginners.
     """
 
     def _to_lightning_kwargs(self):

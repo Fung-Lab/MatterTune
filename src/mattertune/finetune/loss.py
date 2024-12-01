@@ -83,7 +83,7 @@ def compute_loss(
 ) -> torch.Tensor:
     """
     Compute the loss value given the model output, ``prediction``,
-        and the target label, ``label``.
+    and the target label, ``label``.
 
     The loss value should be a scalar tensor.
 
