@@ -127,6 +127,47 @@ config = mt.configs.MatterTunerConfig(
 )
 ```
 
+## JSON Dataset
+Allows reading atomic structures and properties from JSON files with a specific schema.
+
+API Reference: {py:class}`mattertune.data.json.JSONDatasetConfig`
+
+Expected JSON format:
+```json
+[
+  {
+    "atomic_numbers": [1, 1, 8],
+    "positions": [[0, 0, 0], [0, 0, 1], [0, 1, 0]],
+    "cell": [[10, 0, 0], [0, 10, 0], [0, 0, 10]],
+    "energy": -13.5,
+    "forces": [[0.1, 0, 0], [-0.1, 0, 0], [0, 0, 0]],
+    "stress": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+  }
+]
+```
+
+Usage example:
+```python
+config = mt.configs.MatterTunerConfig(
+    model=...,
+    data=mt.configs.AutoSplitDataModuleConfig(
+        dataset=mt.configs.JSONDatasetConfig(
+            src="path/to/data.json",
+            tasks={
+                "energy": "energy",
+                "forces": "forces",
+                "stress": "stress"
+            }
+        ),
+        train_split=0.8,
+        batch_size=32
+    ),
+    trainer=...
+)
+```
+
+The `tasks` dictionary maps property names to the corresponding JSON keys in your data file.
+
 Each dataset configuration can be used with either `AutoSplitDataModuleConfig` for automatic train/validation splitting or `ManualSplitDataModuleConfig` for manual split specification. The examples above use `AutoSplitDataModuleConfig` for simplicity.
 
 Note that some datasets may require additional dependencies:
