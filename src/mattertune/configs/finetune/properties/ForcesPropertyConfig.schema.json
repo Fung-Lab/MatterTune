@@ -9,6 +9,12 @@
         },
         "HuberLossConfig": {
             "properties": {
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
                 "name": {
                     "const": "huber",
                     "default": "huber",
@@ -17,12 +23,6 @@
                     ],
                     "title": "Name",
                     "type": "string"
-                },
-                "delta": {
-                    "default": 1.0,
-                    "description": "The threshold value for the Huber loss function.",
-                    "title": "Delta",
-                    "type": "number"
                 },
                 "reduction": {
                     "default": "mean",
@@ -140,11 +140,10 @@
         }
     },
     "properties": {
-        "name": {
-            "default": "forces",
-            "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
-            "title": "Name",
-            "type": "string"
+        "conservative": {
+            "description": "Whether the forces are energy conserving.\n\nThis is used by the backbone to decide the type of output head to use for\nthis property. Conservative force predictions are computed by taking the\nnegative gradient of the energy with respect to the atomic positions, whereas\nnon-conservative forces may be computed by other means.",
+            "title": "Conservative",
+            "type": "boolean"
         },
         "dtype": {
             "$ref": "#/$defs/DType",
@@ -161,6 +160,12 @@
             "title": "Loss Coefficient",
             "type": "number"
         },
+        "name": {
+            "default": "forces",
+            "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.",
+            "title": "Name",
+            "type": "string"
+        },
         "type": {
             "const": "forces",
             "default": "forces",
@@ -169,11 +174,6 @@
             ],
             "title": "Type",
             "type": "string"
-        },
-        "conservative": {
-            "description": "Whether the forces are energy conserving.\nThis is used by the backbone to decide the type of output head to use for\n    this property. Conservative force predictions are computed by taking the\n    negative gradient of the energy with respect to the atomic positions, whereas\n    non-conservative forces may be computed by other means.",
-            "title": "Conservative",
-            "type": "boolean"
         }
     },
     "required": [

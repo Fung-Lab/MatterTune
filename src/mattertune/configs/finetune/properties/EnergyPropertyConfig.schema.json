@@ -9,6 +9,12 @@
         },
         "HuberLossConfig": {
             "properties": {
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
                 "name": {
                     "const": "huber",
                     "default": "huber",
@@ -17,12 +23,6 @@
                     ],
                     "title": "Name",
                     "type": "string"
-                },
-                "delta": {
-                    "default": 1.0,
-                    "description": "The threshold value for the Huber loss function.",
-                    "title": "Delta",
-                    "type": "number"
                 },
                 "reduction": {
                     "default": "mean",
@@ -140,12 +140,6 @@
         }
     },
     "properties": {
-        "name": {
-            "default": "energy",
-            "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.",
-            "title": "Name",
-            "type": "string"
-        },
         "dtype": {
             "$ref": "#/$defs/DType",
             "default": "float",
@@ -160,6 +154,12 @@
             "description": "The coefficient to apply to this property's loss function when training the model.",
             "title": "Loss Coefficient",
             "type": "number"
+        },
+        "name": {
+            "default": "energy",
+            "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.",
+            "title": "Name",
+            "type": "string"
         },
         "type": {
             "const": "energy",

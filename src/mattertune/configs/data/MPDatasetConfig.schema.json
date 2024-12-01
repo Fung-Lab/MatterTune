@@ -1,16 +1,6 @@
 {
     "description": "Configuration for a dataset stored in the Materials Project database.",
     "properties": {
-        "type": {
-            "const": "mp",
-            "default": "mp",
-            "description": "Discriminator for the MP dataset.",
-            "enum": [
-                "mp"
-            ],
-            "title": "Type",
-            "type": "string"
-        },
         "api": {
             "description": "Input API key for the Materials Project database.",
             "title": "Api",
@@ -28,6 +18,16 @@
             "description": "Query to filter the data from the Materials Project database.",
             "title": "Query",
             "type": "object"
+        },
+        "type": {
+            "const": "mp",
+            "default": "mp",
+            "description": "Discriminator for the MP dataset.",
+            "enum": [
+                "mp"
+            ],
+            "title": "Type",
+            "type": "string"
         }
     },
     "required": [

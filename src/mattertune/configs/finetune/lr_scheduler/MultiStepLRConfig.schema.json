@@ -1,14 +1,9 @@
 {
     "properties": {
-        "type": {
-            "const": "MultiStepLR",
-            "default": "MultiStepLR",
-            "description": "Type of the learning rate scheduler.",
-            "enum": [
-                "MultiStepLR"
-            ],
-            "title": "Type",
-            "type": "string"
+        "gamma": {
+            "description": "Multiplicative factor of learning rate decay.",
+            "title": "Gamma",
+            "type": "number"
         },
         "milestones": {
             "description": "List of epoch indices. Must be increasing.",
@@ -18,10 +13,15 @@
             "title": "Milestones",
             "type": "array"
         },
-        "gamma": {
-            "description": "Multiplicative factor of learning rate decay.",
-            "title": "Gamma",
-            "type": "number"
+        "type": {
+            "const": "MultiStepLR",
+            "default": "MultiStepLR",
+            "description": "Type of the learning rate scheduler.",
+            "enum": [
+                "MultiStepLR"
+            ],
+            "title": "Type",
+            "type": "string"
         }
     },
     "required": [

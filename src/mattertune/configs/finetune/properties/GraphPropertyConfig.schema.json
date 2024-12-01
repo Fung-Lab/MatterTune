@@ -9,6 +9,12 @@
         },
         "HuberLossConfig": {
             "properties": {
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
                 "name": {
                     "const": "huber",
                     "default": "huber",
@@ -17,12 +23,6 @@
                     ],
                     "title": "Name",
                     "type": "string"
-                },
-                "delta": {
-                    "default": 1.0,
-                    "description": "The threshold value for the Huber loss function.",
-                    "title": "Delta",
-                    "type": "number"
                 },
                 "reduction": {
                     "default": "mean",
@@ -140,11 +140,6 @@
         }
     },
     "properties": {
-        "name": {
-            "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.\nThis is also the key that will be used to access the property in the ASE Atoms object.",
-            "title": "Name",
-            "type": "string"
-        },
         "dtype": {
             "$ref": "#/$defs/DType",
             "description": "The type of the property values."
@@ -159,6 +154,21 @@
             "title": "Loss Coefficient",
             "type": "number"
         },
+        "name": {
+            "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.\n\nThis is also the key that will be used to access the property in the ASE Atoms object.",
+            "title": "Name",
+            "type": "string"
+        },
+        "reduction": {
+            "description": "The reduction to use for the output.\n- \"sum\": Sum the property values for all atoms in the system.\nThis is optimal for extensive properties (e.g. energy).\n- \"mean\": Take the mean of the property values for all atoms in the system.\nThis is optimal for intensive properties (e.g. density).\n- \"max\": Take the maximum of the property values for all atoms in the system.\nThis is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.",
+            "enum": [
+                "mean",
+                "sum",
+                "max"
+            ],
+            "title": "Reduction",
+            "type": "string"
+        },
         "type": {
             "const": "graph_property",
             "default": "graph_property",
@@ -166,16 +176,6 @@
                 "graph_property"
             ],
             "title": "Type",
-            "type": "string"
-        },
-        "reduction": {
-            "description": "The reduction to use for the output.\n- \"sum\": Sum the property values for all atoms in the system.\n    This is optimal for extensive properties (e.g. energy).\n- \"mean\": Take the mean of the property values for all atoms in the system.\n    This is optimal for intensive properties (e.g. density).\n- \"max\": Take the maximum of the property values for all atoms in the system.\n    This is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.",
-            "enum": [
-                "mean",
-                "sum",
-                "max"
-            ],
-            "title": "Reduction",
             "type": "string"
         }
     },

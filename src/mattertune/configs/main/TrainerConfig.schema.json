@@ -2,13 +2,22 @@
     "$defs": {
         "CSVLoggerConfig": {
             "properties": {
-                "type": {
-                    "const": "csv",
-                    "default": "csv",
-                    "enum": [
-                        "csv"
-                    ],
-                    "title": "Type",
+                "flush_logs_every_n_steps": {
+                    "default": 100,
+                    "description": "How often to flush logs to disk. Default: ``100``.",
+                    "title": "Flush Logs Every N Steps",
+                    "type": "integer"
+                },
+                "name": {
+                    "default": "lightning_logs",
+                    "description": "Experiment name. Default: ``'lightning_logs'``.",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "prefix": {
+                    "default": "",
+                    "description": "String to put at the beginning of metric keys. Default: ``''``.",
+                    "title": "Prefix",
                     "type": "string"
                 },
                 "save_dir": {
@@ -16,10 +25,13 @@
                     "title": "Save Dir",
                     "type": "string"
                 },
-                "name": {
-                    "default": "lightning_logs",
-                    "description": "Experiment name. Default: ``'lightning_logs'``.",
-                    "title": "Name",
+                "type": {
+                    "const": "csv",
+                    "default": "csv",
+                    "enum": [
+                        "csv"
+                    ],
+                    "title": "Type",
                     "type": "string"
                 },
                 "version": {
@@ -37,18 +49,6 @@
                     "default": null,
                     "description": "Experiment version. If not specified, automatically assigns the next available version.\nDefault: ``None``.",
                     "title": "Version"
-                },
-                "prefix": {
-                    "default": "",
-                    "description": "String to put at the beginning of metric keys. Default: ``''``.",
-                    "title": "Prefix",
-                    "type": "string"
-                },
-                "flush_logs_every_n_steps": {
-                    "default": 100,
-                    "description": "How often to flush logs to disk. Default: ``100``.",
-                    "title": "Flush Logs Every N Steps",
-                    "type": "integer"
                 }
             },
             "required": [
@@ -59,77 +59,11 @@
         },
         "EarlyStoppingConfig": {
             "properties": {
-                "monitor": {
-                    "default": "val/total_loss",
-                    "description": "Quantity to be monitored.",
-                    "title": "Monitor",
-                    "type": "string"
-                },
-                "min_delta": {
-                    "default": 0.0,
-                    "description": "Minimum change in monitored quantity to qualify as an improvement. Changes of less than or equal to\n`min_delta` will count as no improvement. Default: ``0.0``.",
-                    "title": "Min Delta",
-                    "type": "number"
-                },
-                "patience": {
-                    "default": 3,
-                    "description": "Number of validation checks with no improvement after which training will be stopped. Default: ``3``.",
-                    "title": "Patience",
-                    "type": "integer"
-                },
-                "verbose": {
-                    "default": false,
-                    "description": "Whether to print messages when improvement is found or early stopping is triggered. Default: ``False``.",
-                    "title": "Verbose",
-                    "type": "boolean"
-                },
-                "mode": {
-                    "default": "min",
-                    "description": "One of 'min' or 'max'. In 'min' mode, training stops when monitored quantity stops decreasing;\nin 'max' mode it stops when the quantity stops increasing. Default: ``'min'``.",
-                    "enum": [
-                        "min",
-                        "max"
-                    ],
-                    "title": "Mode",
-                    "type": "string"
-                },
-                "strict": {
-                    "default": true,
-                    "description": "Whether to raise an error if monitored metric is not found in validation metrics. Default: ``True``.",
-                    "title": "Strict",
-                    "type": "boolean"
-                },
                 "check_finite": {
                     "default": true,
                     "description": "Whether to stop training when the monitor becomes NaN or infinite. Default: ``True``.",
                     "title": "Check Finite",
                     "type": "boolean"
-                },
-                "stopping_threshold": {
-                    "anyOf": [
-                        {
-                            "type": "number"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Stop training immediately once the monitored quantity reaches this threshold. Default: ``None``.",
-                    "title": "Stopping Threshold"
-                },
-                "divergence_threshold": {
-                    "anyOf": [
-                        {
-                            "type": "number"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Stop training as soon as the monitored quantity becomes worse than this threshold. Default: ``None``.",
-                    "title": "Divergence Threshold"
                 },
                 "check_on_train_epoch_end": {
                     "anyOf": [
@@ -144,10 +78,76 @@
                     "description": "Whether to run early stopping at the end of training epoch. If False, check runs at validation end.\nDefault: ``None``.",
                     "title": "Check On Train Epoch End"
                 },
+                "divergence_threshold": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Stop training as soon as the monitored quantity becomes worse than this threshold. Default: ``None``.",
+                    "title": "Divergence Threshold"
+                },
                 "log_rank_zero_only": {
                     "default": false,
                     "description": "Whether to log the status of early stopping only for rank 0 process. Default: ``False``.",
                     "title": "Log Rank Zero Only",
+                    "type": "boolean"
+                },
+                "min_delta": {
+                    "default": 0.0,
+                    "description": "Minimum change in monitored quantity to qualify as an improvement. Changes of less than or equal to\n`min_delta` will count as no improvement. Default: ``0.0``.",
+                    "title": "Min Delta",
+                    "type": "number"
+                },
+                "mode": {
+                    "default": "min",
+                    "description": "One of 'min' or 'max'. In 'min' mode, training stops when monitored quantity stops decreasing;\nin 'max' mode it stops when the quantity stops increasing. Default: ``'min'``.",
+                    "enum": [
+                        "min",
+                        "max"
+                    ],
+                    "title": "Mode",
+                    "type": "string"
+                },
+                "monitor": {
+                    "default": "val/total_loss",
+                    "description": "Quantity to be monitored.",
+                    "title": "Monitor",
+                    "type": "string"
+                },
+                "patience": {
+                    "default": 3,
+                    "description": "Number of validation checks with no improvement after which training will be stopped. Default: ``3``.",
+                    "title": "Patience",
+                    "type": "integer"
+                },
+                "stopping_threshold": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Stop training immediately once the monitored quantity reaches this threshold. Default: ``None``.",
+                    "title": "Stopping Threshold"
+                },
+                "strict": {
+                    "default": true,
+                    "description": "Whether to raise an error if monitored metric is not found in validation metrics. Default: ``True``.",
+                    "title": "Strict",
+                    "type": "boolean"
+                },
+                "verbose": {
+                    "default": false,
+                    "description": "Whether to print messages when improvement is found or early stopping is triggered. Default: ``False``.",
+                    "title": "Verbose",
                     "type": "boolean"
                 }
             },
@@ -177,6 +177,12 @@
         },
         "ModelCheckpointConfig": {
             "properties": {
+                "auto_insert_metric_name": {
+                    "default": true,
+                    "description": "Whether to automatically insert metric name in checkpoint filename. Default: ``True``.",
+                    "title": "Auto Insert Metric Name",
+                    "type": "boolean"
+                },
                 "dirpath": {
                     "anyOf": [
                         {
@@ -189,6 +195,38 @@
                     "default": null,
                     "description": "Directory to save the model file. Default: ``None``.",
                     "title": "Dirpath"
+                },
+                "enable_version_counter": {
+                    "default": true,
+                    "description": "Whether to append version to existing filenames. Default: ``True``.",
+                    "title": "Enable Version Counter",
+                    "type": "boolean"
+                },
+                "every_n_epochs": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Number of epochs between checkpoints. Default: ``None``.",
+                    "title": "Every N Epochs"
+                },
+                "every_n_train_steps": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Number of training steps between checkpoints. Default: ``None``.",
+                    "title": "Every N Train Steps"
                 },
                 "filename": {
                     "anyOf": [
@@ -203,6 +241,16 @@
                     "description": "Checkpoint filename. Can contain named formatting options. Default: ``None``.",
                     "title": "Filename"
                 },
+                "mode": {
+                    "default": "min",
+                    "description": "One of {'min', 'max'}. For 'min' training stops when monitored quantity stops decreasing. Default: ``'min'``.",
+                    "enum": [
+                        "min",
+                        "max"
+                    ],
+                    "title": "Mode",
+                    "type": "string"
+                },
                 "monitor": {
                     "anyOf": [
                         {
@@ -215,12 +263,6 @@
                     "default": null,
                     "description": "Quantity to monitor. Default: ``None``.",
                     "title": "Monitor"
-                },
-                "verbose": {
-                    "default": false,
-                    "description": "Verbosity mode. Default: ``False``.",
-                    "title": "Verbose",
-                    "type": "boolean"
                 },
                 "save_last": {
                     "anyOf": [
@@ -239,6 +281,19 @@
                     "description": "When True or \"link\", saves a 'last.ckpt' checkpoint when a checkpoint is saved. Default: ``None``.",
                     "title": "Save Last"
                 },
+                "save_on_train_epoch_end": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Whether to run checkpointing at end of training epoch. Default: ``None``.",
+                    "title": "Save On Train Epoch End"
+                },
                 "save_top_k": {
                     "default": 1,
                     "description": "If save_top_k=k, save k models with best monitored quantity. Default: ``1``.",
@@ -250,35 +305,6 @@
                     "description": "If True, only save model weights. Default: ``False``.",
                     "title": "Save Weights Only",
                     "type": "boolean"
-                },
-                "mode": {
-                    "default": "min",
-                    "description": "One of {'min', 'max'}. For 'min' training stops when monitored quantity stops decreasing. Default: ``'min'``.",
-                    "enum": [
-                        "min",
-                        "max"
-                    ],
-                    "title": "Mode",
-                    "type": "string"
-                },
-                "auto_insert_metric_name": {
-                    "default": true,
-                    "description": "Whether to automatically insert metric name in checkpoint filename. Default: ``True``.",
-                    "title": "Auto Insert Metric Name",
-                    "type": "boolean"
-                },
-                "every_n_train_steps": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Number of training steps between checkpoints. Default: ``None``.",
-                    "title": "Every N Train Steps"
                 },
                 "train_time_interval": {
                     "anyOf": [
@@ -294,36 +320,10 @@
                     "description": "Checkpoints are monitored at the specified time interval. Default: ``None``.",
                     "title": "Train Time Interval"
                 },
-                "every_n_epochs": {
-                    "anyOf": [
-                        {
-                            "type": "integer"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Number of epochs between checkpoints. Default: ``None``.",
-                    "title": "Every N Epochs"
-                },
-                "save_on_train_epoch_end": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Whether to run checkpointing at end of training epoch. Default: ``None``.",
-                    "title": "Save On Train Epoch End"
-                },
-                "enable_version_counter": {
-                    "default": true,
-                    "description": "Whether to append version to existing filenames. Default: ``True``.",
-                    "title": "Enable Version Counter",
+                "verbose": {
+                    "default": false,
+                    "description": "Verbosity mode. Default: ``False``.",
+                    "title": "Verbose",
                     "type": "boolean"
                 }
             },
@@ -332,19 +332,23 @@
         },
         "TensorBoardLoggerConfig": {
             "properties": {
-                "type": {
-                    "const": "tensorboard",
-                    "default": "tensorboard",
-                    "enum": [
-                        "tensorboard"
-                    ],
-                    "title": "Type",
-                    "type": "string"
+                "additional_params": {
+                    "default": {},
+                    "description": "Additional parameters passed to tensorboardX.SummaryWriter. Default: ``{}``.",
+                    "title": "Additional Params",
+                    "type": "object"
                 },
-                "save_dir": {
-                    "description": "Save directory where TensorBoard logs will be saved.",
-                    "title": "Save Dir",
-                    "type": "string"
+                "default_hp_metric": {
+                    "default": true,
+                    "description": "Enables placeholder metric with key `hp_metric` when logging hyperparameters without a metric.\nDefault: ``True``.",
+                    "title": "Default Hp Metric",
+                    "type": "boolean"
+                },
+                "log_graph": {
+                    "default": false,
+                    "description": "Whether to add computational graph to tensorboard. Requires model.example_input_array to be defined.\nDefault: ``False``.",
+                    "title": "Log Graph",
+                    "type": "boolean"
                 },
                 "name": {
                     "anyOf": [
@@ -358,6 +362,39 @@
                     "default": "lightning_logs",
                     "description": "Experiment name. Default: ``'lightning_logs'``. If empty string, no per-experiment subdirectory is used.",
                     "title": "Name"
+                },
+                "prefix": {
+                    "default": "",
+                    "description": "String to put at beginning of metric keys. Default: ``''``.",
+                    "title": "Prefix",
+                    "type": "string"
+                },
+                "save_dir": {
+                    "description": "Save directory where TensorBoard logs will be saved.",
+                    "title": "Save Dir",
+                    "type": "string"
+                },
+                "sub_dir": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Sub-directory to group TensorBoard logs. If provided, logs are saved in\n``/save_dir/name/version/sub_dir/``. Default: ``None``.",
+                    "title": "Sub Dir"
+                },
+                "type": {
+                    "const": "tensorboard",
+                    "default": "tensorboard",
+                    "enum": [
+                        "tensorboard"
+                    ],
+                    "title": "Type",
+                    "type": "string"
                 },
                 "version": {
                     "anyOf": [
@@ -374,43 +411,6 @@
                     "default": null,
                     "description": "Experiment version. If not specified, logger auto-assigns next available version.\nIf string, used as run-specific subdirectory name. Default: ``None``.",
                     "title": "Version"
-                },
-                "log_graph": {
-                    "default": false,
-                    "description": "Whether to add computational graph to tensorboard. Requires model.example_input_array to be defined.\nDefault: ``False``.",
-                    "title": "Log Graph",
-                    "type": "boolean"
-                },
-                "default_hp_metric": {
-                    "default": true,
-                    "description": "Enables placeholder metric with key `hp_metric` when logging hyperparameters without a metric.\nDefault: ``True``.",
-                    "title": "Default Hp Metric",
-                    "type": "boolean"
-                },
-                "prefix": {
-                    "default": "",
-                    "description": "String to put at beginning of metric keys. Default: ``''``.",
-                    "title": "Prefix",
-                    "type": "string"
-                },
-                "sub_dir": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Sub-directory to group TensorBoard logs. If provided, logs are saved in\n``/save_dir/name/version/sub_dir/``. Default: ``None``.",
-                    "title": "Sub Dir"
-                },
-                "additional_params": {
-                    "default": {},
-                    "description": "Additional parameters passed to tensorboardX.SummaryWriter. Default: ``{}``.",
-                    "title": "Additional Params",
-                    "type": "object"
                 }
             },
             "required": [
@@ -421,78 +421,11 @@
         },
         "WandbLoggerConfig": {
             "properties": {
-                "type": {
-                    "const": "wandb",
-                    "default": "wandb",
-                    "enum": [
-                        "wandb"
-                    ],
-                    "title": "Type",
-                    "type": "string"
-                },
-                "name": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Display name for the run. Default: ``None``.",
-                    "title": "Name"
-                },
-                "save_dir": {
-                    "default": ".",
-                    "description": "Path where data is saved. Default: ``.``.",
-                    "title": "Save Dir",
-                    "type": "string"
-                },
-                "version": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Sets the version, mainly used to resume a previous run. Default: ``None``.",
-                    "title": "Version"
-                },
-                "offline": {
-                    "default": false,
-                    "description": "Run offline (data can be streamed later to wandb servers). Default: ``False``.",
-                    "title": "Offline",
-                    "type": "boolean"
-                },
-                "dir": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Same as save_dir. Default: ``None``.",
-                    "title": "Dir"
-                },
-                "id": {
-                    "anyOf": [
-                        {
-                            "type": "string"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Same as version. Default: ``None``.",
-                    "title": "Id"
+                "additional_init_parameters": {
+                    "default": {},
+                    "description": "Additional parameters to pass to wandb.init(). Default: ``{}``.",
+                    "title": "Additional Init Parameters",
+                    "type": "object"
                 },
                 "anonymous": {
                     "anyOf": [
@@ -507,7 +440,7 @@
                     "description": "Enables or explicitly disables anonymous logging. Default: ``None``.",
                     "title": "Anonymous"
                 },
-                "project": {
+                "checkpoint_name": {
                     "anyOf": [
                         {
                             "type": "string"
@@ -517,8 +450,45 @@
                         }
                     ],
                     "default": null,
-                    "description": "The name of the project to which this run will belong. Default: ``None``.",
-                    "title": "Project"
+                    "description": "Name of the model checkpoint artifact being logged. Default: ``None``.",
+                    "title": "Checkpoint Name"
+                },
+                "dir": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Same as save_dir. Default: ``None``.",
+                    "title": "Dir"
+                },
+                "experiment": {
+                    "anyOf": [
+                        {},
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "WandB experiment object. Automatically set when creating a run. Default: ``None``.",
+                    "title": "Experiment"
+                },
+                "id": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Same as version. Default: ``None``.",
+                    "title": "Id"
                 },
                 "log_model": {
                     "anyOf": [
@@ -537,24 +507,7 @@
                     "description": "Whether/how to log model checkpoints as W&B artifacts. Default: ``False``.\nIf 'all', checkpoints are logged during training.\nIf True, checkpoints are logged at the end of training.\nIf False, no checkpoints are logged.",
                     "title": "Log Model"
                 },
-                "prefix": {
-                    "default": "",
-                    "description": "A string to put at the beginning of metric keys. Default: ``''``.",
-                    "title": "Prefix",
-                    "type": "string"
-                },
-                "experiment": {
-                    "anyOf": [
-                        {},
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "WandB experiment object. Automatically set when creating a run. Default: ``None``.",
-                    "title": "Experiment"
-                },
-                "checkpoint_name": {
+                "name": {
                     "anyOf": [
                         {
                             "type": "string"
@@ -564,14 +517,61 @@
                         }
                     ],
                     "default": null,
-                    "description": "Name of the model checkpoint artifact being logged. Default: ``None``.",
-                    "title": "Checkpoint Name"
+                    "description": "Display name for the run. Default: ``None``.",
+                    "title": "Name"
                 },
-                "additional_init_parameters": {
-                    "default": {},
-                    "description": "Additional parameters to pass to wandb.init(). Default: ``{}``.",
-                    "title": "Additional Init Parameters",
-                    "type": "object"
+                "offline": {
+                    "default": false,
+                    "description": "Run offline (data can be streamed later to wandb servers). Default: ``False``.",
+                    "title": "Offline",
+                    "type": "boolean"
+                },
+                "prefix": {
+                    "default": "",
+                    "description": "A string to put at the beginning of metric keys. Default: ``''``.",
+                    "title": "Prefix",
+                    "type": "string"
+                },
+                "project": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "The name of the project to which this run will belong. Default: ``None``.",
+                    "title": "Project"
+                },
+                "save_dir": {
+                    "default": ".",
+                    "description": "Path where data is saved. Default: ``.``.",
+                    "title": "Save Dir",
+                    "type": "string"
+                },
+                "type": {
+                    "const": "wandb",
+                    "default": "wandb",
+                    "enum": [
+                        "wandb"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "version": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "description": "Sets the version, mainly used to resume a previous run. Default: ``None``.",
+                    "title": "Version"
                 }
             },
             "title": "WandbLoggerConfig",
@@ -585,17 +585,56 @@
             "title": "Accelerator",
             "type": "string"
         },
-        "strategy": {
-            "default": "auto",
-            "description": "Supports different training strategies with aliases as well custom strategies.\nDefault: ``\"auto\"``.",
-            "title": "Strategy",
-            "type": "string"
+        "additional_trainer_kwargs": {
+            "default": {},
+            "description": "Additional keyword arguments for the Lightning Trainer.\n\nThis is for advanced users who want to customize the Lightning Trainer,\nand is not recommended for beginners.",
+            "title": "Additional Trainer Kwargs",
+            "type": "object"
         },
-        "num_nodes": {
+        "check_val_every_n_epoch": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
             "default": 1,
-            "description": "Number of GPU nodes for distributed training.\nDefault: ``1``.",
-            "title": "Num Nodes",
-            "type": "integer"
+            "description": "Perform a validation loop every after every `N` training epochs. If ``None``,\nvalidation will be done solely based on the number of training batches, requiring ``val_check_interval``\nto be an integer value.\nDefault: ``1``.",
+            "title": "Check Val Every N Epoch"
+        },
+        "checkpoint": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ModelCheckpointConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "The configuration for the model checkpoint."
+        },
+        "deterministic": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "const": "warn",
+                    "enum": [
+                        "warn"
+                    ],
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "If ``True``, sets whether PyTorch operations must use deterministic algorithms.\n    Set to ``\"warn\"`` to use deterministic algorithms whenever possible, throwing warnings on operations\n    that don't support deterministic mode. If not set, defaults to ``False``. Default: ``None``.",
+            "title": "Deterministic"
         },
         "devices": {
             "anyOf": [
@@ -615,6 +654,154 @@
             "default": "auto",
             "description": "The devices to use. Can be set to a sequence of device indices, \"all\" to indicate all available devices should be used, or ``\"auto\"`` for\nautomatic selection based on the chosen accelerator. Default: ``\"auto\"``.",
             "title": "Devices"
+        },
+        "early_stopping": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/EarlyStoppingConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "The configuration for early stopping."
+        },
+        "gradient_clip_algorithm": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "The gradient clipping algorithm to use. Pass ``gradient_clip_algorithm=\"value\"``\nto clip by value, and ``gradient_clip_algorithm=\"norm\"`` to clip by norm. By default it will\nbe set to ``\"norm\"``.",
+            "title": "Gradient Clip Algorithm"
+        },
+        "gradient_clip_val": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "The value at which to clip gradients. Passing ``gradient_clip_val=None`` disables\ngradient clipping. If using Automatic Mixed Precision (AMP), the gradients will be unscaled before.\nDefault: ``None``.",
+            "title": "Gradient Clip Val"
+        },
+        "log_every_n_steps": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "How often to log within steps.\nDefault: ``50``.",
+            "title": "Log Every N Steps"
+        },
+        "loggers": {
+            "anyOf": [
+                {
+                    "items": {
+                        "$ref": "#/$defs/LoggerConfig"
+                    },
+                    "type": "array"
+                },
+                {
+                    "const": "default",
+                    "enum": [
+                        "default"
+                    ],
+                    "type": "string"
+                }
+            ],
+            "default": "default",
+            "description": "The loggers to use for logging training metrics.\n\nIf ``\"default\"``, will use the CSV logger + the W&B logger if available.\nDefault: ``\"default\"``.",
+            "title": "Loggers"
+        },
+        "max_epochs": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Stop training once this number of epochs is reached. Disabled by default (None).\nIf both max_epochs and max_steps are not specified, defaults to ``max_epochs = 1000``.\nTo enable infinite training, set ``max_epochs = -1``.",
+            "title": "Max Epochs"
+        },
+        "max_steps": {
+            "default": -1,
+            "description": "Stop training after this number of steps. Disabled by default (-1). If ``max_steps = -1``\nand ``max_epochs = None``, will default to ``max_epochs = 1000``. To enable infinite training, set\n``max_epochs`` to ``-1``.",
+            "title": "Max Steps",
+            "type": "integer"
+        },
+        "max_time": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "format": "duration",
+                    "type": "string"
+                },
+                {
+                    "additionalProperties": {
+                        "type": "integer"
+                    },
+                    "type": "object"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Stop training after this amount of time has passed. Disabled by default (``None``).\nThe time duration can be specified in the format DD:HH:MM:SS (days, hours, minutes seconds), as a\n:class:`datetime.timedelta`, or a dictionary with keys that will be passed to\n:class:`datetime.timedelta`.",
+            "title": "Max Time"
+        },
+        "min_epochs": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Force training for at least these many epochs. Disabled by default (None).",
+            "title": "Min Epochs"
+        },
+        "min_steps": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Force training for at least these number of steps. Disabled by default (``None``).",
+            "title": "Min Steps"
+        },
+        "num_nodes": {
+            "default": 1,
+            "description": "Number of GPU nodes for distributed training.\nDefault: ``1``.",
+            "title": "Num Nodes",
+            "type": "integer"
         },
         "precision": {
             "anyOf": [
@@ -656,93 +843,11 @@
             "description": "Double precision (64, '64' or '64-true'), full precision (32, '32' or '32-true'),\n16bit mixed precision (16, '16', '16-mixed') or bfloat16 mixed precision ('bf16', 'bf16-mixed').\nCan be used on CPU, GPU, TPUs, HPUs or IPUs.\nDefault: ``'32-true'``.",
             "title": "Precision"
         },
-        "deterministic": {
-            "anyOf": [
-                {
-                    "type": "boolean"
-                },
-                {
-                    "const": "warn",
-                    "enum": [
-                        "warn"
-                    ],
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "If ``True``, sets whether PyTorch operations must use deterministic algorithms.\n    Set to ``\"warn\"`` to use deterministic algorithms whenever possible, throwing warnings on operations\n    that don't support deterministic mode. If not set, defaults to ``False``. Default: ``None``.",
-            "title": "Deterministic"
-        },
-        "max_epochs": {
-            "anyOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "Stop training once this number of epochs is reached. Disabled by default (None).\nIf both max_epochs and max_steps are not specified, defaults to ``max_epochs = 1000``.\nTo enable infinite training, set ``max_epochs = -1``.",
-            "title": "Max Epochs"
-        },
-        "min_epochs": {
-            "anyOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "Force training for at least these many epochs. Disabled by default (None).",
-            "title": "Min Epochs"
-        },
-        "max_steps": {
-            "default": -1,
-            "description": "Stop training after this number of steps. Disabled by default (-1). If ``max_steps = -1``\nand ``max_epochs = None``, will default to ``max_epochs = 1000``. To enable infinite training, set\n``max_epochs`` to ``-1``.",
-            "title": "Max Steps",
-            "type": "integer"
-        },
-        "min_steps": {
-            "anyOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "Force training for at least these number of steps. Disabled by default (``None``).",
-            "title": "Min Steps"
-        },
-        "max_time": {
-            "anyOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "format": "duration",
-                    "type": "string"
-                },
-                {
-                    "additionalProperties": {
-                        "type": "integer"
-                    },
-                    "type": "object"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "Stop training after this amount of time has passed. Disabled by default (``None``).\nThe time duration can be specified in the format DD:HH:MM:SS (days, hours, minutes seconds), as a\n:class:`datetime.timedelta`, or a dictionary with keys that will be passed to\n:class:`datetime.timedelta`.",
-            "title": "Max Time"
+        "strategy": {
+            "default": "auto",
+            "description": "Supports different training strategies with aliases as well custom strategies.\nDefault: ``\"auto\"``.",
+            "title": "Strategy",
+            "type": "string"
         },
         "val_check_interval": {
             "anyOf": [
@@ -759,111 +864,6 @@
             "default": null,
             "description": "How often to check the validation set. Pass a ``float`` in the range [0.0, 1.0] to check\nafter a fraction of the training epoch. Pass an ``int`` to check after a fixed number of training\nbatches. An ``int`` value can only be higher than the number of training batches when\n``check_val_every_n_epoch=None``, which validates after every ``N`` training batches\nacross epochs or during iteration-based training.\nDefault: ``1.0``.",
             "title": "Val Check Interval"
-        },
-        "check_val_every_n_epoch": {
-            "anyOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": 1,
-            "description": "Perform a validation loop every after every `N` training epochs. If ``None``,\nvalidation will be done solely based on the number of training batches, requiring ``val_check_interval``\nto be an integer value.\nDefault: ``1``.",
-            "title": "Check Val Every N Epoch"
-        },
-        "log_every_n_steps": {
-            "anyOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "How often to log within steps.\nDefault: ``50``.",
-            "title": "Log Every N Steps"
-        },
-        "gradient_clip_val": {
-            "anyOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "number"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "The value at which to clip gradients. Passing ``gradient_clip_val=None`` disables\ngradient clipping. If using Automatic Mixed Precision (AMP), the gradients will be unscaled before.\nDefault: ``None``.",
-            "title": "Gradient Clip Val"
-        },
-        "gradient_clip_algorithm": {
-            "anyOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "The gradient clipping algorithm to use. Pass ``gradient_clip_algorithm=\"value\"``\nto clip by value, and ``gradient_clip_algorithm=\"norm\"`` to clip by norm. By default it will\nbe set to ``\"norm\"``.",
-            "title": "Gradient Clip Algorithm"
-        },
-        "checkpoint": {
-            "anyOf": [
-                {
-                    "$ref": "#/$defs/ModelCheckpointConfig"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "The configuration for the model checkpoint."
-        },
-        "early_stopping": {
-            "anyOf": [
-                {
-                    "$ref": "#/$defs/EarlyStoppingConfig"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "The configuration for early stopping."
-        },
-        "loggers": {
-            "anyOf": [
-                {
-                    "items": {
-                        "$ref": "#/$defs/LoggerConfig"
-                    },
-                    "type": "array"
-                },
-                {
-                    "const": "default",
-                    "enum": [
-                        "default"
-                    ],
-                    "type": "string"
-                }
-            ],
-            "default": "default",
-            "description": "The loggers to use for logging training metrics.\n\nIf ``\"default\"``, will use the CSV logger + the W&B logger if available.\nDefault: ``\"default\"``.",
-            "title": "Loggers"
-        },
-        "additional_trainer_kwargs": {
-            "default": {},
-            "description": "Additional keyword arguments for the Lightning Trainer.\nThis is for advanced users who want to customize the Lightning Trainer,\n    and is not recommended for beginners.",
-            "title": "Additional Trainer Kwargs",
-            "type": "object"
         }
     },
     "title": "TrainerConfig",

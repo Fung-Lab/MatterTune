@@ -1,5 +1,10 @@
 {
     "properties": {
+        "gamma": {
+            "description": "Multiplicative factor of learning rate decay.",
+            "title": "Gamma",
+            "type": "number"
+        },
         "type": {
             "const": "ExponentialLR",
             "default": "ExponentialLR",
@@ -9,11 +14,6 @@
             ],
             "title": "Type",
             "type": "string"
-        },
-        "gamma": {
-            "description": "Multiplicative factor of learning rate decay.",
-            "title": "Gamma",
-            "type": "number"
         }
     },
     "required": [

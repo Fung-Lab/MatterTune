@@ -1,29 +1,6 @@
 {
     "description": "Configuration for a dataset stored in an ASE database.",
     "properties": {
-        "type": {
-            "const": "db",
-            "default": "db",
-            "description": "Discriminator for the DB dataset.",
-            "enum": [
-                "db"
-            ],
-            "title": "Type",
-            "type": "string"
-        },
-        "src": {
-            "anyOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "format": "path",
-                    "type": "string"
-                }
-            ],
-            "description": "Path to the ASE database file or a database object.",
-            "title": "Src"
-        },
         "energy_key": {
             "anyOf": [
                 {
@@ -50,6 +27,25 @@
             "description": "Key for the force label in the database.",
             "title": "Forces Key"
         },
+        "preload": {
+            "default": true,
+            "description": "Whether to load all the data at once or not.",
+            "title": "Preload",
+            "type": "boolean"
+        },
+        "src": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "format": "path",
+                    "type": "string"
+                }
+            ],
+            "description": "Path to the ASE database file or a database object.",
+            "title": "Src"
+        },
         "stress_key": {
             "anyOf": [
                 {
@@ -63,11 +59,15 @@
             "description": "Key for the stress label in the database.",
             "title": "Stress Key"
         },
-        "preload": {
-            "default": true,
-            "description": "Whether to load all the data at once or not.",
-            "title": "Preload",
-            "type": "boolean"
+        "type": {
+            "const": "db",
+            "default": "db",
+            "description": "Discriminator for the DB dataset.",
+            "enum": [
+                "db"
+            ],
+            "title": "Type",
+            "type": "string"
         }
     },
     "required": [

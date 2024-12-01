@@ -1,19 +1,19 @@
 {
     "properties": {
-        "main": {
-            "title": "Main",
-            "type": "integer"
-        },
         "aeaint": {
             "title": "Aeaint",
             "type": "integer"
         },
-        "qint": {
-            "title": "Qint",
-            "type": "integer"
-        },
         "aint": {
             "title": "Aint",
+            "type": "integer"
+        },
+        "main": {
+            "title": "Main",
+            "type": "integer"
+        },
+        "qint": {
+            "title": "Qint",
             "type": "integer"
         }
     },

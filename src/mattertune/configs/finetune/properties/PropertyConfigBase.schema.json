@@ -9,6 +9,12 @@
         },
         "HuberLossConfig": {
             "properties": {
+                "delta": {
+                    "default": 1.0,
+                    "description": "The threshold value for the Huber loss function.",
+                    "title": "Delta",
+                    "type": "number"
+                },
                 "name": {
                     "const": "huber",
                     "default": "huber",
@@ -17,12 +23,6 @@
                     ],
                     "title": "Name",
                     "type": "string"
-                },
-                "delta": {
-                    "default": 1.0,
-                    "description": "The threshold value for the Huber loss function.",
-                    "title": "Delta",
-                    "type": "number"
                 },
                 "reduction": {
                     "default": "mean",
@@ -140,11 +140,6 @@
         }
     },
     "properties": {
-        "name": {
-            "description": "The name of the property.\nThis is the key that will be used to access the property in the output of the model.\nThis is also the key that will be used to access the property in the ASE Atoms object.",
-            "title": "Name",
-            "type": "string"
-        },
         "dtype": {
             "$ref": "#/$defs/DType",
             "description": "The type of the property values."
@@ -158,6 +153,11 @@
             "description": "The coefficient to apply to this property's loss function when training the model.",
             "title": "Loss Coefficient",
             "type": "number"
+        },
+        "name": {
+            "description": "The name of the property.\n\nThis is the key that will be used to access the property in the output of the model.\n\nThis is also the key that will be used to access the property in the ASE Atoms object.",
+            "title": "Name",
+            "type": "string"
         }
     },
     "required": [

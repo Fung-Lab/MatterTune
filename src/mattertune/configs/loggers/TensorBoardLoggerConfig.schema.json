@@ -1,18 +1,22 @@
 {
     "properties": {
-        "type": {
-            "const": "tensorboard",
-            "default": "tensorboard",
-            "enum": [
-                "tensorboard"
-            ],
-            "title": "Type",
-            "type": "string"
+        "additional_params": {
+            "default": {},
+            "description": "Additional parameters passed to tensorboardX.SummaryWriter. Default: ``{}``.",
+            "title": "Additional Params",
+            "type": "object"
         },
-        "save_dir": {
-            "description": "Save directory where TensorBoard logs will be saved.",
-            "title": "Save Dir",
-            "type": "string"
+        "default_hp_metric": {
+            "default": true,
+            "description": "Enables placeholder metric with key `hp_metric` when logging hyperparameters without a metric.\nDefault: ``True``.",
+            "title": "Default Hp Metric",
+            "type": "boolean"
+        },
+        "log_graph": {
+            "default": false,
+            "description": "Whether to add computational graph to tensorboard. Requires model.example_input_array to be defined.\nDefault: ``False``.",
+            "title": "Log Graph",
+            "type": "boolean"
         },
         "name": {
             "anyOf": [
@@ -26,6 +30,39 @@
             "default": "lightning_logs",
             "description": "Experiment name. Default: ``'lightning_logs'``. If empty string, no per-experiment subdirectory is used.",
             "title": "Name"
+        },
+        "prefix": {
+            "default": "",
+            "description": "String to put at beginning of metric keys. Default: ``''``.",
+            "title": "Prefix",
+            "type": "string"
+        },
+        "save_dir": {
+            "description": "Save directory where TensorBoard logs will be saved.",
+            "title": "Save Dir",
+            "type": "string"
+        },
+        "sub_dir": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "description": "Sub-directory to group TensorBoard logs. If provided, logs are saved in\n``/save_dir/name/version/sub_dir/``. Default: ``None``.",
+            "title": "Sub Dir"
+        },
+        "type": {
+            "const": "tensorboard",
+            "default": "tensorboard",
+            "enum": [
+                "tensorboard"
+            ],
+            "title": "Type",
+            "type": "string"
         },
         "version": {
             "anyOf": [
@@ -42,43 +79,6 @@
             "default": null,
             "description": "Experiment version. If not specified, logger auto-assigns next available version.\nIf string, used as run-specific subdirectory name. Default: ``None``.",
             "title": "Version"
-        },
-        "log_graph": {
-            "default": false,
-            "description": "Whether to add computational graph to tensorboard. Requires model.example_input_array to be defined.\nDefault: ``False``.",
-            "title": "Log Graph",
-            "type": "boolean"
-        },
-        "default_hp_metric": {
-            "default": true,
-            "description": "Enables placeholder metric with key `hp_metric` when logging hyperparameters without a metric.\nDefault: ``True``.",
-            "title": "Default Hp Metric",
-            "type": "boolean"
-        },
-        "prefix": {
-            "default": "",
-            "description": "String to put at beginning of metric keys. Default: ``''``.",
-            "title": "Prefix",
-            "type": "string"
-        },
-        "sub_dir": {
-            "anyOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "default": null,
-            "description": "Sub-directory to group TensorBoard logs. If provided, logs are saved in\n``/save_dir/name/version/sub_dir/``. Default: ``None``.",
-            "title": "Sub Dir"
-        },
-        "additional_params": {
-            "default": {},
-            "description": "Additional parameters passed to tensorboardX.SummaryWriter. Default: ``{}``.",
-            "title": "Additional Params",
-            "type": "object"
         }
     },
     "required": [

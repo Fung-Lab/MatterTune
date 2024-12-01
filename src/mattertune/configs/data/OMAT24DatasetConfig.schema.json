@@ -1,5 +1,11 @@
 {
     "properties": {
+        "src": {
+            "description": "The path to the OMAT24 dataset.",
+            "format": "path",
+            "title": "Src",
+            "type": "string"
+        },
         "type": {
             "const": "omat24",
             "default": "omat24",
@@ -8,12 +14,6 @@
                 "omat24"
             ],
             "title": "Type",
-            "type": "string"
-        },
-        "src": {
-            "description": "The path to the OMAT24 dataset.",
-            "format": "path",
-            "title": "Src",
             "type": "string"
         }
     },
