@@ -25,17 +25,23 @@ def main(args_dict: dict):
         hparams.model.ckpt_path = Path(args_dict["ckpt_path"])
         hparams.model.ignore_gpu_batch_transform_error = True
         hparams.model.optimizer = MC.AdamWConfig(lr=args_dict["lr"])
+        hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
+            T_max=args_dict["max_epochs"],
+            eta_min=1.0e-8,
+        )
 
         # Add model properties
         hparams.model.properties = []
 
         # Add energy property
-        energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
+        energy = MC.EnergyPropertyConfig(
+            loss=MC.HuberLossConfig(), loss_coefficient=1.0
+        )
         hparams.model.properties.append(energy)
 
         # Add forces property
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
+            loss=MC.HuberLossConfig(), conservative=True, loss_coefficient=10.0
         )
         hparams.model.properties.append(forces)
 
@@ -64,10 +70,10 @@ def main(args_dict: dict):
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "bf16"
 
-        # # Configure Early Stopping
-        # hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-        #     monitor="val/forces_mae", patience=200, mode="min"
-        # )
+        # Configure Early Stopping
+        hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
+            monitor="val/forces_mae", patience=200, mode="min"
+        )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
@@ -114,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
