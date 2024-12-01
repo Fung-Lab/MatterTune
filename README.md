@@ -19,6 +19,9 @@ MatterTune is a flexible and powerful machine learning library designed specific
 import mattertune as mt
 from pathlib import Path
 
+# Phase 1: Fine-tuning the model
+# -----------------------------
+
 # Define the configuration for model, data, and training
 config = mt.configs.MatterTunerConfig(
     # Configure the model: using JMP backbone with energy prediction
@@ -53,11 +56,38 @@ model, trainer = tuner.tune()
 
 # Save the fine-tuned model
 trainer.save_checkpoint("finetuned_model.ckpt")
+
+# Phase 2: Using the fine-tuned model
+# ----------------------------------
+
+from ase.optimize import BFGS
+from ase import Atoms
+
+# Load the fine-tuned model
+model = mt.backbones.JMPBackboneModule.load_from_checkpoint("finetuned_model.ckpt")
+
+# Create an ASE calculator from the model
+calculator = model.ase_calculator()
+
+# Set up an atomic structure
+atoms = Atoms('H2O',
+             positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
+             cell=[10, 10, 10],
+             pbc=True)
+atoms.calc = calculator
+
+# Run geometry optimization
+opt = BFGS(atoms)
+opt.run(fmax=0.01)
+
+# Get results
+print("Final energy:", atoms.get_potential_energy())
+print("Final forces:", atoms.get_forces())
 ```
 
 ## License
 
-MatterTune's core framework is licensed under the MIT License. Note that each supported model backbone is subject to its own licensing terms - see our documentation for details.
+MatterTune's core framework is licensed under the MIT License. Note that each supported model backbone is subject to its own licensing terms - see our [license information page of the documentation](https://fung-lab.github.io/MatterTune/license.html) for more details.
 
 ## Citation
 
