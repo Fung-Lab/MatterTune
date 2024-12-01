@@ -499,6 +499,12 @@
             },
             "oneOf": [
                 {
+                    "$ref": "#/$defs/MatbenchDatasetConfig"
+                },
+                {
+                    "$ref": "#/$defs/MPDatasetConfig"
+                },
+                {
                     "$ref": "#/$defs/OMAT24DatasetConfig"
                 },
                 {
@@ -508,13 +514,7 @@
                     "$ref": "#/$defs/MPTrajDatasetConfig"
                 },
                 {
-                    "$ref": "#/$defs/MatbenchDatasetConfig"
-                },
-                {
                     "$ref": "#/$defs/DBDatasetConfig"
-                },
-                {
-                    "$ref": "#/$defs/MPDatasetConfig"
                 }
             ]
         },

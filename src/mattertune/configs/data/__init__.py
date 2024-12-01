@@ -3,6 +3,8 @@ from __future__ import annotations
 __codegen__ = True
 
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
+from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
+from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 from mattertune.data.datamodule import (
@@ -13,8 +15,6 @@ from mattertune.data.datamodule import (
     ManualSplitDataModuleConfig as ManualSplitDataModuleConfig,
 )
 from mattertune.data.db import DBDatasetConfig as DBDatasetConfig
-from mattertune.data.matbench import MatbenchDatasetConfig as MatbenchDatasetConfig
-from mattertune.data.mp import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 
 from . import base as base

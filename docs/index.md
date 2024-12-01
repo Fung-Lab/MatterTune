@@ -15,6 +15,7 @@ installation
 :maxdepth: 2
 :caption: User Guide
 
+guides/datasets
 guides/fine-tuning
 guides/model_usage
 guides/training_config
