@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import matbench
 import matplotlib.pyplot as plt
 from ase.io import read
-from matbench.bench import MatbenchBenchmark
+from matbench.bench import MatbenchBenchmark  # type: ignore[reportMissingImports]
 
 mb = MatbenchBenchmark(autoload=False, subset=["matbench_mp_gap"])
 task = list(mb.tasks)[0]
@@ -13,6 +12,7 @@ fold = task.folds[0]
 inputs_data, outputs_data = task.get_train_and_val_data(fold)
 
 atoms_list = read("./data/gnome_Bandgap.xyz", index=":")
+assert isinstance(atoms_list, list), "Expected a list of Atoms objects"
 property_values = [atoms.info["bandgap"] for atoms in atoms_list]
 
 plt.figure()

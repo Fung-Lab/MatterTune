@@ -65,7 +65,8 @@ def obtain_structure(
         with open(temp_path, "wb") as fp:
             shutil.copyfileobj(zf, fp)
 
-    atoms: Atoms = read(temp_path)
+    atoms = read(temp_path)
+    assert isinstance(atoms, Atoms), "Expected an Atoms object"
     temp_dir.cleanup()
     return atoms
 
