@@ -50,6 +50,7 @@ def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None):
 
 def main(args_dict: dict):
     md_traj = read(args_dict["md_traj"], ":")
+    assert isinstance(md_traj, list), "Expected a list of Atoms objects"
     md_traj = md_traj[-args_dict["n_frames"] :]
     r_max = args_dict["r_max"]
     n_bins = int(args_dict["r_max"] / args_dict["r_step"])

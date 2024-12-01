@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
+from typing import cast
 
 import numpy as np
 from ase import Atoms
@@ -40,15 +41,15 @@ def main(args_dict: dict):
     for file in files:
         if os.path.exists(os.path.join(args_dict["save_dir"], file)):
             continue
-        atoms: Atoms = read(os.path.join(args_dict["init_structs"], file))
+        atoms = read(os.path.join(args_dict["init_structs"], file))
+        assert isinstance(atoms, Atoms), "Expected an Atoms object"
         relax_traj = []
         atoms.pbc = True
         atoms.calc = calc
         ucf = UnitCellFilter(atoms, scalar_pressure=0.0)
-        opt = BFGS(
-            ucf,
-            logfile=None,
-        )
+        ucf_as_atoms = cast(Atoms, ucf)
+        # UnitCellFilter is not a subclass of Atoms, but it can fill the role of Atoms in nearly all contexts
+        opt = BFGS(ucf_as_atoms, logfile=None)
 
         def write_traj():
             relax_traj.append(copy.deepcopy(atoms))

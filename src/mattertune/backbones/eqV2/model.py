@@ -4,7 +4,7 @@ import contextlib
 import importlib.util
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import nshconfig as C
 import nshconfig_extra as CE
@@ -17,13 +17,11 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
+from ...util import optional_import_error_message
 
 if TYPE_CHECKING:
-    from fairchem.core.models.equiformer_v2.prediction_heads.rank2 import (
-        Rank2SymmetricTensorHead,
-    )
-    from torch_geometric.data.batch import Batch
-    from torch_geometric.data.data import BaseData
+    from torch_geometric.data.batch import Batch  # type: ignore[reportMissingImports] # noqa
+    from torch_geometric.data.data import BaseData  # type: ignore[reportMissingImports] # noqa
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +69,7 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
         return EqV2BackboneModule(self)
 
 
-def _combine_scalar_irrep2(stress_head: "Rank2SymmetricTensorHead", scalar, irrep2):
+def _combine_scalar_irrep2(stress_head, scalar, irrep2):
     # Change of basis to compute a rank 2 symmetric tensor
 
     vector = torch.zeros((scalar.shape[0], 3), device=scalar.device).detach()
@@ -94,8 +92,9 @@ def _combine_scalar_irrep2(stress_head: "Rank2SymmetricTensorHead", scalar, irre
 
 
 def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
-    from fairchem.core.common.registry import registry
-    from fairchem.core.common.utils import update_config
+    with optional_import_error_message("fairchem"):
+        from fairchem.core.common.registry import registry  # type: ignore[reportMissingImports] # noqa
+        from fairchem.core.common.utils import update_config  # type: ignore[reportMissingImports] # noqa
 
     if isinstance(checkpoint_path := hparams.checkpoint_path, CE.CachedPath):
         checkpoint_path = checkpoint_path.resolve()
@@ -122,13 +121,16 @@ def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
     del config["dataset"]["src"]
 
     # Import a bunch of modules so that the registry can find the classes
-    import fairchem.core.models  # noqa: F401
-    import fairchem.core.models.equiformer_v2
-    import fairchem.core.models.equiformer_v2.equiformer_v2
-    import fairchem.core.models.equiformer_v2.prediction_heads.rank2
-    import fairchem.core.trainers
+    with optional_import_error_message("fairchem"):
+        import fairchem.core.models  # type: ignore[reportMissingImports] # noqa
+        import fairchem.core.models.equiformer_v2  # type: ignore[reportMissingImports] # noqa
+        import fairchem.core.models.equiformer_v2.equiformer_v2  # type: ignore[reportMissingImports] # noqa
+        import fairchem.core.models.equiformer_v2.prediction_heads.rank2  # type: ignore[reportMissingImports] # noqa
+        import fairchem.core.trainers  # type: ignore[reportMissingImports] # noqa
 
-    trainer = registry.get_trainer_class(config["trainer"])(
+    trainer_cls = cast(Any, registry.get_trainer_class(config["trainer"]))
+    # ^ The typing for FAIRChem's registry is very weird, so we have to do some hacky casting here.
+    trainer = trainer_cls(
         task=config.get("task", {}),
         model=config["model"],
         dataset=[config["dataset"]],
@@ -153,25 +155,26 @@ def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
             log.warning(f"Unable to load checkpoint from {checkpoint_path}")
 
     # Now, extract the backbone from the trainer and delete the trainer
-    from fairchem.core.trainers import OCPTrainer
+    with optional_import_error_message("fairchem"):
+        from fairchem.core.trainers import OCPTrainer  # type: ignore[reportMissingImports] # noqa
 
-    assert isinstance(trainer, OCPTrainer), "Only OCPTrainer is supported."
+    assert isinstance(trainer, cast(type, OCPTrainer)), "Only OCPTrainer is supported."
     assert (model := getattr(trainer, "_unwrapped_model", None)) is not None, (
         "The model could not be extracted from the trainer. "
         "Please report this issue."
     )
 
     # Make sure this is eqv2
-    from fairchem.core.models.base import HydraModel
+    from fairchem.core.models.base import HydraModel  # type: ignore[reportMissingImports] # noqa
 
     assert isinstance(
-        model, HydraModel
+        model, cast(type, HydraModel)
     ), f"Expected model to be of type HydraModel, but got {type(model)}"
 
-    from fairchem.core.models.equiformer_v2.equiformer_v2 import EquiformerV2Backbone
+    from fairchem.core.models.equiformer_v2.equiformer_v2 import EquiformerV2Backbone  # type: ignore[reportMissingImports] # noqa
 
     assert isinstance(
-        backbone := model.backbone, EquiformerV2Backbone
+        backbone := model.backbone, cast(type, EquiformerV2Backbone)
     ), f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
 
     return backbone
@@ -191,9 +194,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     def _create_output_head(self, prop: props.PropertyConfig):
         match prop:
             case props.EnergyPropertyConfig():
-                from fairchem.core.models.equiformer_v2.equiformer_v2 import (
-                    EquiformerV2EnergyHead,
-                )
+                with optional_import_error_message("fairchem"):
+                    from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
+                        EquiformerV2EnergyHead,
+                    )
 
                 return EquiformerV2EnergyHead(self.backbone, reduce="sum")
             case props.ForcesPropertyConfig():
@@ -201,9 +205,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     not prop.conservative
                 ), "Conservative forces are not supported for eqV2 (yet)"
 
-                from fairchem.core.models.equiformer_v2.equiformer_v2 import (
-                    EquiformerV2ForceHead,
-                )
+                with optional_import_error_message("fairchem"):
+                    from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
+                        EquiformerV2ForceHead,
+                    )
 
                 return EquiformerV2ForceHead(self.backbone)
             case props.StressesPropertyConfig():
@@ -211,9 +216,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     not prop.conservative
                 ), "Conservative stresses are not supported for eqV2 (yet)"
 
-                from fairchem.core.models.equiformer_v2.prediction_heads.rank2 import (
-                    Rank2SymmetricTensorHead,
-                )
+                with optional_import_error_message("fairchem"):
+                    from fairchem.core.models.equiformer_v2.prediction_heads.rank2 import (  # type: ignore[reportMissingImports] # noqa
+                        Rank2SymmetricTensorHead,
+                    )
 
                 return Rank2SymmetricTensorHead(
                     self.backbone,
@@ -227,9 +233,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     f"Unsupported reduction: {prop.reduction} for eqV2. "
                     "Please use 'sum' or 'mean'."
                 )
-                from fairchem.core.models.equiformer_v2.equiformer_v2 import (
-                    EquiformerV2EnergyHead,
-                )
+                with optional_import_error_message("fairchem"):
+                    from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
+                        EquiformerV2EnergyHead,
+                    )
 
                 return EquiformerV2EnergyHead(self.backbone, reduce=prop.reduction)
             case _:
@@ -310,7 +317,8 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
     @override
     def collate_fn(self, data_list):
-        from fairchem.core.datasets import data_list_collater
+        with optional_import_error_message("fairchem"):
+            from fairchem.core.datasets import data_list_collater  # type: ignore[reportMissingImports] # noqa
 
         return cast("Batch", data_list_collater(data_list, otf_graph=True))
 
@@ -335,7 +343,8 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
     @override
     def atoms_to_data(self, atoms, has_labels):
-        from fairchem.core.preprocessing import AtomsToGraphs
+        with optional_import_error_message("fairchem"):
+            from fairchem.core.preprocessing import AtomsToGraphs  # type: ignore[reportMissingImports] # noqa
 
         energy = False
         forces = False
@@ -369,7 +378,9 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
         a2g = AtomsToGraphs(
             max_neigh=self.hparams.atoms_to_graph.max_num_neighbors,
-            radius=self.hparams.atoms_to_graph.radius,
+            radius=cast(
+                int, self.hparams.atoms_to_graph.radius
+            ),  # Stupid typing of the radius arg by the FAIRChem devs; it should be a float.
             r_energy=energy,
             r_forces=forces,
             r_stress=stress,
@@ -391,10 +402,11 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
     @override
     def create_normalization_context_from_batch(self, batch):
-        from torch_scatter import scatter
+        with optional_import_error_message("torch_scatter"):
+            from torch_scatter import scatter  # type: ignore[reportMissingImports] # noqa
 
-        atomic_numbers: torch.Tensor = batch.atomic_numbers.long()  # (n_atoms,)
-        batch_idx: torch.Tensor = batch.batch  # (n_atoms,)
+        atomic_numbers: torch.Tensor = batch["atomic_numbers"].long()  # (n_atoms,)
+        batch_idx: torch.Tensor = batch["batch"]  # (n_atoms,)
 
         # Convert atomic numbers to one-hot encoding
         atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)

@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from typing_extensions import override
 
 from ..registry import data_registry
+from ..util import optional_import_error_message
 from .base import DatasetConfigBase
 
 if TYPE_CHECKING:
@@ -47,7 +48,8 @@ class MatbenchDataset(Dataset[ase.Atoms]):
     def _initialize_benchmark(self) -> None:
         """Initialize the Matbench benchmark and task."""
 
-        from matbench.bench import MatbenchBenchmark
+        with optional_import_error_message("matbench"):
+            from matbench.bench import MatbenchBenchmark  # type: ignore[reportMissingImports] # noqa
 
         if self.config.task is None:
             mb = MatbenchBenchmark(autoload=False)
@@ -82,7 +84,8 @@ class MatbenchDataset(Dataset[ase.Atoms]):
         Returns:
             List of ASE ase.Atoms objects.
         """
-        from pymatgen.io.ase import AseAtomsAdaptor
+        with optional_import_error_message("pymatgen"):
+            from pymatgen.io.ase import AseAtomsAdaptor  # type: ignore[reportMissingImports] # noqa
 
         adapter = AseAtomsAdaptor()
         atoms_list = []
@@ -93,6 +96,7 @@ class MatbenchDataset(Dataset[ase.Atoms]):
         )
         for i, structure in enumerate(structures):
             atoms = adapter.get_atoms(structure)
+            assert isinstance(atoms, ase.Atoms), "Expected an Atoms object"
             if property_values is not None:
                 atoms.info[prop_name] = property_values[i]
             atoms_list.append(atoms)

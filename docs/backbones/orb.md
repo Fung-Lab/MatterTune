@@ -1,58 +1,146 @@
 # ORB Backbone
 
-The ORB backbone allows using pre-trained ORB models as a backbone in MatterTune. ORB is a library that provides pre-trained graph neural networks for predicting material properties.
+The ORB backbone implements the Orbital Neural Networks model architecture in MatterTune. This is a state-of-the-art graph neural network designed specifically for molecular and materials property prediction, with excellent performance across diverse chemical systems.
+
+## Installation
+
+Before using the ORB backbone, you need to install the required dependencies:
+
+```bash
+pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"
+```
+
+## Key Features
+
+- Advanced graph neural network architecture optimized for materials
+- Support for both molecular and periodic systems
+- Highly efficient implementation for fast training and inference
+- Pre-trained models available from the orb-models package
+- Support for property predictions:
+  - Energy (extensive/intensive)
+  - Forces (non-conservative)
+  - Stresses (non-conservative)
+  - System-level graph properties (with configurable reduction)
 
 ## Configuration
 
-To use an ORB backbone, specify the following configuration in your MatterTune config:
+Here's a complete example showing how to configure the ORB backbone:
 
 ```python
-@backbone_registry.register
-class ORBBackboneConfig(FinetuneModuleBaseConfig):
-    name: Literal["orb"] = "orb"
-    """The type of the backbone."""
+from mattertune import configs as MC
+from pathlib import Path
 
-    pretrained_model: str
-    """The name of the pretrained model to load."""
+config = MC.MatterTunerConfig(
+    model=MC.ORBBackboneConfig(
+        # Required: Name of pre-trained model
+        pretrained_model="orb-v2",
 
-    system: ORBSystemConfig = ORBSystemConfig(radius=10.0, max_num_neighbors=20)
-    """The system configuration, controlling how to featurize a system of atoms."""
+        # Configure graph construction
+        system=MC.ORBSystemConfig(
+            radius=10.0,  # Angstroms
+            max_num_neighbors=20
+        ),
+
+        # Properties to predict
+        properties=[
+            # Energy prediction
+            MC.EnergyPropertyConfig(
+                loss=MC.MAELossConfig(),
+                loss_coefficient=1.0
+            ),
+
+            # Force prediction (non-conservative)
+            MC.ForcesPropertyConfig(
+                loss=MC.MAELossConfig(),
+                loss_coefficient=10.0,
+                conservative=False
+            ),
+
+            # Stress prediction (non-conservative)
+            MC.StressesPropertyConfig(
+                loss=MC.MAELossConfig(),
+                loss_coefficient=1.0,
+                conservative=False
+            ),
+
+            # System-level property prediction
+            MC.GraphPropertyConfig(
+                name="bandgap",
+                loss=MC.MAELossConfig(),
+                loss_coefficient=1.0,
+                reduction="mean"  # or "sum"
+            )
+        ],
+
+        # Optimizer settings
+        optimizer=MC.AdamWConfig(lr=1e-4),
+
+        # Optional: Learning rate scheduler
+        lr_scheduler=MC.CosineAnnealingLRConfig(
+            T_max=100,
+            eta_min=1e-6
+        )
+    ),
+
+    # ... data and trainer configs ...
+)
 ```
 
-### Key Parameters
+## Property Support
 
-- `pretrained_model`: The name of the pre-trained ORB model to load. Must be one of the models available in the `orb_models` package.
-- `system`: Configures how to convert an `ase.Atoms` object into the graph representation expected by ORB:
-  - `radius`: Specifies the cutoff distance for including neighbors in the graph
-  - `max_num_neighbors`: Limits the maximum number of neighbors per node
+The ORB backbone supports the following property predictions:
 
-## Supported Properties
+### Energy Prediction
+- Uses `EnergyHead` for extensive energy predictions
+- Supports automated per-atom energy normalization
+- Optional atomic reference energy subtraction
 
-The ORB backbone supports predicting the following properties:
+### Force Prediction
+- Uses `NodeHead` for direct force prediction
+- Currently only supports non-conservative forces
+- Configurable force scaling during training
 
-- Energy (`EnergyPropertyConfig`)
-- Forces (`ForcesPropertyConfig` with `conservative=False`)
-- Stress (`StressesPropertyConfig` with `conservative=False`)
-- Generic graph properties (`GraphPropertyConfig`)
+### Stress Prediction
+- Uses `GraphHead` for stress tensor prediction
+- Currently only supports non-conservative stresses
+- Returns full 3x3 stress tensor
 
-```{note}
-Conservative forces and stresses are currently not supported.
+### Graph Properties
+- Uses `GraphHead` with configurable reduction
+- Supports "sum" or "mean" reduction over atomic features
+- Suitable for both extensive and intensive properties
+
+## Graph Construction Parameters
+
+The ORB backbone uses a sophisticated graph construction approach with two key parameters:
+
+- `radius`: The cutoff distance for including neighbors in the graph (typically 10.0 Å)
+- `max_num_neighbors`: Maximum number of neighbors per atom to include (typically 20)
+
+## Limitations
+
+- Conservative forces and stresses not supported
+- Limited to fixed graph construction parameters
+- No direct support for charge predictions
+- Reference energy normalization requires manual configuration
+
+## Using Pre-trained Models
+
+The ORB backbone supports loading pre-trained models from the orb-models package. Available models include:
+
+- `orb-v2`: General-purpose model trained on materials data
+- `orb-qm9`: Model specialized for molecular systems
+- `orb-mp`: Model specialized for crystalline materials
+
+```python
+config = MC.MatterTunerConfig(
+    model=MC.ORBBackboneConfig(
+        pretrained_model="orb-v2",
+        # ... rest of config ...
+    )
+)
 ```
 
-## Implementation Details
+## License
 
-The key components of the ORB backbone implementation are:
-
-### ORBBackboneModule
-The main module that loads the pre-trained ORB model and defines the forward pass:
-- `create_model`: Loads the pre-trained ORB model and initializes output heads
-- `model_forward`: Runs the backbone model and output heads to predict properties
-- `atoms_to_data`: Converts `ase.Atoms` objects to ORB graph representation
-
-### Output Heads
-Based on the property configuration, appropriate ORB output heads are initialized:
-- `EnergyHead` for `EnergyPropertyConfig`
-- `NodeHead` for `ForcesPropertyConfig`
-- `GraphHead` for `StressesPropertyConfig` and `GraphPropertyConfig`
-
-The ORB backbone leverages the `orb_models` and `nanoflann` packages to load pre-trained models and efficiently construct graph representations suitable for the ORB architecture.
+The ORB backbone is available under the Apache 2.0 License, which allows both academic and commercial use with proper attribution.

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import torch.nn as nn
 
+from ...util import optional_import_error_message
+
 
 def get_activation_cls(activation: str) -> type[nn.Module]:
     """
@@ -13,7 +15,8 @@ def get_activation_cls(activation: str) -> type[nn.Module]:
         case "silu" | "swish":
             return nn.SiLU
         case "scaled_silu" | "scaled_swish":
-            from jmp.models.gemnet.layers.base_layers import ScaledSiLU
+            with optional_import_error_message("jmp"):
+                from jmp.models.gemnet.layers.base_layers import ScaledSiLU  # type: ignore[reportMissingImports] # noqa
 
             return ScaledSiLU
         case "tanh":
