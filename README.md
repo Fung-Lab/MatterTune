@@ -4,14 +4,14 @@
 
 **[📚 Documentation](https://fung-lab.github.io/MatterTune/) | [🔧 Installation Guide](https://fung-lab.github.io/MatterTune/installation.html)**
 
-MatterTune is a flexible and powerful machine learning library designed specifically for fine-tuning state-of-the-art chemistry models. It provides intuitive interfaces for computational chemists to fine-tune pre-trained models on their specific use cases.
+MatterTune is a flexible and powerful machine learning library designed specifically for fine-tuning state-of-the-art chemistry foundation models. It provides intuitive interfaces for computational chemists and materials scientists to fine-tune pre-trained models on their specific use cases.
 
 ## Features
 
-- Pre-trained model support: JMP, EquiformerV2, M3GNet, ORB
-- Multiple property predictions: energy, forces, stress, and custom properties
-- Various dataset formats: XYZ, ASE databases, Materials Project, Matbench, and more
-- Comprehensive training features with automated data splitting and logging
+- Pre-trained model support: JMP, EquiformerV2, M3GNet, ORB, and more to be added.
+- Multiple property predictions: energy, forces, stress, and custom properties.
+- Various supported dataset formats: XYZ, ASE databases, Materials Project, Matbench, and more.
+- Comprehensive training features with automated data splitting and logging.
 
 ## Quick Start
 
