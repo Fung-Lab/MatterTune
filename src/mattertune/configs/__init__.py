@@ -19,6 +19,7 @@ from mattertune.backbones.m3gnet import (
 )
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
+from mattertune.data import JSONDatasetConfig as JSONDatasetConfig
 from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
@@ -100,6 +101,7 @@ __all__ = [
     "HuberLossConfig",
     "JMPBackboneConfig",
     "JMPGraphComputerConfig",
+    "JSONDatasetConfig",
     "L2MAELossConfig",
     "M3GNetBackboneConfig",
     "M3GNetGraphComputerConfig",

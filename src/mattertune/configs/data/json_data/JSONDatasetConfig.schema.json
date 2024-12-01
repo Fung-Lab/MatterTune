@@ -1,0 +1,41 @@
+{
+    "properties": {
+        "type": {
+            "const": "json",
+            "default": "json",
+            "description": "Discriminator for the JSON dataset.",
+            "enum": [
+                "json"
+            ],
+            "title": "Type",
+            "type": "string"
+        },
+        "src": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "format": "path",
+                    "type": "string"
+                }
+            ],
+            "description": "The path to the JSON dataset.",
+            "title": "Src"
+        },
+        "tasks": {
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Attributes in the JSON file that correspond to the tasks to be predicted.",
+            "title": "Tasks",
+            "type": "object"
+        }
+    },
+    "required": [
+        "src",
+        "tasks"
+    ],
+    "title": "JSONDatasetConfig",
+    "type": "object"
+}
