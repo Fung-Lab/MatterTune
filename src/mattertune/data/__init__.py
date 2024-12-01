@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from .base import DatasetConfig as DatasetConfig
 from .base import DatasetConfigBase as DatasetConfigBase
+from .matbench import MatbenchDataset as MatbenchDataset
+from .matbench import MatbenchDatasetConfig as MatbenchDatasetConfig
+from .mp import MPDataset as MPDataset
+from .mp import MPDatasetConfig as MPDatasetConfig
 from .omat24 import OMAT24Dataset as OMAT24Dataset
 from .omat24 import OMAT24DatasetConfig as OMAT24DatasetConfig
+from .xyz import XYZDataset as XYZDataset
 from .xyz import XYZDatasetConfig as XYZDatasetConfig
 
 if True:
