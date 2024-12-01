@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 
-import mattertune.configs as MC
 import nshutils as nu
 from lightning.pytorch.strategies import DDPStrategy
+
+import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
 
@@ -80,13 +81,13 @@ def main(args_dict: dict):
         )
 
         # Configure Logger
-        # hparams.trainer.loggers = [
-        #     WandbLoggerConfig(
-        #         project="MatterTune-Examples",
-        #         name=f"ORB-Matbench-{args_dict['task']}",
-        #         offline=False,
-        #     )
-        # ]
+        hparams.trainer.loggers = [
+            WandbLoggerConfig(
+                project="MatterTune-Examples",
+                name=f"ORB-Matbench-{args_dict['task']}",
+                offline=False,
+            )
+        ]
 
         # Additional trainer settings that need special handling
         hparams.trainer.additional_trainer_kwargs = {
