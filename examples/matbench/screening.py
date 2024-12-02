@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-import copy
-import logging
-import os
-
-from ase import Atoms
-from ase.io import read, write
+from ase.io import read
 
 from mattertune.backbones import (
     EqV2BackboneModule,
