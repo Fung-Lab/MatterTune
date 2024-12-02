@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Generic
 
 import ase
@@ -121,6 +121,7 @@ TFinetuneModuleConfig = TypeVar(
     bound=FinetuneModuleBaseConfig,
     covariant=True,
 )
+R = TypeVar("R", infer_variance=True)
 
 
 class FinetuneModuleBase(
@@ -181,6 +182,23 @@ class FinetuneModuleBase(
 
         Returns:
             Prediction of the model.
+        """
+        ...
+
+    @abstractmethod
+    def apply_callable_to_backbone(self, fn: Callable[[nn.Module], R]) -> R:
+        """
+        Apply a callable to the backbone model and return the result.
+
+        This is useful for applying functions to the backbone model that are not
+        part of the standard forward pass. For example, this can be used to
+        update structure or weights of the backbone model, e.g., for LoRA.
+
+        Args:
+            fn: Callable to apply to the backbone model.
+
+        Returns:
+            Result of the callable.
         """
         ...
 

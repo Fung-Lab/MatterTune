@@ -69,6 +69,11 @@ from mattertune.normalization import (
     PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig,
 )
 from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
+from mattertune.recipes import LoRARecipeConfig as LoRARecipeConfig
+from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
+from mattertune.recipes.base import RecipeConfigBase as RecipeConfigBase
+from mattertune.recipes.lora import LoraConfig as LoraConfig
+from mattertune.recipes.lora import PeftConfig as PeftConfig
 from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 
 from . import backbones as backbones
@@ -78,6 +83,7 @@ from . import finetune as finetune
 from . import loggers as loggers
 from . import main as main
 from . import normalization as normalization
+from . import recipes as recipes
 from . import registry as registry
 
 __all__ = [
@@ -103,6 +109,8 @@ __all__ = [
     "JMPGraphComputerConfig",
     "JSONDatasetConfig",
     "L2MAELossConfig",
+    "LoRARecipeConfig",
+    "LoraConfig",
     "M3GNetBackboneConfig",
     "M3GNetGraphComputerConfig",
     "MAELossConfig",
@@ -116,13 +124,16 @@ __all__ = [
     "MeanStdNormalizerConfig",
     "ModelCheckpointConfig",
     "MultiStepLRConfig",
+    "NoOpRecipeConfig",
     "NormalizerConfigBase",
     "OMAT24DatasetConfig",
     "ORBBackboneConfig",
     "ORBSystemConfig",
+    "PeftConfig",
     "PerAtomReferencingNormalizerConfig",
     "PropertyConfigBase",
     "RMSNormalizerConfig",
+    "RecipeConfigBase",
     "ReduceOnPlateauConfig",
     "SGDConfig",
     "StepLRConfig",
@@ -138,5 +149,6 @@ __all__ = [
     "loggers",
     "main",
     "normalization",
+    "recipes",
     "registry",
 ]

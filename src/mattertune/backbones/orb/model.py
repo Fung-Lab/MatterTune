@@ -258,6 +258,10 @@ class ORBBackboneModule(
         return pred_dict
 
     @override
+    def apply_callable_to_backbone(self, fn):
+        return fn(self.backbone)
+
+    @override
     def pretrained_backbone_parameters(self):
         return self.backbone.parameters()
 

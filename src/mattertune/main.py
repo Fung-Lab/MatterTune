@@ -8,6 +8,7 @@ from typing import Any, Literal, NamedTuple
 import nshconfig as C
 from lightning.fabric.plugins.precision.precision import _PRECISION_INPUT
 from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.strategies.strategy import Strategy
 
 from .backbones import ModelConfig
@@ -16,6 +17,7 @@ from .callbacks.model_checkpoint import ModelCheckpointConfig
 from .data import DataModuleConfig, MatterTuneDataModule
 from .finetune.base import FinetuneModuleBase
 from .loggers import CSVLoggerConfig, LoggerConfig
+from .recipes import RecipeConfig
 from .registry import backbone_registry, data_registry
 
 log = logging.getLogger(__name__)
@@ -193,6 +195,27 @@ class MatterTunerConfig(C.Config):
     trainer: TrainerConfig = TrainerConfig()
     """The configuration for the trainer."""
 
+    recipes: Sequence[RecipeConfig] = []
+    """Recipes to modify the training process.
+
+    Recipes are configurable components that can modify how models are trained.
+    Each recipe provides a specific capability like parameter-efficient fine-tuning,
+    regularization, or advanced optimization techniques.
+
+    Recipes are applied in order when training starts. Multiple recipes can be
+    combined to achieve the desired training behavior.
+
+    Examples:
+        ```python
+        # Use LoRA for memory-efficient training
+        recipes=[
+            LoRARecipeConfig(
+                lora=LoraConfig(r=8, target_modules=["linear1"])
+            )
+        ]
+        ```
+    """
+
 
 class MatterTuner:
     def __init__(self, config: MatterTunerConfig):
@@ -234,6 +257,17 @@ class MatterTuner:
                 "Setting inference_mode=False."
             )
             trainer_kwargs_["inference_mode"] = False
+
+        # Set up the callbacks for recipes
+        callbacks: list[Callback] = trainer_kwargs_.pop("callbacks", [])
+        callbacks.extend(
+            [
+                cb
+                for recipe in self.config.recipes
+                if (cb := recipe.create_lightning_callback()) is not None
+            ]
+        )
+        trainer_kwargs_["callbacks"] = callbacks
 
         # Create the trainer
         trainer = Trainer(**trainer_kwargs_)
