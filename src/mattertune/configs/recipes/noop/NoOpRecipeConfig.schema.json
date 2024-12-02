@@ -1,0 +1,17 @@
+{
+    "description": "Example recipe that does nothing.",
+    "properties": {
+        "name": {
+            "const": "no-op",
+            "default": "no-op",
+            "description": "Discriminator for the no-op recipe.",
+            "enum": [
+                "no-op"
+            ],
+            "title": "Name",
+            "type": "string"
+        }
+    },
+    "title": "NoOpRecipeConfig",
+    "type": "object"
+}

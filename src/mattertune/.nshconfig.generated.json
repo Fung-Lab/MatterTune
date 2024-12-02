@@ -52,6 +52,11 @@
         "mattertune.normalization.MeanStdNormalizerConfig": "configs/normalization/MeanStdNormalizerConfig.schema.json",
         "mattertune.normalization.NormalizerConfigBase": "configs/normalization/NormalizerConfigBase.schema.json",
         "mattertune.normalization.PerAtomReferencingNormalizerConfig": "configs/normalization/PerAtomReferencingNormalizerConfig.schema.json",
-        "mattertune.normalization.RMSNormalizerConfig": "configs/normalization/RMSNormalizerConfig.schema.json"
+        "mattertune.normalization.RMSNormalizerConfig": "configs/normalization/RMSNormalizerConfig.schema.json",
+        "mattertune.recipes.lora.LoRARecipeConfig": "configs/recipes/lora/LoRARecipeConfig.schema.json",
+        "mattertune.recipes.noop.NoOpRecipeConfig": "configs/recipes/noop/NoOpRecipeConfig.schema.json",
+        "mattertune.recipes.base.RecipeConfigBase": "configs/recipes/noop/RecipeConfigBase.schema.json",
+        "mattertune.recipes.lora.LoraConfig": "configs/recipes/lora/LoraConfig.schema.json",
+        "mattertune.recipes.lora.PeftConfig": "configs/recipes/lora/PeftConfig.schema.json"
     }
 }

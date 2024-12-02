@@ -1,0 +1,6 @@
+{
+    "description": "Base configuration for recipes.",
+    "properties": {},
+    "title": "RecipeConfigBase",
+    "type": "object"
+}
