@@ -43,7 +43,7 @@ reportImplicitOverride = "warning"
 reportShadowedImports = "warning"
 
 [tool.ruff.lint]
-select = ["FA102", "FA100"]
+select = ["FA102", "FA100", "F401"]
 ignore = ["F722", "F821", "E731", "E741"]
 
 [tool.ruff.lint.isort]

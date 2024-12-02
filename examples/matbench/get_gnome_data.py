@@ -6,7 +6,6 @@ import shutil
 import tempfile
 import zipfile
 
-import numpy as np
 import pandas as pd
 from ase import Atoms
 from ase.io import read, write
