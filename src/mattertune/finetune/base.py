@@ -528,14 +528,15 @@ class FinetuneModuleBase(
         predictions = self.denormalize(predictions, normalization_ctx)
 
         # Log metrics
-        if log and metrics is not None:
+        if log and (metrics is not None):
             self.log_dict(
                 {
                     f"{name}/{metric_name}": metric
                     for metric_name, metric in metrics(predictions, labels).items()
-                }
+                },
+                on_epoch=True,
+                sync_dist=True,
             )
-
         return output, loss
 
     @override
@@ -545,6 +546,7 @@ class FinetuneModuleBase(
             "train",
             self.train_metrics,
         )
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"])
         return loss
 
     @override
@@ -563,9 +565,14 @@ class FinetuneModuleBase(
         denormalized_predictions = self.denormalize(predictions, normalization_ctx)
         return denormalized_predictions
 
+    def trainable_parameters(self) -> Iterable[nn.Parameter]:
+        return self.parameters()
+
     @override
     def configure_optimizers(self):
-        optimizer = create_optimizer(self.hparams.optimizer, self.parameters())
+        optimizer = create_optimizer(
+            self.hparams.optimizer, self.trainable_parameters()
+        )
         return_config: OptimizerLRSchedulerConfig = {"optimizer": optimizer}
 
         if (lr_scheduler := self.hparams.lr_scheduler) is not None:

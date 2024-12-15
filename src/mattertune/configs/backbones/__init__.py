@@ -6,7 +6,9 @@ from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.backbones import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
+from mattertune.backbones import ModelConfig as ModelConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
+from mattertune.backbones import backbone_registry as backbone_registry
 from mattertune.backbones.eqV2.model import (
     FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig,
 )
@@ -18,11 +20,18 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
+from mattertune.backbones.mattersim import (
+    MatterSimBackboneConfig as MatterSimBackboneConfig,
+)
+from mattertune.backbones.mattersim import (
+    MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig,
+)
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 
 from . import eqV2 as eqV2
 from . import jmp as jmp
 from . import m3gnet as m3gnet
+from . import mattersim as mattersim
 from . import orb as orb
 
 __all__ = [
@@ -34,11 +43,16 @@ __all__ = [
     "JMPGraphComputerConfig",
     "M3GNetBackboneConfig",
     "M3GNetGraphComputerConfig",
+    "MatterSimBackboneConfig",
+    "MatterSimGraphConvertorConfig",
     "MaxNeighborsConfig",
+    "ModelConfig",
     "ORBBackboneConfig",
     "ORBSystemConfig",
+    "backbone_registry",
     "eqV2",
     "jmp",
     "m3gnet",
+    "mattersim",
     "orb",
 ]

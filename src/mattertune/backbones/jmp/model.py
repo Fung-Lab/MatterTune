@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
+from collections.abc import Iterable
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -114,6 +115,9 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
 
     graph_computer: JMPGraphComputerConfig
     """The configuration for the graph computer."""
+
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone during training."""
 
     @override
     def create_model(self):
@@ -250,6 +254,13 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         )
         for prop in self.hparams.properties:
             self.output_heads[prop.name] = self._create_output_head(prop)
+
+    @override
+    def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
+        if not self.hparams.freeze_backbone:
+            yield from self.backbone.parameters()
+        for head in self.output_heads.values():
+            yield from head.parameters()
 
     @override
     @contextlib.contextmanager

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 __codegen__ = True
 
+from mattertune import backbone_registry as backbone_registry
+from mattertune import data_registry as data_registry
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
@@ -17,7 +19,15 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
+from mattertune.backbones.mattersim import (
+    MatterSimBackboneConfig as MatterSimBackboneConfig,
+)
+from mattertune.backbones.mattersim import (
+    MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig,
+)
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
+from mattertune.data import DataModuleConfig as DataModuleConfig
+from mattertune.data import DatasetConfig as DatasetConfig
 from mattertune.data import DatasetConfigBase as DatasetConfigBase
 from mattertune.data import JSONDatasetConfig as JSONDatasetConfig
 from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
@@ -33,8 +43,13 @@ from mattertune.data.datamodule import (
 )
 from mattertune.data.db import DBDatasetConfig as DBDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
+from mattertune.finetune.base import LRSchedulerConfig as LRSchedulerConfig
+from mattertune.finetune.base import NormalizerConfig as NormalizerConfig
+from mattertune.finetune.base import OptimizerConfig as OptimizerConfig
+from mattertune.finetune.base import PropertyConfig as PropertyConfig
 from mattertune.finetune.loss import HuberLossConfig as HuberLossConfig
 from mattertune.finetune.loss import L2MAELossConfig as L2MAELossConfig
+from mattertune.finetune.loss import LossConfig as LossConfig
 from mattertune.finetune.loss import MAELossConfig as MAELossConfig
 from mattertune.finetune.loss import MSELossConfig as MSELossConfig
 from mattertune.finetune.lr_scheduler import (
@@ -60,8 +75,11 @@ from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfi
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.main import CSVLoggerConfig as CSVLoggerConfig
 from mattertune.main import EarlyStoppingConfig as EarlyStoppingConfig
+from mattertune.main import LoggerConfig as LoggerConfig
 from mattertune.main import MatterTunerConfig as MatterTunerConfig
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
+from mattertune.main import ModelConfig as ModelConfig
+from mattertune.main import RecipeConfig as RecipeConfig
 from mattertune.main import TrainerConfig as TrainerConfig
 from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalizerConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
@@ -85,6 +103,7 @@ from . import main as main
 from . import normalization as normalization
 from . import recipes as recipes
 from . import registry as registry
+from . import wrappers as wrappers
 
 __all__ = [
     "AdamConfig",
@@ -95,6 +114,8 @@ __all__ = [
     "CutoffsConfig",
     "DBDatasetConfig",
     "DataModuleBaseConfig",
+    "DataModuleConfig",
+    "DatasetConfig",
     "DatasetConfigBase",
     "EarlyStoppingConfig",
     "EnergyPropertyConfig",
@@ -109,8 +130,11 @@ __all__ = [
     "JMPGraphComputerConfig",
     "JSONDatasetConfig",
     "L2MAELossConfig",
+    "LRSchedulerConfig",
     "LoRARecipeConfig",
+    "LoggerConfig",
     "LoraConfig",
+    "LossConfig",
     "M3GNetBackboneConfig",
     "M3GNetGraphComputerConfig",
     "MAELossConfig",
@@ -119,20 +143,27 @@ __all__ = [
     "MSELossConfig",
     "ManualSplitDataModuleConfig",
     "MatbenchDatasetConfig",
+    "MatterSimBackboneConfig",
+    "MatterSimGraphConvertorConfig",
     "MatterTunerConfig",
     "MaxNeighborsConfig",
     "MeanStdNormalizerConfig",
     "ModelCheckpointConfig",
+    "ModelConfig",
     "MultiStepLRConfig",
     "NoOpRecipeConfig",
+    "NormalizerConfig",
     "NormalizerConfigBase",
     "OMAT24DatasetConfig",
     "ORBBackboneConfig",
     "ORBSystemConfig",
+    "OptimizerConfig",
     "PeftConfig",
     "PerAtomReferencingNormalizerConfig",
+    "PropertyConfig",
     "PropertyConfigBase",
     "RMSNormalizerConfig",
+    "RecipeConfig",
     "RecipeConfigBase",
     "ReduceOnPlateauConfig",
     "SGDConfig",
@@ -142,13 +173,16 @@ __all__ = [
     "TrainerConfig",
     "WandbLoggerConfig",
     "XYZDatasetConfig",
+    "backbone_registry",
     "backbones",
     "callbacks",
     "data",
+    "data_registry",
     "finetune",
     "loggers",
     "main",
     "normalization",
     "recipes",
     "registry",
+    "wrappers",
 ]

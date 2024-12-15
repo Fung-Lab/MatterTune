@@ -48,7 +48,7 @@ def main(args_dict: dict):
         hparams.model.normalizers = {
             "energy": [
                 MC.PerAtomReferencingNormalizerConfig(
-                    per_atom_references=Path("./data/energy_reference.json")
+                    per_atom_references=Path("./data/{}-energy_reference.json".format(args_dict["xyz_path"].split("/")[-1].split(".")[0]))
                 )
             ]
         }
