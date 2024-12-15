@@ -87,6 +87,7 @@ from mattertune.normalization import (
     PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig,
 )
 from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
+from mattertune.recipes import EMARecipeConfig as EMARecipeConfig
 from mattertune.recipes import LoRARecipeConfig as LoRARecipeConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.recipes import RecipeConfigBase as RecipeConfigBase
@@ -118,6 +119,7 @@ __all__ = [
     "DataModuleConfig",
     "DatasetConfig",
     "DatasetConfigBase",
+    "EMARecipeConfig",
     "EarlyStoppingConfig",
     "EnergyPropertyConfig",
     "EqV2BackboneConfig",
