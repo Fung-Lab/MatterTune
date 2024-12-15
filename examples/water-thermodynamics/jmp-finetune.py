@@ -29,6 +29,7 @@ def main(args_dict: dict):
             T_max=args_dict["max_epochs"],
             eta_min=1.0e-8,
         )
+        hparams.model.freeze_backbone = args_dict["freeze_backbone"]
 
         # Add model properties
         hparams.model.properties = []
@@ -56,7 +57,11 @@ def main(args_dict: dict):
         hparams.model.normalizers = {
             "energy": [
                 MC.PerAtomReferencingNormalizerConfig(
-                    per_atom_references=Path("./data/energy_reference.json")
+                    per_atom_references=Path(
+                        "./data/{}-energy_reference.json".format(
+                            args_dict["xyz_path"].split("/")[-1].split(".")[0]
+                        )
+                    )
                 )
             ]
         }
@@ -115,7 +120,8 @@ if __name__ == "__main__":
         type=str,
         default="/net/csefiles/coc-fung-cluster/lingyu/checkpoints/jmp-s.pt",
     )
-    parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
+    parser.add_argument("--freeze_backbone", type=bool, default=True)
+    parser.add_argument("--xyz_path", type=str, default="./data/water_ori.xyz")
     parser.add_argument("--train_split", type=float, default=0.03)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=8.0e-5)
