@@ -4,6 +4,7 @@ __codegen__ = True
 
 from mattertune.recipes import LoRARecipeConfig as LoRARecipeConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
+from mattertune.recipes import RecipeConfig as RecipeConfig
 from mattertune.recipes.base import RecipeConfigBase as RecipeConfigBase
 from mattertune.recipes.lora import LoraConfig as LoraConfig
 from mattertune.recipes.lora import PeftConfig as PeftConfig
@@ -17,6 +18,7 @@ __all__ = [
     "LoraConfig",
     "NoOpRecipeConfig",
     "PeftConfig",
+    "RecipeConfig",
     "RecipeConfigBase",
     "base",
     "lora",

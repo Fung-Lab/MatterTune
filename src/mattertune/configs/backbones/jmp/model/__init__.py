@@ -11,6 +11,7 @@ from mattertune.backbones.jmp.model import (
     JMPGraphComputerConfig as JMPGraphComputerConfig,
 )
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
+from mattertune.backbones.jmp.model import backbone_registry as backbone_registry
 
 __all__ = [
     "CutoffsConfig",
@@ -18,4 +19,5 @@ __all__ = [
     "JMPBackboneConfig",
     "JMPGraphComputerConfig",
     "MaxNeighborsConfig",
+    "backbone_registry",
 ]
