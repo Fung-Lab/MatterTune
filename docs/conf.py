@@ -76,12 +76,7 @@ def setup(app):
     app.connect("autodoc-skip-member", skip_private_members)
 
 
-autodoc_mock_imports = [
-    # "torch",
-    # "pytorch_lightning",
-    # "torch-geometric",
-    # "torchmetrics",
-]
+autodoc_mock_imports = []
 
 # Type hints settings
 autodoc_typehints = "description"
