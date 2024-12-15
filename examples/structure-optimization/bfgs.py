@@ -5,12 +5,10 @@ import logging
 import os
 from typing import cast
 
-import numpy as np
 from ase import Atoms
 from ase.constraints import UnitCellFilter
 from ase.io import read, write
 from ase.optimize import BFGS
-from tqdm import tqdm
 
 from mattertune.backbones import JMPBackboneModule
 

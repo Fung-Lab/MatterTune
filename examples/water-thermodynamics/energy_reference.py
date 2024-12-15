@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-from pathlib import Path
 
 import nshutils as nu
 
-import mattertune
 import mattertune.configs as MC
 from mattertune.normalization import compute_per_atom_references
 
