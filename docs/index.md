@@ -31,6 +31,7 @@ backbones/jmp
 backbones/m3gnet
 backbones/orb
 backbones/eqv2
+backbones/mattersim
 ```
 
 ```{toctree}
