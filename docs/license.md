@@ -22,6 +22,11 @@ BSD 3-Clause License
 Apache License 2.0
 [ORB License](https://github.com/orbital-materials/orb-models/blob/main/LICENSE)
 
+### MatterSim Backbone
+MIT License
+[MatterSim License](https://github.com/microsoft/mattersim/blob/main/LICENSE.txt)
+
+
 ```{important}
 Please ensure compliance with the respective licenses when using specific model backbones in your project. For commercial use cases, carefully review each backbone's license terms or contact the respective authors for licensing options.
 ```
