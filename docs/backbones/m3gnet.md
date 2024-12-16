@@ -1,8 +1,19 @@
 # M3GNet Backbone
 
-The M3GNet backbone implements the M3GNet model architecture in MatterTune. It provides a powerful graph neural network designed specifically for materials science applications.
+The M3GNet backbone implements the M3GNet model architecture in MatterTune. It provides a powerful graph neural network designed specifically for materials science applications. In MatterTune, we chose the M3GNet model implemented by MatGL and pretrained on MPTraj dataset. 
 
-## Overview
+## Installation
+
+```bash
+conda create -n matgl-tune python=3.10 -y
+pip install matgl
+pip install torch==2.2.1+cu121 -f https://download.pytorch.org/whl/torch_stable.html
+pip uninstall dgl
+pip install dgl -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
+pip install dglgo -f https://data.dgl.ai/wheels-test/repo.html
+```
+
+## Key Features
 
 M3GNet supports predicting:
 - Total energy (with energy conservation)

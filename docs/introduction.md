@@ -14,6 +14,7 @@ Seamlessly work with multiple state-of-the-art pre-trained models including:
 - EquiformerV2
 - M3GNet
 - ORB
+- MatterSim
 
 ### Flexible Property Predictions
 Support for various molecular and materials properties:

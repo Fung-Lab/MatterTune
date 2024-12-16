@@ -50,6 +50,24 @@ pip install "git+https://github.com/FAIR-Chem/fairchem.git@omat24#subdirectory=p
 pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pymatgen>=2023.10.3" submitit tensorboard "torch>=2.4" wandb torch_geometric h5py netcdf4 opt-einsum spglib
 ```
 
+### MatterSim
+
+We strongly recommand to install MatterSim from source code
+
+```bash
+git clone git@github.com:microsoft/mattersim.git
+cd mattersim
+```
+
+Find the line 41 of the pyproject.toml in MatterSim, which is ```"pydantic==2.9.2",```. Change it to ```"pydantic>=2.9.2",```. After finishing this modification, install MatterSim by running:
+
+```bash
+mamba env create -f environment.yaml
+mamba activate mattersim
+uv pip install -e .
+python setup.py build_ext --inplace
+```
+
 ## MatterTune Package Installation
 
 ```{important}
