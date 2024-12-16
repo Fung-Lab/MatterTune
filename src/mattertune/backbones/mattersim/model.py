@@ -145,7 +145,7 @@ class MatterSimM3GNetBackboneModule(
 
         self.energy_prop_name = "energy"
         self.forces_prop_name = "forces"
-        self.stress_prop_name = "stress"
+        self.stress_prop_name = "stresses"
         self.calc_forces = False
         self.calc_stress = False
         for prop in self.hparams.properties:
@@ -200,7 +200,7 @@ class MatterSimM3GNetBackboneModule(
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output_pred.get("forces")
         if self.calc_stress:
-            output_pred[self.stress_prop_name] = output_pred.get("stress")
+            output_pred[self.stress_prop_name] = output_pred.get("stresses")
         pred: ModelOutput = {"predicted_properties": output_pred}
         if return_backbone_output:
             raise NotImplementedError(
@@ -256,10 +256,13 @@ class MatterSimM3GNetBackboneModule(
         energy = labels.get(self.energy_prop_name, None)
         forces = labels.get(self.forces_prop_name, None)
         stress = labels.get(self.stress_prop_name, None)
-        graph = self.graph_convertor.convert(atoms, energy, forces, stress)
+        graph = self.graph_convertor.convert(atoms)
         graph.atomic_numbers = torch.tensor(
             atoms.get_atomic_numbers(), dtype=torch.long
         )
+        setattr(graph, self.energy_prop_name, energy)
+        setattr(graph, self.forces_prop_name, forces)
+        setattr(graph, self.stress_prop_name, stress)
         return graph
 
     @override
