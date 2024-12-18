@@ -89,7 +89,8 @@ from mattertune.normalization import (
 from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
 from mattertune.recipes import LoRARecipeConfig as LoRARecipeConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
-from mattertune.recipes.base import RecipeConfigBase as RecipeConfigBase
+from mattertune.recipes import RecipeConfigBase as RecipeConfigBase
+from mattertune.recipes import recipe_registry as recipe_registry
 from mattertune.recipes.lora import LoraConfig as LoraConfig
 from mattertune.recipes.lora import PeftConfig as PeftConfig
 from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
@@ -182,6 +183,7 @@ __all__ = [
     "loggers",
     "main",
     "normalization",
+    "recipe_registry",
     "recipes",
     "registry",
     "wrappers",

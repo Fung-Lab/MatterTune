@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from typing_extensions import final, override
+from typing_extensions import override
 
-from .base import RecipeConfigBase
+from .base import RecipeConfigBase, recipe_registry
 
 
-@final
+@recipe_registry.register
 class NoOpRecipeConfig(RecipeConfigBase):
     """
     Example recipe that does nothing.
