@@ -4,7 +4,7 @@ import contextlib
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Generic
+from typing import Any, Generic
 
 import ase
 import nshconfig as C
@@ -22,9 +22,6 @@ from .lr_scheduler import LRSchedulerConfig, create_lr_scheduler
 from .metrics import FinetuneMetrics
 from .optimizer import OptimizerConfig, create_optimizer
 from .properties import PropertyConfig
-
-if TYPE_CHECKING:
-    from ase import Atoms
 
 log = logging.getLogger(__name__)
 
@@ -237,7 +234,7 @@ class FinetuneModuleBase(
         ...
 
     @abstractmethod
-    def atoms_to_data(self, atoms: Atoms, has_labels: bool) -> TData:
+    def atoms_to_data(self, atoms: ase.Atoms, has_labels: bool) -> TData:
         """
         Convert an ASE atoms object to a data object. This is used to convert
         the input data to the format expected by the model.

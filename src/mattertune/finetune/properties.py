@@ -13,8 +13,6 @@ from typing_extensions import TypeAliasType, assert_never, override
 from .loss import LossConfig
 
 if TYPE_CHECKING:
-    from ase import Atoms
-
     from .metrics import MetricBase
 
 log = logging.getLogger(__name__)
