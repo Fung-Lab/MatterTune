@@ -10,7 +10,7 @@ from lightning.pytorch.callbacks import Callback
 from typing_extensions import final, override
 
 from ..util import optional_import_error_message
-from .base import RecipeConfigBase
+from .base import RecipeConfigBase, recipe_registry
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class LoraConfig(PeftConfig):
         )
 
 
-@final
+@recipe_registry.register
 class LoRARecipeConfig(RecipeConfigBase):
     """
     Recipe for applying Low-Rank Adaptation (LoRA) to a model. LoRA is a method for
