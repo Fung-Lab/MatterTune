@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 import nshconfig as C
 from lightning.pytorch import LightningModule, Trainer
-from lightning.pytorch.callbacks import LambdaCallback
+from lightning.pytorch.callbacks import Callback
 from typing_extensions import final, override
 
 from ..util import optional_import_error_message
@@ -138,7 +138,26 @@ class LoRARecipeConfig(RecipeConfigBase):
                 "LoRARecipe requires the 'peft' package. To install it, run 'pip install peft'."
             )
 
-    def _setup(self, trainer: Trainer, pl_module: LightningModule, stage: str):
+    @override
+    def create_lightning_callback(self):
+        return LoRACallback(self)
+
+
+@final
+class LoRACallback(Callback):
+    @override
+    def __init__(self, config: LoRARecipeConfig):
+        super().__init__()
+
+        self.config = config
+
+    @override
+    def setup(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        stage: str,
+    ) -> None:
         from ..finetune.base import FinetuneModuleBase
 
         assert isinstance(
@@ -149,14 +168,10 @@ class LoRARecipeConfig(RecipeConfigBase):
             import peft  # type: ignore[reportMissingImports] # noqa
 
         # Convert the configuration to a PEFT LoraConfig instance
-        lora = self.lora._to_peft_config()
+        lora = self.config.lora._to_peft_config()
 
         # Apply LoRA to the pre-trained backbone
         pl_module.apply_callable_to_backbone(
             lambda backbone: peft.inject_adapter_in_model(lora, backbone)
         )
         log.info("LoRA layers injected into the model")
-
-    @override
-    def create_lightning_callback(self):
-        return LambdaCallback(setup=self._setup)
