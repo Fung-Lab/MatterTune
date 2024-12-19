@@ -33,6 +33,10 @@ config = mt.configs.MatterTunerConfig(
                 loss_coefficient=1.0  # Weight for this property's loss
             )
         ],
+        optimizer=mt.configs.AdamWConfig(lr=1e-4), # Optimizer settings
+        graph_computer=mt.configs.JMPGraphComputerConfig( # Graph construction settings
+            pbc=True,  # Set False for molecules
+        ),
     ),
     # Configure the data: loading from XYZ file with automatic train/val split
     data=mt.configs.AutoSplitDataModuleConfig(
