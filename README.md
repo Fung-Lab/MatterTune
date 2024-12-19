@@ -55,7 +55,7 @@ config = mt.configs.MatterTunerConfig(
 )
 
 # Create tuner and start training
-tuner = mt.MatterTune(config)
+tuner = mt.MatterTuner(config)
 model, trainer = tuner.tune()
 
 # Save the fine-tuned model
