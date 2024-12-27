@@ -209,7 +209,7 @@ class M3GNetBackboneModule(
 
     @override
     @contextlib.contextmanager
-    def model_forward_context(self, data):
+    def model_forward_context(self, data, mode: str):
         with contextlib.ExitStack() as stack:
             if self.calc_forces or self.calc_stress:
                 stack.enter_context(torch.enable_grad())
@@ -220,6 +220,7 @@ class M3GNetBackboneModule(
     def model_forward(
         self,
         batch: MatGLBatch,
+        mode: str,
         return_backbone_output: bool = False,
     ):
         with optional_import_error_message("matgl"):

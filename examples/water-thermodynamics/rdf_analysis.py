@@ -71,10 +71,11 @@ def main(args_dict: dict):
     data = np.load(f"./plots/rdf-{elements[0]}-{elements[1]}.npz")
     rdf_x = data["rdf_x"]
     rdf_y = data["rdf_y"]
-    sigma = 1.0
-    smoothed_rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
+    sigma = args_dict["smear_sigma"]
+    if sigma > 0:
+        rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
     plt.figure(figsize=(6, 3))
-    plt.plot(rdf_x, smoothed_rdf_y, color="green", linewidth=2)
+    plt.plot(rdf_x, rdf_y, color="green", linewidth=2)
     plt.ylim(0, 3)
     plt.xlim(0.5, 6.2)
     plt.yticks([0, 1, 2, 3])
@@ -84,8 +85,13 @@ def main(args_dict: dict):
         plt.axis("off")
         plt.gca().set_facecolor("none")
         plt.gcf().set_facecolor("none")
+    fig_name = (
+        f"./plots/rdf-{elements[0]}-{elements[1]}.png"
+        if not args_dict["transparent"]
+        else f"./plots/rdf-{elements[0]}-{elements[1]}-transparent.png"
+    )
     plt.savefig(
-        f"./plots/rdf-{elements[0]}-{elements[1]}.png",
+        fig_name,
         dpi=300,
         transparent=args_dict["transparent"],
     )
@@ -106,10 +112,11 @@ def main(args_dict: dict):
     data = np.load(f"./plots/rdf-{elements[0]}-{elements[1]}.npz")
     rdf_x = data["rdf_x"]
     rdf_y = data["rdf_y"]
-    sigma = 2.0
-    smoothed_rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
+    sigma = args_dict["smear_sigma"]
+    if sigma > 0:
+        rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
     plt.figure(figsize=(6, 3))
-    plt.plot(rdf_x, smoothed_rdf_y, color="green", linewidth=2)
+    plt.plot(rdf_x, rdf_y, color="green", linewidth=2)
     plt.ylim(0, 2.5)
     plt.xlim(0.5, 6.2)
     plt.yticks([0, 1, 2])
@@ -119,8 +126,13 @@ def main(args_dict: dict):
         plt.axis("off")
         plt.gca().set_facecolor("none")
         plt.gcf().set_facecolor("none")
+    fig_name = (
+        f"./plots/rdf-{elements[0]}-{elements[1]}.png"
+        if not args_dict["transparent"]
+        else f"./plots/rdf-{elements[0]}-{elements[1]}-transparent.png"
+    )
     plt.savefig(
-        f"./plots/rdf-{elements[0]}-{elements[1]}.png",
+        fig_name,
         dpi=300,
         transparent=args_dict["transparent"],
     )
@@ -141,10 +153,11 @@ def main(args_dict: dict):
     data = np.load(f"./plots/rdf-{elements[0]}-{elements[1]}.npz")
     rdf_x = data["rdf_x"]
     rdf_y = data["rdf_y"]
-    sigma = 1.0
-    smoothed_rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
+    sigma = args_dict["smear_sigma"]
+    if sigma > 0:
+        rdf_y = gaussian_filter1d(rdf_y, sigma=sigma)
     plt.figure(figsize=(6, 3))
-    plt.plot(rdf_x, smoothed_rdf_y, color="green", linewidth=2)
+    plt.plot(rdf_x, rdf_y, color="green", linewidth=2)
     plt.ylim(0, 2.2)
     plt.xlim(0.5, 6.2)
     plt.yticks([0, 1, 2])
@@ -154,8 +167,13 @@ def main(args_dict: dict):
         plt.axis("off")
         plt.gca().set_facecolor("none")
         plt.gcf().set_facecolor("none")
+    fig_name = (
+        f"./plots/rdf-{elements[0]}-{elements[1]}.png"
+        if not args_dict["transparent"]
+        else f"./plots/rdf-{elements[0]}-{elements[1]}-transparent.png"
+    )
     plt.savefig(
-        f"./plots/rdf-{elements[0]}-{elements[1]}.png",
+        fig_name,
         dpi=300,
         transparent=args_dict["transparent"],
     )
@@ -166,13 +184,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--md_traj", type=str, default="./md_results/md_traj_fric0.05_orb-best-0.03.xyz"
+        "--md_traj",
+        type=str,
+        default="./md_results/water_MatterSim-v1.0.0-1M-bestTrue0.9_NPT.xyz",
     )
-    parser.add_argument("--n_frames", type=int, default=2000)
+    parser.add_argument("--n_frames", type=int, default=150000)
     parser.add_argument("--r_max", type=float, default=6.0)
     parser.add_argument("--r_step", type=float, default=0.06)
     parser.add_argument("--transparent", action="store_true")
     parser.add_argument("--load", action="store_true")
+    parser.add_argument("--smear_sigma", type=float, default=0.0)
     args_dict = vars(parser.parse_args())
 
     os.makedirs("./plots", exist_ok=True)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -46,6 +47,9 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
     atoms_to_graph: FAIRChemAtomsToGraphSystemConfig
     """Configuration for converting ASE Atoms to a graph."""
     # TODO: Add functionality to load the atoms to graph config from the checkpoint
+
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone during training."""
 
     @override
     @classmethod
@@ -256,12 +260,19 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
             self.output_heads[prop.name] = self._create_output_head(prop)
 
     @override
+    def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
+        if not self.hparams.freeze_backbone:
+            yield from self.backbone.parameters()
+        for head in self.output_heads.values():
+            yield from head.parameters()
+
+    @override
     @contextlib.contextmanager
-    def model_forward_context(self, data):
+    def model_forward_context(self, data, mode: str):
         yield
 
     @override
-    def model_forward(self, batch, return_backbone_output=False):
+    def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         emb = self.backbone(batch)
 
