@@ -30,7 +30,7 @@ class MatbenchDatasetConfig(DatasetConfigBase):
     property_name: str | None = None
     """Assign a property name for the self.task. Must match the property head in the model."""
 
-    fold_idx: Literal[0, 1, 2, 3, 4] = 0
+    fold_idx: int = 0
     """The index of the fold to be used in the dataset."""
 
     @override
@@ -62,6 +62,9 @@ class MatbenchDataset(Dataset[ase.Atoms]):
 
     def _load_data(self) -> None:
         """Load and process the dataset split."""
+        assert (
+            self.config.fold_idx >= 0 and self.config.fold_idx < 5
+        ), "Invalid fold index, should be within [0, 1, 2, 3, 4]"
         fold = self._task.folds[self.config.fold_idx]
         inputs_data, outputs_data = self._task.get_train_and_val_data(fold)
 

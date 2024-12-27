@@ -5,6 +5,7 @@ import importlib.util
 import logging
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+import lightning as pl
 import nshconfig as C
 import torch
 import torch.nn.functional as F
@@ -54,6 +55,9 @@ class MatterSimBackboneConfig(FinetuneModuleBaseConfig):
 
     graph_convertor: MatterSimGraphConvertorConfig | dict[str, Any]
     """Configuration for the graph converter."""
+
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone model."""
 
     @override
     def create_model(self):
@@ -117,7 +121,7 @@ class MatterSimM3GNetBackboneModule(
             from mattersim.forcefield.potential import Potential
 
         ## Load the pretrained model
-        self.backbone = Potential.from_checkpoint(
+        self.backbone = Potential.from_checkpoint(  # type: ignore[no-untyped-call]
             # device="cpu",
             load_path=self.hparams.pretrained_model,
             model_name=self.hparams.model_type,
@@ -168,25 +172,40 @@ class MatterSimM3GNetBackboneModule(
             )
 
     @override
+    def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
+        for name, param in self.backbone.model.named_parameters():
+            if not self.hparams.freeze_backbone or "final" in name:
+                yield param
+
+    @override
     @contextlib.contextmanager
-    def model_forward_context(self, data):
+    def model_forward_context(self, data, mode: str):
         with contextlib.ExitStack() as stack:
             if self.calc_forces or self.calc_stress:
                 stack.enter_context(torch.enable_grad())
-
             yield
 
     @override
-    def model_forward(self, batch: Batch, return_backbone_output: bool = False):
+    def model_forward(
+        self, batch: Batch, mode: str, return_backbone_output: bool = False
+    ):
         with optional_import_error_message("mattersim"):
             from mattersim.forcefield.potential import batch_to_dict
 
         input = batch_to_dict(batch)
-        output_pred = self.backbone(
-            input,
-            include_forces=self.calc_forces,
-            include_stresses=self.calc_stress,
-        )
+        if mode == "train":
+            output_pred = self.backbone(
+                input,
+                include_forces=self.calc_forces,
+                include_stresses=self.calc_stress,
+            )
+        else:
+            with self.backbone.ema.average_parameters():
+                output_pred = self.backbone(
+                    input,
+                    include_forces=self.calc_forces,
+                    include_stresses=self.calc_stress,
+                )
         output_pred[self.energy_prop_name] = output_pred.get(
             "total_energy", torch.zeros(1)
         )
@@ -278,3 +297,29 @@ class MatterSimM3GNetBackboneModule(
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
+
+    @override
+    def optimizer_step(
+        self,
+        epoch: int,
+        batch_idx: int,
+        optimizer,
+        optimizer_closure=None,
+    ):
+        super().optimizer_step(
+            epoch,
+            batch_idx,
+            optimizer,
+            optimizer_closure,
+        )
+        self.backbone.ema.to(self.device)
+        self.backbone.ema.update()
+
+    @override
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]):
+        checkpoint["ema_state_dict"] = self.backbone.ema.state_dict()
+
+    @override
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]):
+        if "ema_state_dict" in checkpoint:
+            self.backbone.ema.load_state_dict(checkpoint["ema_state_dict"])

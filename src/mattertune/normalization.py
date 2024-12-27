@@ -96,6 +96,10 @@ class MeanStdNormalizerConfig(NormalizerConfigBase):
     std: float
     """The standard deviation of the property values."""
 
+    @override
+    def create_normalizer_module(self) -> MeanStdNormalizerModule:
+        return MeanStdNormalizerModule(self)
+
 
 class MeanStdNormalizerModule(nn.Module, NormalizerModule, ABC):
     mean: torch.Tensor
@@ -120,6 +124,10 @@ class MeanStdNormalizerModule(nn.Module, NormalizerModule, ABC):
 class RMSNormalizerConfig(NormalizerConfigBase):
     rms: float
     """The root mean square of the property values."""
+
+    @override
+    def create_normalizer_module(self) -> RMSNormalizerModule:
+        return RMSNormalizerModule(self)
 
 
 class RMSNormalizerModule(nn.Module, NormalizerModule, ABC):

@@ -264,7 +264,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
     @override
     @contextlib.contextmanager
-    def model_forward_context(self, data):
+    def model_forward_context(self, data, mode: str):
         with ExitStack() as stack:
             for head in self.output_heads.values():
                 stack.enter_context(head.forward_context(data))
@@ -272,7 +272,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             yield
 
     @override
-    def model_forward(self, batch, return_backbone_output=False):
+    def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         backbone_output = self.backbone(batch)
 

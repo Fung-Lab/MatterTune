@@ -22,25 +22,31 @@ def main(args_dict: dict):
         hparams.model.graph_convertor = MC.MatterSimGraphConvertorConfig.draft()
         hparams.model.pretrained_model = args_dict["model_name"]
         hparams.model.ignore_gpu_batch_transform_error = True
+        hparams.model.freeze_backbone = args_dict["freeze_backbone"]
         hparams.model.optimizer = MC.AdamWConfig(lr=args_dict["lr"])
-        hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
-            T_max=args_dict["max_epochs"]
+        hparams.model.lr_scheduler = MC.StepLRConfig(
+            step_size=args_dict["steplr_step_size"], gamma=args_dict["steplr_gamma"]
         )
 
         # Add model properties
         hparams.model.properties = []
-        energy = MC.EnergyPropertyConfig(loss=MC.MAELossConfig(), loss_coefficient=1.0)
+        energy = MC.EnergyPropertyConfig(
+            loss=MC.MSELossConfig(), loss_coefficient=1.0 / (192**2)
+        )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MAELossConfig(), conservative=True, loss_coefficient=10.0
+            loss=MC.MSELossConfig(), conservative=True, loss_coefficient=1.0
         )
         hparams.model.properties.append(forces)
 
         ## Data Hyperparameters
-        hparams.data = MC.AutoSplitDataModuleConfig.draft()
-        hparams.data.dataset = MC.XYZDatasetConfig.draft()
-        hparams.data.dataset.src = Path(args_dict["xyz_path"])
-        hparams.data.train_split = args_dict["train_split"]
+        hparams.data = MC.ManualSplitDataModuleConfig.draft()
+        hparams.data.train = MC.XYZDatasetConfig.draft()
+        hparams.data.train.src = "./data/train_water_1000_eVAng.xyz"
+        hparams.data.train.down_sample = args_dict["train_down_sample"]
+        hparams.data.train.down_sample_refill = args_dict["down_sample_refill"]
+        hparams.data.validation = MC.XYZDatasetConfig.draft()
+        hparams.data.validation.src = "./data/val_water_1000_eVAng.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Add Normalization for Energy
@@ -48,9 +54,7 @@ def main(args_dict: dict):
             "energy": [
                 MC.PerAtomReferencingNormalizerConfig(
                     per_atom_references=Path(
-                        "./data/{}-energy_reference.json".format(
-                            args_dict["xyz_path"].split("/")[-1].split(".")[0]
-                        )
+                        "./data/water_1000_eVAng-energy_reference.json"
                     )
                 )
             ]
@@ -62,29 +66,33 @@ def main(args_dict: dict):
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
         hparams.trainer.strategy = "ddp"
-        hparams.trainer.gradient_clip_algorithm = "value"
+        hparams.trainer.gradient_clip_algorithm = "norm"
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "32"
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/forces_mae", patience=200, mode="min"
+            monitor=f"val/forces_mae", patience=50, mode="min"
         )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
-            filename="m3gnet-best",
+            filename=args_dict["model_name"]
+            + "-best"
+            + str(args_dict["down_sample_refill"])
+            + str(args_dict["steplr_gamma"]),
             save_top_k=1,
             mode="min",
+            every_n_epochs=10,
         )
 
         # Configure Logger
         hparams.trainer.loggers = [
             WandbLoggerConfig(
                 project="MatterTune-Examples",
-                name="MatterSim-Water",
+                name=args_dict["model_name"] + "-Water",
             )
         ]
 
@@ -105,13 +113,16 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default="MatterSim-v1.0.0-5M")
-    parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
-    parser.add_argument("--train_split", type=float, default=0.03)
-    parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--lr", type=float, default=8e-5)
-    parser.add_argument("--max_epochs", type=int, default=2)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--model_name", type=str, default="MatterSim-v1.0.0-1M")
+    parser.add_argument("--freeze_backbone", type=bool, default=False)
+    parser.add_argument("--train_down_sample", type=int, default=30)
+    parser.add_argument("--down_sample_refill", type=bool, default=False)
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--lr", type=float, default=2e-3)
+    parser.add_argument("--max_epochs", type=int, default=10000)
+    parser.add_argument("--devices", type=int, nargs="+", default=[3])
+    parser.add_argument("--steplr_step_size", type=int, default=10)
+    parser.add_argument("--steplr_gamma", type=float, default=0.9)
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)

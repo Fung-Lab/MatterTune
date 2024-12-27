@@ -7,6 +7,7 @@ from mattertune import data_registry as data_registry
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
+from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.eqV2.model import (
     FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig,
@@ -20,9 +21,6 @@ from mattertune.backbones.m3gnet import (
     M3GNetGraphComputerConfig as M3GNetGraphComputerConfig,
 )
 from mattertune.backbones.mattersim import (
-    MatterSimBackboneConfig as MatterSimBackboneConfig,
-)
-from mattertune.backbones.mattersim import (
     MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig,
 )
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
@@ -34,6 +32,7 @@ from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
+from mattertune.data.atoms_list import AtomsListDatasetConfig as AtomsListDatasetConfig
 from mattertune.data.datamodule import (
     AutoSplitDataModuleConfig as AutoSplitDataModuleConfig,
 )
@@ -110,6 +109,7 @@ from . import wrappers as wrappers
 __all__ = [
     "AdamConfig",
     "AdamWConfig",
+    "AtomsListDatasetConfig",
     "AutoSplitDataModuleConfig",
     "CSVLoggerConfig",
     "CosineAnnealingLRConfig",
