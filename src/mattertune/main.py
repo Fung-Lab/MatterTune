@@ -8,6 +8,7 @@ from typing import Any, Literal, NamedTuple
 import nshconfig as C
 from lightning.fabric.plugins.precision.precision import _PRECISION_INPUT
 from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.strategies.strategy import Strategy
 
 from .backbones import ModelConfig

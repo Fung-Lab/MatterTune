@@ -163,7 +163,6 @@ class AutoSplitDataModuleConfig(DataModuleBaseConfig):
         # Get indices for each split
         train_indices = indices[:train_len]
         validation_indices = indices[train_len : train_len + validation_len]
-
         # Create the training and validation datasets.
         train_dataset = SplitDataset(dataset, train_indices)
         validation_dataset = SplitDataset(dataset, validation_indices)

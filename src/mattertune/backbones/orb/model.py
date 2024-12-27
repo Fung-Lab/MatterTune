@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal, cast
 
 import nshconfig as C
@@ -54,6 +55,9 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
 
     system: ORBSystemConfig = ORBSystemConfig(radius=10.0, max_num_neighbors=20)
     """The system configuration, controlling how to featurize a system of atoms."""
+
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone model."""
 
     @override
     def create_model(self):
@@ -208,12 +212,19 @@ class ORBBackboneModule(
             self.output_heads[prop.name] = self._create_output_head(prop)
 
     @override
+    def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
+        if not self.hparams.freeze_backbone:
+            yield from self.backbone.parameters()
+        for head in self.output_heads.values():
+            yield from head.parameters()
+
+    @override
     @contextlib.contextmanager
-    def model_forward_context(self, data):
+    def model_forward_context(self, data, mode: str):
         yield
 
     @override
-    def model_forward(self, batch, return_backbone_output=False):
+    def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         batch = cast("AtomGraphs", self.backbone(batch))
 
