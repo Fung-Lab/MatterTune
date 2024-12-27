@@ -148,7 +148,9 @@ class FinetuneModuleBase(
         ...
 
     @abstractmethod
-    def model_forward_context(self, data: TBatch) -> contextlib.AbstractContextManager:
+    def model_forward_context(
+        self, data: TBatch, mode: str
+    ) -> contextlib.AbstractContextManager:
         """
         Context manager for the model forward pass.
 
@@ -168,6 +170,7 @@ class FinetuneModuleBase(
     def model_forward(
         self,
         batch: TBatch,
+        mode: str,
         return_backbone_output: bool = False,
     ) -> ModelOutput:
         """
@@ -401,6 +404,7 @@ class FinetuneModuleBase(
     def forward(
         self,
         batch: TBatch,
+        mode: str,
         return_backbone_output: bool = False,
         ignore_gpu_batch_transform_error: bool | None = None,
     ) -> ModelOutput:
@@ -409,7 +413,7 @@ class FinetuneModuleBase(
                 self.hparams.ignore_gpu_batch_transform_error
             )
 
-        with self.model_forward_context(batch):
+        with self.model_forward_context(batch, mode):
             # Generate graph/etc
             if ignore_gpu_batch_transform_error:
                 try:
@@ -422,7 +426,7 @@ class FinetuneModuleBase(
 
             # Run the model
             model_output = self.model_forward(
-                batch, return_backbone_output=return_backbone_output
+                batch, mode=mode, return_backbone_output=return_backbone_output
             )
 
             model_output["predicted_properties"] = {
@@ -466,12 +470,12 @@ class FinetuneModuleBase(
     def _common_step(
         self,
         batch: TBatch,
-        name: str,
+        mode: str,
         metrics: FinetuneMetrics | None,
         log: bool = True,
     ):
         try:
-            output: ModelOutput = self(batch)
+            output: ModelOutput = self(batch, mode=mode)
         except _SkipBatchError:
 
             def _zero_output():
@@ -513,7 +517,7 @@ class FinetuneModuleBase(
             predictions,
             normalized_labels,
             log=log,
-            log_prefix=f"{name}/",
+            log_prefix=f"{mode}/",
         )
 
         # NOTE: After computing the loss, we denormalize the predictions.
@@ -528,7 +532,7 @@ class FinetuneModuleBase(
         if log and (metrics is not None):
             self.log_dict(
                 {
-                    f"{name}/{metric_name}": metric
+                    f"{mode}/{metric_name}": metric
                     for metric_name, metric in metrics(predictions, labels).items()
                 },
                 on_epoch=True,
@@ -556,7 +560,9 @@ class FinetuneModuleBase(
 
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
-        output: ModelOutput = self(batch, ignore_gpu_batch_transform_error=False)
+        output: ModelOutput = self(
+            batch, mode="predict", ignore_gpu_batch_transform_error=False
+        )
         predictions = output["predicted_properties"]
         normalization_ctx = self.create_normalization_context_from_batch(batch)
         denormalized_predictions = self.denormalize(predictions, normalization_ctx)

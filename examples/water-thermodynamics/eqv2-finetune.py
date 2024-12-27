@@ -63,10 +63,10 @@ def main(args_dict: dict):
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "bf16"
 
-        # Configure Early Stopping
-        hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor="val/forces_mae", patience=200, mode="min"
-        )
+        # # Configure Early Stopping
+        # hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
+        #     monitor="val/forces_mae", patience=200, mode="min"
+        # )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
@@ -109,12 +109,12 @@ if __name__ == "__main__":
         type=str,
         default="/net/csefiles/coc-fung-cluster/nima/shared/checkpoints/eqV2_31M_mp.pt",
     )
-    parser.add_argument("--xyz_path", type=str, default="./data/water_ef.xyz")
+    parser.add_argument("--xyz_path", type=str, default="./data/water_1000_eVAng.xyz")
     parser.add_argument("--train_split", type=float, default=0.03)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)

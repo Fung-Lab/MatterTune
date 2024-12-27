@@ -48,6 +48,7 @@ def main(args_dict: dict):
 
         ## Data Hyperparameters
         hparams.data = MC.AutoSplitDataModuleConfig.draft()
+        hparams.data.train_down_sample = args_dict["train_down_sample"]
         hparams.data.dataset = MC.XYZDatasetConfig.draft()
         hparams.data.dataset.src = Path(args_dict["xyz_path"])
         hparams.data.train_split = args_dict["train_split"]
@@ -77,14 +78,14 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor="val/forces_mae", patience=200, mode="min"
+            monitor="val/forces_mae", patience=800, mode="min"
         )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
-            filename="jmp-best",
+            filename=args_dict["ckpt_path"].split("/")[-1].split(".")[0] + "-best",
             save_top_k=1,
             mode="min",
             every_n_epochs=10,
@@ -121,12 +122,13 @@ if __name__ == "__main__":
         default="/net/csefiles/coc-fung-cluster/lingyu/checkpoints/jmp-s.pt",
     )
     parser.add_argument("--freeze_backbone", type=bool, default=True)
-    parser.add_argument("--xyz_path", type=str, default="./data/water_ori.xyz")
-    parser.add_argument("--train_split", type=float, default=0.03)
-    parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=2000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
+    parser.add_argument("--xyz_path", type=str, default="./data/water_1000_eVAng.xyz")
+    parser.add_argument("--train_split", type=float, default=0.9)
+    parser.add_argument("--train_down_sample", type=int, default=30)
+    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--lr", type=float, default=8.0e-4)
+    parser.add_argument("--max_epochs", type=int, default=10000)
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)

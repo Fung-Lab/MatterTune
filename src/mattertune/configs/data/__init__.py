@@ -10,6 +10,7 @@ from mattertune.data import MatbenchDatasetConfig as MatbenchDatasetConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
+from mattertune.data.atoms_list import AtomsListDatasetConfig as AtomsListDatasetConfig
 from mattertune.data.datamodule import (
     AutoSplitDataModuleConfig as AutoSplitDataModuleConfig,
 )
@@ -21,6 +22,7 @@ from mattertune.data.db import DBDatasetConfig as DBDatasetConfig
 from mattertune.data.db import data_registry as data_registry
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
 
+from . import atoms_list as atoms_list
 from . import base as base
 from . import datamodule as datamodule
 from . import db as db
@@ -32,6 +34,7 @@ from . import omat24 as omat24
 from . import xyz as xyz
 
 __all__ = [
+    "AtomsListDatasetConfig",
     "AutoSplitDataModuleConfig",
     "DBDatasetConfig",
     "DataModuleBaseConfig",
@@ -45,6 +48,7 @@ __all__ = [
     "MatbenchDatasetConfig",
     "OMAT24DatasetConfig",
     "XYZDatasetConfig",
+    "atoms_list",
     "base",
     "data_registry",
     "datamodule",
