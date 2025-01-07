@@ -12,8 +12,6 @@
 module load python  # 加载 Python 模块
 conda activate orb-tune  # 激活环境
 
-cd ./MatterTune/examples/matbench-full
-
 # 使用 Slurm 自动分配任务
 srun python -u matbenchmark.py \
     --model_type "orb" \
