@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4             # 每个任务使用 4 个 CPU 核心
 #SBATCH --qos=regular                 # QOS 类型
 #SBATCH --time=48:00:00               # 最长运行时间
-#SBATCH -C gpu                        # 使用 GPU 节点
+#SBATCH -C gpu&hbm40g                        # 使用 GPU 节点
 #SBATCH -A m3641_g                    # 项目账户名
 
 module load python  # 加载 Python 模块
@@ -15,7 +15,7 @@ conda activate orb-tune  # 激活环境
 # 使用 Slurm 自动分配任务
 srun python -u matbenchmark.py \
     --model_type "orb" \
-    --fold_index 0 \
+    --fold_index 1 \
     --task matbench_mp_gap \
     --train_split 0.9 \
     --batch_size 96 \
