@@ -15,19 +15,6 @@ nu.pretty()
 
 xyz_path = "./data/water_1000_eVAng.xyz"
 
-# atoms_list = read(xyz_path, index=":")
-# for i, atoms in enumerate(atoms_list):
-#     energy = atoms.info["TotEnergy"]
-#     force = np.array(atoms.arrays["force"])
-#     calc = SinglePointCalculator(atoms, energy=energy, forces=force)
-#     atoms.set_calculator(calc)
-#     _energy = atoms.get_potential_energy()
-#     _force = atoms.get_forces()
-#     assert np.allclose(_energy, energy)
-#     assert np.allclose(_force, force)
-#     atoms_list[i] = atoms
-# write("./data/water_1000_eVAng.xyz", atoms_list)
-
 dataset_config = MC.XYZDatasetConfig(src=xyz_path)
 dataset = dataset_config.create_dataset()
 

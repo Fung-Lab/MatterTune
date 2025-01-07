@@ -30,6 +30,7 @@ def main(args_dict: dict):
             eta_min=1.0e-8,
         )
         hparams.model.freeze_backbone = args_dict["freeze_backbone"]
+        hparams.model.reset_output_heads = True
 
         # Add model properties
         hparams.model.properties = []
@@ -42,16 +43,20 @@ def main(args_dict: dict):
 
         # Add forces property
         forces = MC.ForcesPropertyConfig(
-            loss=MC.HuberLossConfig(), conservative=True, loss_coefficient=10.0
+            loss=MC.HuberLossConfig(),
+            conservative=args_dict["conservative"],
+            loss_coefficient=10.0,
         )
         hparams.model.properties.append(forces)
 
         ## Data Hyperparameters
-        hparams.data = MC.AutoSplitDataModuleConfig.draft()
-        hparams.data.train_down_sample = args_dict["train_down_sample"]
-        hparams.data.dataset = MC.XYZDatasetConfig.draft()
-        hparams.data.dataset.src = Path(args_dict["xyz_path"])
-        hparams.data.train_split = args_dict["train_split"]
+        hparams.data = MC.ManualSplitDataModuleConfig.draft()
+        hparams.data.train = MC.XYZDatasetConfig.draft()
+        hparams.data.train.src = "./data/train_water_1000_eVAng.xyz"
+        hparams.data.train.down_sample = args_dict["train_down_sample"]
+        hparams.data.train.down_sample_refill = args_dict["down_sample_refill"]
+        hparams.data.validation = MC.XYZDatasetConfig.draft()
+        hparams.data.validation.src = "./data/val_water_1000_eVAng.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Add Normalization for Energy
@@ -59,9 +64,7 @@ def main(args_dict: dict):
             "energy": [
                 MC.PerAtomReferencingNormalizerConfig(
                     per_atom_references=Path(
-                        "./data/{}-energy_reference.json".format(
-                            args_dict["xyz_path"].split("/")[-1].split(".")[0]
-                        )
+                        "./data/water_1000_eVAng-energy_reference.json"
                     )
                 )
             ]
@@ -78,14 +81,16 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor="val/forces_mae", patience=800, mode="min"
+            monitor="val/forces_mae", patience=200, mode="min"
         )
 
         # Configure Model Checkpoint
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
-            filename=args_dict["ckpt_path"].split("/")[-1].split(".")[0] + "-best",
+            filename=args_dict["ckpt_path"].split("/")[-1].split(".")[0]
+            + "-best"
+            + str(args_dict["down_sample_refill"]),
             save_top_k=1,
             mode="min",
             every_n_epochs=10,
@@ -121,14 +126,15 @@ if __name__ == "__main__":
         type=str,
         default="/net/csefiles/coc-fung-cluster/lingyu/checkpoints/jmp-s.pt",
     )
+    parser.add_argument("--conservative", type=bool, default=True)
     parser.add_argument("--freeze_backbone", type=bool, default=True)
-    parser.add_argument("--xyz_path", type=str, default="./data/water_1000_eVAng.xyz")
-    parser.add_argument("--train_split", type=float, default=0.9)
     parser.add_argument("--train_down_sample", type=int, default=30)
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--down_sample_refill", type=bool, default=False)
+    parser.add_argument("--train_split", type=float, default=0.9)
+    parser.add_argument("--batch_size", type=int, default=3)
     parser.add_argument("--lr", type=float, default=8.0e-4)
     parser.add_argument("--max_epochs", type=int, default=10000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 2, 3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
