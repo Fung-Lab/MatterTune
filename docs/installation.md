@@ -38,7 +38,7 @@ Please follow the installation instructions in the [jmp-backbone repository](htt
 Please follow the installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models).
 
 ```bash
-pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git
+pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"
 ```
 
 ### EquiformerV2
@@ -88,7 +88,7 @@ Clone the repo and install by:
 ```bash
 git clone https://github.com/hackingmaterials/matbench
 cd matbench
-pip install -e . -r requirement-dev.txt
+pip install -e . -r requirements-dev.txt
 ```
 
 ### Materials Project
