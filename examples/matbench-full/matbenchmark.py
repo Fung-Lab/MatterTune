@@ -114,7 +114,7 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/{args_dict['task']}_mae", patience=50, mode="min"
+            monitor=f"val/{args_dict['task']}_mae", patience=200, mode="min"
         )
 
         # Configure Model Checkpoint
@@ -173,6 +173,8 @@ def main(args_dict: dict):
         return atoms_list
 
     for idx, fold in enumerate(task.folds):
+        if args_dict["fold_index"] != -1 and idx != args_dict["fold_index"]:
+            continue
         inputs_data, outputs_data = task.get_train_and_val_data(fold)
         atoms_list = data_convert(inputs_data, outputs_data)
 
@@ -182,7 +184,7 @@ def main(args_dict: dict):
         predictor = model.property_predictor(
             lightning_trainer_kwargs={
                 "accelerator": "gpu",
-                "devices": [args_dict["devices"][0]],
+                "devices": args_dict["devices"],
                 "precision": "bf16",
                 "inference_mode": False,
                 "enable_progress_bar": True,
@@ -203,29 +205,40 @@ def main(args_dict: dict):
         print(len(pred_properties))
         task.record(fold, pred_properties)
 
-    mb.to_file(
-        f"./results/{args_dict['model_type']}-{args_dict['task']}-results.json.gz"
-    )
-    if args_dict["task"] == "matbench_mp_gap":
-        scores = mb.matbench_mp_gap.scores
-    elif args_dict["task"] == "matbench_perovskites":
-        scores = mb.matbench_perovskites.scores
-    elif args_dict["task"] == "matbench_log_kvrh":
-        scores = mb.matbench_log_kvrh.scores
-    else:
-        raise ValueError(
-            "Invalid task, please choose from 'matbench_mp_gap', 'matbench_perovskites', 'matbench_log_kvrh'."
+        if args_dict["fold_index"] == -1:
+            file_name = f"./results/{args_dict['model_type']}-{args_dict['task']}-results.json.gz"
+        else:
+            file_name = f"./results/{args_dict['model_type']}-{args_dict['task']}-fold{args_dict['fold_index']}-results.json.gz"
+        mb.to_file(file_name)
+        print(
+            "==============================Results Recorded=============================="
         )
-    print(scores)
+
+        if args_dict["task"] == "matbench_mp_gap":
+            scores = mb.matbench_mp_gap.scores
+        elif args_dict["task"] == "matbench_perovskites":
+            scores = mb.matbench_perovskites.scores
+        elif args_dict["task"] == "matbench_log_kvrh":
+            scores = mb.matbench_log_kvrh.scores
+        else:
+            raise ValueError(
+                "Invalid task, please choose from 'matbench_mp_gap', 'matbench_perovskites', 'matbench_log_kvrh'."
+            )
+        print(scores)
+        print(
+            "============================================================================="
+        )
 
 
 if __name__ == "__main__":
     import argparse
+    import os
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model_type", type=str, default="jmp", choices=["jmp", "orb", "eqv2"]
     )
+    parser.add_argument("--fold_index", type=int, default=-1)
     parser.add_argument("--freeze_backbone", action="store_true")
     parser.add_argument("--task", type=str, default="matbench_mp_gap")
     parser.add_argument("--normalize_method", type=str, default="reference")
@@ -233,7 +246,9 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=6)
     parser.add_argument("--lr", type=float, default=8.0e-5)
     parser.add_argument("--max_epochs", type=int, default=800)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
     args = parser.parse_args()
     args_dict = vars(args)
+
+    os.makedirs("./results", exist_ok=True)
     main(args_dict)
