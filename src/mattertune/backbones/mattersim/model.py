@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from ase import Atoms
+from ase.units import GPa
 from typing_extensions import final, override
 
 from ...finetune import properties as props
@@ -134,6 +135,10 @@ class MatterSimM3GNetBackboneModule(
             model_name=self.hparams.model_type,
             load_training_state=False,
         )
+        if self.hparams.reset_output_heads:
+            self.backbone.freeze_reset_model(
+                reset_head_for_finetune=True,
+            )
         self.backbone.model.train()
 
         if isinstance(self.hparams.graph_convertor, dict):
@@ -219,7 +224,7 @@ class MatterSimM3GNetBackboneModule(
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output_pred.get("forces")
         if self.calc_stress:
-            output_pred[self.stress_prop_name] = output_pred.get("stresses")
+            output_pred[self.stress_prop_name] = output_pred.get("stresses") * GPa
         pred: ModelOutput = {"predicted_properties": output_pred}
         if return_backbone_output:
             raise NotImplementedError(

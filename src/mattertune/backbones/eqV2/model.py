@@ -95,7 +95,7 @@ def _combine_scalar_irrep2(stress_head, scalar, irrep2):
     return stress
 
 
-def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
+def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
     with optional_import_error_message("fairchem"):
         from fairchem.core.common.registry import registry  # type: ignore[reportMissingImports] # noqa
         from fairchem.core.common.utils import update_config  # type: ignore[reportMissingImports] # noqa
@@ -175,6 +175,8 @@ def _get_backbone(hparams: EqV2BackboneConfig) -> nn.Module:
         model, cast(type, HydraModel)
     ), f"Expected model to be of type HydraModel, but got {type(model)}"
 
+    return model
+
     from fairchem.core.models.equiformer_v2.equiformer_v2 import EquiformerV2Backbone  # type: ignore[reportMissingImports] # noqa
 
     assert isinstance(
@@ -195,15 +197,23 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     def requires_disabled_inference_mode(self):
         return False
 
-    def _create_output_head(self, prop: props.PropertyConfig):
+    def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
+        from fairchem.core.models.base import HydraModel  # type: ignore[reportMissingImports] # noqa
+
+        assert isinstance(
+            pretrained_model, cast(type, HydraModel)
+        ), f"Expected model to be of type HydraModel, but got {type(pretrained_model)}"
+
         match prop:
             case props.EnergyPropertyConfig():
                 with optional_import_error_message("fairchem"):
                     from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
                         EquiformerV2EnergyHead,
                     )
-
-                return EquiformerV2EnergyHead(self.backbone, reduce="sum")
+                if self.hparams.reset_output_heads:
+                    return EquiformerV2EnergyHead(self.backbone, reduce="sum")
+                else:
+                    return pretrained_model.output_heads["energy"]
             case props.ForcesPropertyConfig():
                 assert (
                     not prop.conservative
@@ -213,8 +223,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
                         EquiformerV2ForceHead,
                     )
-
-                return EquiformerV2ForceHead(self.backbone)
+                if self.hparams.reset_output_heads:
+                    return EquiformerV2ForceHead(self.backbone)
+                else:
+                    return pretrained_model.output_heads["forces"]
             case props.StressesPropertyConfig():
                 assert (
                     not prop.conservative
@@ -225,13 +237,16 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                         Rank2SymmetricTensorHead,
                     )
 
-                return Rank2SymmetricTensorHead(
-                    self.backbone,
-                    output_name="stress",
-                    use_source_target_embedding=True,
-                    decompose=True,
-                    extensive=False,
-                )
+                if self.hparams.reset_output_heads:
+                    return Rank2SymmetricTensorHead(
+                        self.backbone,
+                        output_name="stress",
+                        use_source_target_embedding=True,
+                        decompose=True,
+                        extensive=False,
+                    )
+                else:
+                    return pretrained_model.output_heads["stress"]
             case props.GraphPropertyConfig():
                 assert prop.reduction in ("sum", "mean"), (
                     f"Unsupported reduction: {prop.reduction} for eqV2. "
@@ -241,7 +256,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
                         EquiformerV2EnergyHead,
                     )
-
+                if not self.hparams.reset_output_heads:
+                    raise ValueError(
+                        "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
+                    )
                 return EquiformerV2EnergyHead(self.backbone, reduce=prop.reduction)
             case _:
                 raise ValueError(
@@ -251,13 +269,25 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
     @override
     def create_model(self):
+        from fairchem.core.models.equiformer_v2.equiformer_v2 import (
+            EquiformerV2Backbone,
+        )  # type: ignore[reportMissingImports] # noqa
+
         # Get the pre-trained backbone
-        self.backbone = _get_backbone(self.hparams)
+        pretrained_model = _get_pretrained_model(self.hparams)
+
+        assert isinstance(
+            backbone := pretrained_model.backbone, cast(type, EquiformerV2Backbone)
+        ), f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
+
+        self.backbone = backbone
 
         # Create the output heads
         self.output_heads = nn.ModuleDict()
         for prop in self.hparams.properties:
-            self.output_heads[prop.name] = self._create_output_head(prop)
+            self.output_heads[prop.name] = self._create_output_head(
+                prop, pretrained_model
+            )
 
     @override
     def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
