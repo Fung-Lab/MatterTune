@@ -101,44 +101,60 @@ class ORBBackboneModule(
     def requires_disabled_inference_mode(self):
         return False
 
-    def _create_output_head(self, prop: props.PropertyConfig):
+    def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
+        from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
+
+        assert isinstance(
+            pretrained_model, GraphRegressor
+        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
         match prop:
             case props.EnergyPropertyConfig():
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import EnergyHead  # type: ignore[reportMissingImports] # noqa
 
-                return EnergyHead(
-                    latent_dim=256,
-                    num_mlp_layers=1,
-                    mlp_hidden_dim=256,
-                    target="energy",
-                    node_aggregation="mean",
-                    reference_energy_name="vasp-shifted",
-                    train_reference=True,
-                    predict_atom_avg=True,
-                )
+                if not self.hparams.reset_output_heads:
+                    return pretrained_model.graph_head
+                else:
+                    return EnergyHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target="energy",
+                        node_aggregation="mean",
+                        reference_energy_name="vasp-shifted",
+                        train_reference=True,
+                        predict_atom_avg=True,
+                    )
+
             case props.ForcesPropertyConfig(conservative=False):
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import NodeHead  # type: ignore[reportMissingImports] # noqa
 
-                return NodeHead(
-                    latent_dim=256,
-                    num_mlp_layers=1,
-                    mlp_hidden_dim=256,
-                    target="forces",
-                    remove_mean=True,
-                )
+                if not self.hparams.reset_output_heads:
+                    return pretrained_model.node_head
+                else:
+                    return NodeHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target="forces",
+                        remove_mean=True,
+                    )
+
             case props.StressesPropertyConfig(conservative=False):
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
 
-                return GraphHead(
-                    latent_dim=256,
-                    num_mlp_layers=1,
-                    mlp_hidden_dim=256,
-                    target="stress",
-                    compute_stress=True,
-                )
+                if not self.hparams.reset_output_heads:
+                    return pretrained_model.stress_head
+                else:
+                    return GraphHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target="stress",
+                        compute_stress=True,
+                    )
 
             case props.GraphPropertyConfig():
                 with optional_import_error_message("orb-models"):
@@ -146,18 +162,22 @@ class ORBBackboneModule(
                     from orb_models.forcefield.property_definitions import (  # type: ignore[reportMissingImports] # noqa
                         PropertyDefinition,
                     )
-
-                return GraphHead(
-                    latent_dim=256,
-                    num_mlp_layers=1,
-                    mlp_hidden_dim=256,
-                    target=PropertyDefinition(
-                        name=prop.name,
-                        dim=1,
-                        domain="real",
-                    ),
-                    compute_stress=False,
-                )
+                if not self.hparams.reset_output_heads:
+                    raise ValueError(
+                        "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
+                    )
+                else:
+                    return GraphHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target=PropertyDefinition(
+                            name=prop.name,
+                            dim=1,
+                            domain="real",
+                        ),
+                        compute_stress=False,
+                    )
             case _:
                 raise ValueError(
                     f"Unsupported property config: {prop} for ORB"
@@ -173,7 +193,7 @@ class ORBBackboneModule(
         # Get the pre-trained backbone
         # Load the pre-trained model from the ORB package
         if (
-            backbone_fn := pretrained.ORB_PRETRAINED_MODELS.get(
+            pretrained_model_fn := pretrained.ORB_PRETRAINED_MODELS.get(
                 self.hparams.pretrained_model
             )
         ) is None:
@@ -181,16 +201,16 @@ class ORBBackboneModule(
                 f"Unknown pretrained model: {self.hparams.pretrained_model}"
             )
         # We load on CPU here as we don't have a device yet.
-        backbone = backbone_fn(device="cpu")
+        pretrained_model = pretrained_model_fn(device="cpu")
         # This should never be None, but type checker doesn't know that so we need to check.
-        assert backbone is not None, "The pretrained model is not available"
+        assert pretrained_model is not None, "The pretrained model is not available"
 
         # This should be a `GraphRegressor` object, so we need to extract the backbone.
         assert isinstance(
-            backbone, GraphRegressor
-        ), f"Expected a GraphRegressor object, but got {type(backbone)}"
+            pretrained_model, GraphRegressor
+        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
 
-        backbone = backbone.model
+        backbone = pretrained_model.model
 
         # By default, ORB runs the `load_model_for_inference` function on the model,
         #   which sets the model to evaluation mode and freezes the parameters.
@@ -209,7 +229,11 @@ class ORBBackboneModule(
         # Create the output heads
         self.output_heads = nn.ModuleDict()
         for prop in self.hparams.properties:
-            self.output_heads[prop.name] = self._create_output_head(prop)
+            head = self._create_output_head(prop, pretrained_model)
+            assert (
+                head is not None
+            ), f"Find the head for the property {prop.name} is None"
+            self.output_heads[prop.name] = head
 
     @override
     def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
