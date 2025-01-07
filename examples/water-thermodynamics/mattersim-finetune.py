@@ -27,6 +27,7 @@ def main(args_dict: dict):
         hparams.model.lr_scheduler = MC.StepLRConfig(
             step_size=args_dict["steplr_step_size"], gamma=args_dict["steplr_gamma"]
         )
+        hparams.model.reset_output_heads = True
 
         # Add model properties
         hparams.model.properties = []
