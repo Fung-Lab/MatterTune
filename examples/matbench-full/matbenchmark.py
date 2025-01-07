@@ -228,6 +228,8 @@ def main(args_dict: dict):
         print(
             "============================================================================="
         )
+        wandb.save(file_name)
+        wandb.finish()
 
 
 if __name__ == "__main__":
