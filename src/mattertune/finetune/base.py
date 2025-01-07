@@ -27,6 +27,9 @@ log = logging.getLogger(__name__)
 
 
 class FinetuneModuleBaseConfig(C.Config, ABC):
+    reset_output_heads: bool = False
+    """Whether to reset the output heads of the model when creating the model."""
+
     properties: Sequence[PropertyConfig]
     """Properties to predict."""
 
