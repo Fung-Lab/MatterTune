@@ -18,6 +18,7 @@ Below are the installation instructions for our currently supported backbone mod
 
 ```bash
 conda create -n matgl-tune python=3.10 -y
+conda activate matgl-tune
 pip install matgl
 pip install torch==2.2.1+cu121 -f https://download.pytorch.org/whl/torch_stable.html
 pip uninstall dgl
@@ -55,7 +56,7 @@ pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pym
 We strongly recommand to install MatterSim from source code
 
 ```bash
-git clone git@github.com:microsoft/mattersim.git
+git clone https://github.com/microsoft/mattersim.git
 cd mattersim
 ```
 
@@ -77,6 +78,8 @@ MatterTune should be installed after setting up the backbone model dependencies.
 Clone the repository and install MatterTune by:
 
 ```bash
+git clone https://github.com/Fung-Lab/MatterTune.git
+cd MatterTune
 pip install -e .
 ```
 
