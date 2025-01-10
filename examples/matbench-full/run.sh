@@ -2,11 +2,11 @@
 # Source the conda.sh script to enable 'conda' command
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
-conda activate orb-tune
-python matbenchmark.py --model_type orb --batch_size 96 --normalize_method reference
+# conda activate orb-tune
+# python matbenchmark.py --model_type orb --batch_size 96 --normalize_method reference --fold_index 0
 
-# conda activate jmp-tune
-# python matbenchmark.py --model_type jmp --batch_size 4 --normalize_method reference
+conda activate jmp-tune
+python matbenchmark.py --model_type jmp --batch_size 4 --normalize_method none --fold_index 0
 
 # conda activate eqv2-tune
 # python matbenchmark.py --model_type eqv2 --batch_size 8
