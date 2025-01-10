@@ -54,6 +54,7 @@ def main(args_dict: dict):
         hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
             T_max=args_dict["max_epochs"], eta_min=1.0e-8
         )
+        hparams.model.reset_output_heads = True
 
         # Add property
         hparams.model.properties = []
@@ -84,6 +85,7 @@ def main(args_dict: dict):
                             f"./data/{args_dict['task']}_reference.json"
                         )
                     )
+                    # mean-std normalizer
                 ]
             }
         elif args_dict["normalize_method"] == "mean_std":
@@ -100,6 +102,8 @@ def main(args_dict: dict):
                 hparams.model.normalizers = {
                     args_dict["task"]: [MC.RMSNormalizerConfig(rms=rms)]
                 }
+        elif args_dict["normalize_method"] == "none":
+            pass
         else:
             raise ValueError("Invalid normalization method")
 
@@ -137,6 +141,9 @@ def main(args_dict: dict):
                 offline=False,
             )
         ]
+
+        # Configure EMA
+        hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
 
         # Additional trainer settings that need special handling
         if args_dict["model_type"] == "orb":
@@ -247,8 +254,9 @@ if __name__ == "__main__":
     parser.add_argument("--train_split", type=float, default=0.9)
     parser.add_argument("--batch_size", type=int, default=6)
     parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=800)
+    parser.add_argument("--max_epochs", type=int, default=1000)
     parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
+    parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()
     args_dict = vars(args)
 
