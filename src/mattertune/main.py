@@ -13,6 +13,7 @@ from lightning.pytorch.strategies.strategy import Strategy
 
 from .backbones import ModelConfig
 from .callbacks.early_stopping import EarlyStoppingConfig
+from .callbacks.ema import EMAConfig
 from .callbacks.model_checkpoint import ModelCheckpointConfig
 from .data import DataModuleConfig, MatterTuneDataModule
 from .finetune.base import FinetuneModuleBase
@@ -127,6 +128,9 @@ class TrainerConfig(C.Config):
     early_stopping: EarlyStoppingConfig | None = None
     """The configuration for early stopping."""
 
+    ema: EMAConfig | None = None
+    """The configuration for the Exponential Moving Average (EMA) callback."""
+
     loggers: Sequence[LoggerConfig] | Literal["default"] = "default"
     """The loggers to use for logging training metrics.
 
@@ -227,9 +231,9 @@ class MatterTuner:
 
         # Create the model
         lightning_module = self.config.model.create_model()
-        assert isinstance(
-            lightning_module, FinetuneModuleBase
-        ), f'The backbone model must be a FinetuneModuleBase subclass. Got "{type(lightning_module)}".'
+        assert isinstance(lightning_module, FinetuneModuleBase), (
+            f'The backbone model must be a FinetuneModuleBase subclass. Got "{type(lightning_module)}".'
+        )
 
         # Create the datamodule
         datamodule = MatterTuneDataModule(self.config.data)

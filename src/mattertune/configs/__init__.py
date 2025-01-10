@@ -74,6 +74,7 @@ from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfi
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.main import CSVLoggerConfig as CSVLoggerConfig
 from mattertune.main import EarlyStoppingConfig as EarlyStoppingConfig
+from mattertune.main import EMAConfig as EMAConfig
 from mattertune.main import LoggerConfig as LoggerConfig
 from mattertune.main import MatterTunerConfig as MatterTunerConfig
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
@@ -119,6 +120,7 @@ __all__ = [
     "DataModuleConfig",
     "DatasetConfig",
     "DatasetConfigBase",
+    "EMAConfig",
     "EMARecipeConfig",
     "EarlyStoppingConfig",
     "EnergyPropertyConfig",
