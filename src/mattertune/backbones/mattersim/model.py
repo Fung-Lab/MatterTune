@@ -5,11 +5,9 @@ import importlib.util
 import logging
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-import lightning as pl
 import nshconfig as C
 import torch
 import torch.nn.functional as F
-from ase import Atoms
 from ase.units import GPa
 from typing_extensions import final, override
 
@@ -178,10 +176,10 @@ class MatterSimM3GNetBackboneModule(
             )
 
     @override
-    def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
+    def trainable_parameters(self):
         for name, param in self.backbone.model.named_parameters():
             if not self.hparams.freeze_backbone or "final" in name:
-                yield param
+                yield name, param
 
     @override
     @contextlib.contextmanager

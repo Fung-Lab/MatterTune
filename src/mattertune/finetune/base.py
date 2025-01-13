@@ -571,8 +571,8 @@ class FinetuneModuleBase(
         denormalized_predictions = self.denormalize(predictions, normalization_ctx)
         return denormalized_predictions
 
-    def trainable_parameters(self) -> Iterable[nn.Parameter]:
-        return self.parameters()
+    def trainable_parameters(self) -> Iterable[tuple[str, nn.Parameter]]:
+        return self.named_parameters()
 
     @override
     def configure_optimizers(self):
