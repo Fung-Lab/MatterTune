@@ -87,6 +87,9 @@ def main(args_dict: dict):
     values = torch.tensor(outputs_data).flatten()
     normalize_ctx = get_normalization_ctx(atomic_numbers, batch_idx, len(atoms_list))
     normalized_values = normalizer.normalize(values, normalize_ctx)
+    normalized_mean = torch.mean(normalized_values)
+    normalized_std = torch.std(normalized_values)
+    print(f"Normalized mean: {normalized_mean}, Normalized std: {normalized_std}")
 
     plt.subplot(1, 2, 1)
     plt.hist(values.numpy(), bins=100, color="blue", alpha=0.5)
@@ -101,7 +104,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="matbench_log_kvrh")
+    parser.add_argument("--task", type=str, default="matbench_mp_gap")
     parser.add_argument("--normalize_method", type=str, default="reference")
     args = parser.parse_args()
 
