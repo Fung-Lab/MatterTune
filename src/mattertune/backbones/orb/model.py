@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal, cast
 
 import nshconfig as C
@@ -236,11 +235,11 @@ class ORBBackboneModule(
             self.output_heads[prop.name] = head
 
     @override
-    def trainable_parameters(self) -> Iterable[torch.nn.Parameter]:
+    def trainable_parameters(self):
         if not self.hparams.freeze_backbone:
-            yield from self.backbone.parameters()
+            yield from self.backbone.named_parameters()
         for head in self.output_heads.values():
-            yield from head.parameters()
+            yield from head.named_parameters()
 
     @override
     @contextlib.contextmanager
