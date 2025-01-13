@@ -65,6 +65,26 @@ class CosineAnnealingLRConfig(C.Config):
     """The index of last epoch."""
 
 
+class ConstantLRConfig(C.Config):
+    type: Literal["ConstantLR"] = "ConstantLR"
+    """Type of the learning rate scheduler."""
+    factor: float = 1.0 / 3
+    """The number we multiply learning rate until the milestone."""
+    total_iters: int = 5
+    """The number of steps that the scheduler decays the learning rate."""
+
+
+class LinearLRConfig(C.Config):
+    type: Literal["LinearLR"] = "LinearLR"
+    """Type of the learning rate scheduler."""
+    start_factor: float = 1.0 / 3
+    """The number we multiply learning rate in the first epoch."""
+    end_factor: float = 1.0
+    """The number we multiply learning rate at the end of linear changing process."""
+    total_iters: int = 5
+    """The number of iterations that multiplicative factor reaches to 1."""
+
+
 SingleLRSchedulerConfig = TypeAliasType(
     "SingleLRSchedulerConfig",
     Annotated[
@@ -72,7 +92,9 @@ SingleLRSchedulerConfig = TypeAliasType(
         | MultiStepLRConfig
         | ExponentialConfig
         | ReduceOnPlateauConfig
-        | CosineAnnealingLRConfig,
+        | CosineAnnealingLRConfig
+        | ConstantLRConfig
+        | LinearLRConfig,
         C.Field(discriminator="type"),
     ],
 )
@@ -124,6 +146,19 @@ def create_single_lr_scheduler(
                 T_max=config.T_max,
                 eta_min=config.eta_min,
                 last_epoch=config.last_epoch,
+            )
+        case ConstantLRConfig():
+            lr_scheduler = lrs.ConstantLR(
+                optimizer,
+                factor=config.factor,
+                total_iters=config.total_iters,
+            )
+        case LinearLRConfig():
+            lr_scheduler = lrs.LinearLR(
+                optimizer,
+                start_factor=config.start_factor,
+                end_factor=config.end_factor,
+                total_iters=config.total_iters,
             )
         case _:
             assert_never(config)
