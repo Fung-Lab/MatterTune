@@ -50,7 +50,13 @@ def main(args_dict: dict):
             )
         hparams.model.ignore_gpu_batch_transform_error = True
         hparams.model.freeze_backbone = args_dict["freeze_backbone"]
-        hparams.model.optimizer = MC.AdamWConfig(lr=args_dict["lr"])
+        hparams.model.optimizer = MC.AdamWConfig(
+            lr=args_dict["lr"],
+            amsgrad=False,
+            betas=(0.9, 0.95),
+            eps=1.0e-8,
+            weight_decay=0.1,
+        )
         hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
             T_max=args_dict["max_epochs"], eta_min=1.0e-8
         )
@@ -84,8 +90,10 @@ def main(args_dict: dict):
                         per_atom_references=Path(
                             f"./data/{args_dict['task']}_reference.json"
                         )
-                    )
-                    # mean-std normalizer
+                    ),
+                    MC.MeanStdNormalizerConfig(
+                        mean=0.43146829646487334, std=1.4326315205898694
+                    ),
                 ]
             }
         elif args_dict["normalize_method"] == "mean_std":
@@ -143,7 +151,7 @@ def main(args_dict: dict):
         ]
 
         # Configure EMA
-        hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
+        # hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
 
         # Additional trainer settings that need special handling
         if args_dict["model_type"] == "orb":
