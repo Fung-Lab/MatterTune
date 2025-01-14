@@ -103,7 +103,7 @@ def _named_parameters_matching_patterns(
         yield name, param, matching_pattern
 
 
-def _split_parameters(
+def     _split_parameters(
     named_parameters: Iterable[tuple[str, nn.Parameter]],
     pattern_lists: Iterable[Iterable[str]],
 ):

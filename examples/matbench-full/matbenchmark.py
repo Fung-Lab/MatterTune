@@ -50,10 +50,65 @@ def main(args_dict: dict):
             )
         hparams.model.ignore_gpu_batch_transform_error = True
         hparams.model.freeze_backbone = args_dict["freeze_backbone"]
-        hparams.model.optimizer = MC.AdamWConfig(lr=args_dict["lr"])
-        hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
-            T_max=args_dict["max_epochs"], eta_min=1.0e-8
+        hparams.model.optimizer = MC.AdamWConfig(
+            lr=8.0e-5,
+            amsgrad=False,
+            betas=(0.9, 0.95),
+            eps=1.0e-8,
+            weight_decay=0.1,
+            per_parameter_hparams=[
+                {
+                    "patterns": ["int_blocks.0.*"],
+                    "hparams": {
+                        "lr": 0.3 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.1.*"],
+                    "hparams": {
+                        "lr": 0.4 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.2.*"],
+                    "hparams": {
+                        "lr": 0.55 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.3.*"],
+                    "hparams": {
+                        "lr": 0.625 * args_dict["lr"],
+                    },
+                },
+            ],
         )
+        if args_dict["lr_scheduler"] == "cosine":
+            hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
+                T_max=args_dict["max_epochs"], eta_min=1.0e-8
+            )
+        elif args_dict["lr_scheduler"] == "warmup-cosine":
+            hparams.model.lr_scheduler = [
+                MC.LinearLRConfig(
+                    start_factor=1e-1,
+                    total_iters=4776 * 5,
+                ),
+                MC.CosineAnnealingLRConfig(
+                    T_max=args_dict["max_epochs"] - 5, eta_min=1.0e-8
+                ),
+            ]
+        elif args_dict["lr_scheduler"] == "rlp":
+            hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
+                mode="min",
+                monitor=f"val/{args_dict['task']}_mae",
+                factor=0.8,
+                patience=3,
+                min_lr=1e-8,
+            )
+        else:
+            raise ValueError(
+                "Invalid lr_scheduler, please choose from 'cosine', 'warmup-cosine', 'rlp'."
+            )
         hparams.model.reset_output_heads = True
 
         # Add property
@@ -118,7 +173,10 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/{args_dict['task']}_mae", patience=200, mode="min"
+            monitor=f"val/{args_dict['task']}_mae",
+            patience=50,
+            mode="min",
+            min_delta=1e-8,
         )
 
         # Configure Model Checkpoint
@@ -254,7 +312,13 @@ if __name__ == "__main__":
     parser.add_argument("--train_split", type=float, default=0.9)
     parser.add_argument("--batch_size", type=int, default=6)
     parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=1000)
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        default="rlp",
+        choices=["cosine", "warmup-cosine", "rlp"],
+    )
+    parser.add_argument("--max_epochs", type=int, default=500)
     parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
     parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()

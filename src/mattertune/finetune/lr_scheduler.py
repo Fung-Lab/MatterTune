@@ -38,6 +38,8 @@ class ReduceOnPlateauConfig(C.Config):
     """Type of the learning rate scheduler."""
     mode: Literal["min", "max"]
     """One of {"min", "max"}. Determines when to reduce the learning rate."""
+    monitor: str = "val_loss"
+    """Quantity to be monitored."""
     factor: float
     """Factor by which the learning rate will be reduced."""
     patience: int
