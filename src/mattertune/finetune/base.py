@@ -18,7 +18,7 @@ from typing_extensions import NotRequired, TypedDict, TypeVar, Unpack, cast, ove
 from ..normalization import ComposeNormalizers, NormalizationContext, NormalizerConfig
 from .loader import DataLoaderKwargs, create_dataloader
 from .loss import compute_loss
-from .lr_scheduler import LRSchedulerConfig, create_lr_scheduler
+from .lr_scheduler import LRSchedulerConfig, ReduceOnPlateauConfig, create_lr_scheduler
 from .metrics import FinetuneMetrics
 from .optimizer import OptimizerConfig, create_optimizer
 from .properties import PropertyConfig
@@ -582,8 +582,14 @@ class FinetuneModuleBase(
         return_config: OptimizerLRSchedulerConfig = {"optimizer": optimizer}
 
         if (lr_scheduler := self.hparams.lr_scheduler) is not None:
-            return_config["lr_scheduler"] = create_lr_scheduler(lr_scheduler, optimizer)
-
+            scheduler_class = create_lr_scheduler(lr_scheduler, optimizer)
+            if isinstance(lr_scheduler, ReduceOnPlateauConfig):
+                return_config["lr_scheduler"] = {
+                    "scheduler": scheduler_class,
+                    "monitor": lr_scheduler.monitor,
+                }
+            else:
+                return_config["lr_scheduler"] = scheduler_class
         return return_config
 
     def create_dataloader(

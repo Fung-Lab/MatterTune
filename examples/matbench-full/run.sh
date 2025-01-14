@@ -6,7 +6,7 @@ source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 # python matbenchmark.py --model_type orb --batch_size 96 --normalize_method reference --fold_index 0
 
 conda activate jmp-tune
-python matbenchmark.py --model_type jmp --batch_size 4 --normalize_method reference --fold_index 0
+python matbenchmark.py --model_type jmp --batch_size 4 --normalize_method reference --fold_index 0 --devices 0 1 2 3 4 5 6 7
 
 # conda activate eqv2-tune
 # python matbenchmark.py --model_type eqv2 --batch_size 8
