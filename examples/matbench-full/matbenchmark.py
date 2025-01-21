@@ -58,6 +58,12 @@ def main(args_dict: dict):
             weight_decay=0.1,
             per_parameter_hparams=[
                 {
+                    "patterns": ["embedding.*"],
+                    "hparams": {
+                        "lr": 0.3 * args_dict["lr"],
+                    },
+                },
+                {
                     "patterns": ["int_blocks.0.*"],
                     "hparams": {
                         "lr": 0.3 * args_dict["lr"],
@@ -140,7 +146,6 @@ def main(args_dict: dict):
                             f"./data/{args_dict['task']}_reference.json"
                         )
                     )
-                    # mean-std normalizer
                 ]
             }
         elif args_dict["normalize_method"] == "mean_std":
@@ -249,7 +254,7 @@ def main(args_dict: dict):
         predictor = model.property_predictor(
             lightning_trainer_kwargs={
                 "accelerator": "gpu",
-                "devices": args_dict["devices"],
+                "devices": [args_dict["devices"][0]],
                 "precision": "bf16",
                 "inference_mode": False,
                 "enable_progress_bar": True,
