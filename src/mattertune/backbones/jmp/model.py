@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
+from collections.abc import Iterable
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -114,6 +115,9 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
 
     graph_computer: JMPGraphComputerConfig
     """The configuration for the graph computer."""
+
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone during training."""
 
     freeze_backbone: bool = False
     """Whether to freeze the backbone during training."""
@@ -264,6 +268,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     @contextlib.contextmanager
     def model_forward_context(self, data, mode: str):
+    def model_forward_context(self, data, mode: str):
         with ExitStack() as stack:
             for head in self.output_heads.values():
                 stack.enter_context(head.forward_context(data))
@@ -271,6 +276,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             yield
 
     @override
+    def model_forward(self, batch, mode: str, return_backbone_output=False):
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         backbone_output = self.backbone(batch)
