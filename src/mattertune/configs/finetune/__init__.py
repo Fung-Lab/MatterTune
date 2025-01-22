@@ -17,7 +17,7 @@ from mattertune.finetune.loss import MSELossConfig as MSELossConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
 from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfigBase
 from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigBase
-from mattertune.finetune.lr_scheduler import ReduceOnPlateauConfig as ReduceOnPlateauConfig
+from mattertune.finetune.base import ReduceOnPlateauConfig as ReduceOnPlateauConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
@@ -39,7 +39,7 @@ from mattertune.finetune.loss import MSELossConfig as MSELossConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
 from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfigBase
 from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigBase
-from mattertune.finetune.lr_scheduler import ReduceOnPlateauConfig as ReduceOnPlateauConfig
+from mattertune.finetune.base import ReduceOnPlateauConfig as ReduceOnPlateauConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig

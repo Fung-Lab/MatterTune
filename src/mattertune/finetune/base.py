@@ -30,6 +30,9 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     reset_output_heads: bool = False
     """Whether to reset the output heads of the model when creating the model."""
 
+    reset_output_heads: bool = False
+    """Whether to reset the output heads of the model when creating the model."""
+
     properties: Sequence[PropertyConfig]
     """Properties to predict."""
 
@@ -408,6 +411,7 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
+        mode: str,
         return_backbone_output: bool = False,
         ignore_gpu_batch_transform_error: bool | None = None,
     ) -> ModelOutput:
@@ -416,6 +420,7 @@ class FinetuneModuleBase(
                 self.hparams.ignore_gpu_batch_transform_error
             )
 
+        with self.model_forward_context(batch, mode):
         with self.model_forward_context(batch, mode):
             # Generate graph/etc
             if ignore_gpu_batch_transform_error:
@@ -474,10 +479,12 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
+        mode: str,
         metrics: FinetuneMetrics | None,
         log: bool = True,
     ):
         try:
+            output: ModelOutput = self(batch, mode=mode)
             output: ModelOutput = self(batch, mode=mode)
         except _SkipBatchError:
 
@@ -533,10 +540,15 @@ class FinetuneModuleBase(
 
         # Log metrics
         if log and (metrics is not None):
+        if log and (metrics is not None):
             self.log_dict(
                 {
                     f"{mode}/{metric_name}": metric
+                    f"{mode}/{metric_name}": metric
                     for metric_name, metric in metrics(predictions, labels).items()
+                },
+                on_epoch=True,
+                sync_dist=True,
                 },
                 on_epoch=True,
                 sync_dist=True,
@@ -550,6 +562,7 @@ class FinetuneModuleBase(
             "train",
             self.train_metrics,
         )
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"])
         self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"])
         return loss
 
@@ -566,6 +579,9 @@ class FinetuneModuleBase(
         output: ModelOutput = self(
             batch, mode="predict", ignore_gpu_batch_transform_error=False
         )
+        output: ModelOutput = self(
+            batch, mode="predict", ignore_gpu_batch_transform_error=False
+        )
         predictions = output["predicted_properties"]
         normalization_ctx = self.create_normalization_context_from_batch(batch)
         denormalized_predictions = self.denormalize(predictions, normalization_ctx)
@@ -576,6 +592,9 @@ class FinetuneModuleBase(
 
     @override
     def configure_optimizers(self):
+        optimizer = create_optimizer(
+            self.hparams.optimizer, self.trainable_parameters()
+        )
         optimizer = create_optimizer(
             self.hparams.optimizer, self.trainable_parameters()
         )

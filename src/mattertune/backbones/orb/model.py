@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal, cast
 
 import nshconfig as C
@@ -58,6 +59,9 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
     freeze_backbone: bool = False
     """Whether to freeze the backbone model."""
 
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone model."""
+
     @override
     def create_model(self):
         return ORBBackboneModule(self)
@@ -106,10 +110,30 @@ class ORBBackboneModule(
         assert isinstance(
             pretrained_model, GraphRegressor
         ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
+    def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
+        from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
+
+        assert isinstance(
+            pretrained_model, GraphRegressor
+        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
         match prop:
             case props.EnergyPropertyConfig():
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import EnergyHead  # type: ignore[reportMissingImports] # noqa
+
+                if not self.hparams.reset_output_heads:
+                    return pretrained_model.graph_head
+                else:
+                    return EnergyHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target="energy",
+                        node_aggregation="mean",
+                        reference_energy_name="vasp-shifted",
+                        train_reference=True,
+                        predict_atom_avg=True,
+                    )
 
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.graph_head
@@ -140,10 +164,31 @@ class ORBBackboneModule(
                         remove_mean=True,
                     )
 
+                if not self.hparams.reset_output_heads:
+                    return pretrained_model.node_head
+                else:
+                    return NodeHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target="forces",
+                        remove_mean=True,
+                    )
+
             case props.StressesPropertyConfig(conservative=False):
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
 
+                if not self.hparams.reset_output_heads:
+                    return pretrained_model.stress_head
+                else:
+                    return GraphHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target="stress",
+                        compute_stress=True,
+                    )
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.stress_head
                 else:
@@ -177,6 +222,22 @@ class ORBBackboneModule(
                         ),
                         compute_stress=False,
                     )
+                if not self.hparams.reset_output_heads:
+                    raise ValueError(
+                        "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
+                    )
+                else:
+                    return GraphHead(
+                        latent_dim=256,
+                        num_mlp_layers=1,
+                        mlp_hidden_dim=256,
+                        target=PropertyDefinition(
+                            name=prop.name,
+                            dim=1,
+                            domain="real",
+                        ),
+                        compute_stress=False,
+                    )
             case _:
                 raise ValueError(
                     f"Unsupported property config: {prop} for ORB"
@@ -193,6 +254,7 @@ class ORBBackboneModule(
         # Load the pre-trained model from the ORB package
         if (
             pretrained_model_fn := pretrained.ORB_PRETRAINED_MODELS.get(
+            pretrained_model_fn := pretrained.ORB_PRETRAINED_MODELS.get(
                 self.hparams.pretrained_model
             )
         ) is None:
@@ -201,14 +263,19 @@ class ORBBackboneModule(
             )
         # We load on CPU here as we don't have a device yet.
         pretrained_model = pretrained_model_fn(device="cpu")
+        pretrained_model = pretrained_model_fn(device="cpu")
         # This should never be None, but type checker doesn't know that so we need to check.
+        assert pretrained_model is not None, "The pretrained model is not available"
         assert pretrained_model is not None, "The pretrained model is not available"
 
         # This should be a `GraphRegressor` object, so we need to extract the backbone.
         assert isinstance(
             pretrained_model, GraphRegressor
         ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
+            pretrained_model, GraphRegressor
+        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
 
+        backbone = pretrained_model.model
         backbone = pretrained_model.model
 
         # By default, ORB runs the `load_model_for_inference` function on the model,
@@ -244,9 +311,11 @@ class ORBBackboneModule(
     @override
     @contextlib.contextmanager
     def model_forward_context(self, data, mode: str):
+    def model_forward_context(self, data, mode: str):
         yield
 
     @override
+    def model_forward(self, batch, mode: str, return_backbone_output=False):
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         batch = cast("AtomGraphs", self.backbone(batch))
