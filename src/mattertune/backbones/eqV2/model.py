@@ -99,7 +99,6 @@ def _combine_scalar_irrep2(stress_head, scalar, irrep2):
 
 
 def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
-def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
     with optional_import_error_message("fairchem"):
         from fairchem.core.common.registry import registry  # type: ignore[reportMissingImports] # noqa
         from fairchem.core.common.utils import update_config  # type: ignore[reportMissingImports] # noqa
@@ -168,16 +167,15 @@ def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
 
     assert isinstance(trainer, cast(type, OCPTrainer)), "Only OCPTrainer is supported."
     assert (model := getattr(trainer, "_unwrapped_model", None)) is not None, (
-        "The model could not be extracted from the trainer. "
-        "Please report this issue."
+        "The model could not be extracted from the trainer. Please report this issue."
     )
 
     # Make sure this is eqv2
     from fairchem.core.models.base import HydraModel  # type: ignore[reportMissingImports] # noqa
 
-    assert isinstance(
-        model, cast(type, HydraModel)
-    ), f"Expected model to be of type HydraModel, but got {type(model)}"
+    assert isinstance(model, cast(type, HydraModel)), (
+        f"Expected model to be of type HydraModel, but got {type(model)}"
+    )
 
     return model
 
@@ -185,9 +183,9 @@ def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
 
     from fairchem.core.models.equiformer_v2.equiformer_v2 import EquiformerV2Backbone  # type: ignore[reportMissingImports] # noqa
 
-    assert isinstance(
-        backbone := model.backbone, cast(type, EquiformerV2Backbone)
-    ), f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
+    assert isinstance(backbone := model.backbone, cast(type, EquiformerV2Backbone)), (
+        f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
+    )
 
     return backbone
 
@@ -206,16 +204,9 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         from fairchem.core.models.base import HydraModel  # type: ignore[reportMissingImports] # noqa
 
-        assert isinstance(
-            pretrained_model, cast(type, HydraModel)
-        ), f"Expected model to be of type HydraModel, but got {type(pretrained_model)}"
-
-    def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
-        from fairchem.core.models.base import HydraModel  # type: ignore[reportMissingImports] # noqa
-
-        assert isinstance(
-            pretrained_model, cast(type, HydraModel)
-        ), f"Expected model to be of type HydraModel, but got {type(pretrained_model)}"
+        assert isinstance(pretrained_model, cast(type, HydraModel)), (
+            f"Expected model to be of type HydraModel, but got {type(pretrained_model)}"
+        )
 
         match prop:
             case props.EnergyPropertyConfig():
@@ -232,9 +223,9 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                 else:
                     return pretrained_model.output_heads["energy"]
             case props.ForcesPropertyConfig():
-                assert (
-                    not prop.conservative
-                ), "Conservative forces are not supported for eqV2 (yet)"
+                assert not prop.conservative, (
+                    "Conservative forces are not supported for eqV2 (yet)"
+                )
 
                 with optional_import_error_message("fairchem"):
                     from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
@@ -249,9 +240,9 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                 else:
                     return pretrained_model.output_heads["forces"]
             case props.StressesPropertyConfig():
-                assert (
-                    not prop.conservative
-                ), "Conservative stresses are not supported for eqV2 (yet)"
+                assert not prop.conservative, (
+                    "Conservative stresses are not supported for eqV2 (yet)"
+                )
 
                 with optional_import_error_message("fairchem"):
                     from fairchem.core.models.equiformer_v2.prediction_heads.rank2 import (  # type: ignore[reportMissingImports] # noqa
@@ -300,20 +291,18 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
     @override
     def create_model(self):
-        from fairchem.core.models.equiformer_v2.equiformer_v2 import (
+        from fairchem.core.models.equiformer_v2.equiformer_v2 import (  # type: ignore[reportMissingImports] # noqa
             EquiformerV2Backbone,
-        )  # type: ignore[reportMissingImports] # noqa
-
-        from fairchem.core.models.equiformer_v2.equiformer_v2 import (
-            EquiformerV2Backbone,
-        )  # type: ignore[reportMissingImports] # noqa
+        )
 
         # Get the pre-trained backbone
         pretrained_model = _get_pretrained_model(self.hparams)
 
         assert isinstance(
             backbone := pretrained_model.backbone, cast(type, EquiformerV2Backbone)
-        ), f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
+        ), (
+            f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
+        )
 
         self.backbone = backbone
 
@@ -334,11 +323,9 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     @override
     @contextlib.contextmanager
     def model_forward_context(self, data, mode: str):
-    def model_forward_context(self, data, mode: str):
         yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         emb = self.backbone(batch)
