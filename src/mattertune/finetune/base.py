@@ -411,7 +411,6 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
-        mode: str,
         return_backbone_output: bool = False,
         ignore_gpu_batch_transform_error: bool | None = None,
     ) -> ModelOutput:
@@ -420,7 +419,6 @@ class FinetuneModuleBase(
                 self.hparams.ignore_gpu_batch_transform_error
             )
 
-        with self.model_forward_context(batch, mode):
         with self.model_forward_context(batch, mode):
             # Generate graph/etc
             if ignore_gpu_batch_transform_error:
@@ -478,7 +476,6 @@ class FinetuneModuleBase(
     def _common_step(
         self,
         batch: TBatch,
-        mode: str,
         mode: str,
         metrics: FinetuneMetrics | None,
         log: bool = True,
@@ -540,15 +537,10 @@ class FinetuneModuleBase(
 
         # Log metrics
         if log and (metrics is not None):
-        if log and (metrics is not None):
             self.log_dict(
                 {
                     f"{mode}/{metric_name}": metric
-                    f"{mode}/{metric_name}": metric
                     for metric_name, metric in metrics(predictions, labels).items()
-                },
-                on_epoch=True,
-                sync_dist=True,
                 },
                 on_epoch=True,
                 sync_dist=True,

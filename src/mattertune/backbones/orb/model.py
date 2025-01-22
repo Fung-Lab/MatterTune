@@ -110,12 +110,6 @@ class ORBBackboneModule(
         assert isinstance(
             pretrained_model, GraphRegressor
         ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
-    def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
-        from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
-
-        assert isinstance(
-            pretrained_model, GraphRegressor
-        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
         match prop:
             case props.EnergyPropertyConfig():
                 with optional_import_error_message("orb-models"):
@@ -254,7 +248,6 @@ class ORBBackboneModule(
         # Load the pre-trained model from the ORB package
         if (
             pretrained_model_fn := pretrained.ORB_PRETRAINED_MODELS.get(
-            pretrained_model_fn := pretrained.ORB_PRETRAINED_MODELS.get(
                 self.hparams.pretrained_model
             )
         ) is None:
@@ -263,19 +256,13 @@ class ORBBackboneModule(
             )
         # We load on CPU here as we don't have a device yet.
         pretrained_model = pretrained_model_fn(device="cpu")
-        pretrained_model = pretrained_model_fn(device="cpu")
         # This should never be None, but type checker doesn't know that so we need to check.
-        assert pretrained_model is not None, "The pretrained model is not available"
         assert pretrained_model is not None, "The pretrained model is not available"
 
         # This should be a `GraphRegressor` object, so we need to extract the backbone.
         assert isinstance(
             pretrained_model, GraphRegressor
         ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
-            pretrained_model, GraphRegressor
-        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
-
-        backbone = pretrained_model.model
         backbone = pretrained_model.model
 
         # By default, ORB runs the `load_model_for_inference` function on the model,
@@ -311,11 +298,9 @@ class ORBBackboneModule(
     @override
     @contextlib.contextmanager
     def model_forward_context(self, data, mode: str):
-    def model_forward_context(self, data, mode: str):
         yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
         batch = cast("AtomGraphs", self.backbone(batch))
