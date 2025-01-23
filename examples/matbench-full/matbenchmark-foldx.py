@@ -6,6 +6,7 @@ from pathlib import Path
 
 import ase
 import nshutils as nu
+import torch
 import wandb
 from lightning.pytorch.strategies import DDPStrategy
 from matbench.bench import (  # type: ignore[reportMissingImports] # noqa
@@ -15,6 +16,11 @@ from pymatgen.io.ase import AseAtomsAdaptor
 
 import mattertune.configs as MC
 from mattertune import MatterTuner
+from mattertune.backbones import (
+    EqV2BackboneModule,
+    JMPBackboneModule,
+    ORBBackboneModule,
+)
 from mattertune.configs import WandbLoggerConfig
 
 logging.basicConfig(level=logging.WARNING)
@@ -49,17 +55,72 @@ def main(args_dict: dict):
                 "Invalid model type, please choose from 'eqv2', 'jmp', 'orb'."
             )
         hparams.model.ignore_gpu_batch_transform_error = True
-        hparams.model.freeze_backbone = args_dict["freeze_backbone"]
+        hparams.model.freeze_backbone = False
         hparams.model.optimizer = MC.AdamWConfig(
-            lr=args_dict["lr"],
+            lr=8.0e-5,
             amsgrad=False,
             betas=(0.9, 0.95),
             eps=1.0e-8,
             weight_decay=0.1,
+            per_parameter_hparams=[
+                {
+                    "patterns": ["embedding.*"],
+                    "hparams": {
+                        "lr": 0.3 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.0.*"],
+                    "hparams": {
+                        "lr": 0.3 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.1.*"],
+                    "hparams": {
+                        "lr": 0.4 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.2.*"],
+                    "hparams": {
+                        "lr": 0.55 * args_dict["lr"],
+                    },
+                },
+                {
+                    "patterns": ["int_blocks.3.*"],
+                    "hparams": {
+                        "lr": 0.625 * args_dict["lr"],
+                    },
+                },
+            ],
         )
-        hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
-            T_max=args_dict["max_epochs"], eta_min=1.0e-8
-        )
+        if args_dict["lr_scheduler"] == "cosine":
+            hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
+                T_max=args_dict["max_epochs"], eta_min=1.0e-8
+            )
+        elif args_dict["lr_scheduler"] == "warmup-cosine":
+            hparams.model.lr_scheduler = [
+                MC.LinearLRConfig(
+                    start_factor=1e-1,
+                    total_iters=4776 * 5,
+                ),
+                MC.CosineAnnealingLRConfig(
+                    T_max=args_dict["max_epochs"] - 5, eta_min=1.0e-8
+                ),
+            ]
+        elif args_dict["lr_scheduler"] == "rlp":
+            hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
+                mode="min",
+                monitor=f"val/{args_dict['task']}_mae",
+                factor=0.8,
+                patience=3,
+                min_lr=1e-8,
+            )
+        else:
+            raise ValueError(
+                "Invalid lr_scheduler, please choose from 'cosine', 'warmup-cosine', 'rlp'."
+            )
         hparams.model.reset_output_heads = True
 
         # Add property
@@ -67,7 +128,7 @@ def main(args_dict: dict):
         property = MC.GraphPropertyConfig(
             loss=MC.HuberLossConfig(delta=0.1),
             loss_coefficient=1.0,
-            reduction="mean",
+            reduction=args_dict["property_reduction"],
             name=args_dict["task"],
             dtype="float",
         )
@@ -115,6 +176,9 @@ def main(args_dict: dict):
         else:
             raise ValueError("Invalid normalization method")
 
+        # Configure EMA
+        hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
+
         ## Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
         hparams.trainer.max_epochs = args_dict["max_epochs"]
@@ -126,7 +190,10 @@ def main(args_dict: dict):
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/{args_dict['task']}_mae", patience=200, mode="min"
+            monitor=f"val/{args_dict['task']}_mae",
+            patience=30,
+            mode="min",
+            min_delta=1e-8,
         )
 
         # Configure Model Checkpoint
@@ -144,10 +211,8 @@ def main(args_dict: dict):
         # Configure Logger
         hparams.trainer.loggers = [
             WandbLoggerConfig(
-                project="MatterTune-Matbench",
-                name=f"{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-{args_dict['normalize_method']}-freeze_backbone"
-                if args_dict["freeze_backbone"]
-                else f"{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-{args_dict['normalize_method']}",
+                project="MatterTune-Matbench-FoldX",
+                name=f"{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-{args_dict['normalize_method']}",
                 offline=False,
             )
         ]
@@ -190,14 +255,32 @@ def main(args_dict: dict):
     fold_i = task.folds[fold_idx]
     inputs_data, outputs_data = task.get_train_and_val_data(fold_i)
     atoms_list = data_convert(inputs_data, outputs_data)
+    atoms_list = atoms_list[:1000]
     mt_config, ckpt_path = hparams(atoms_list, fold_idx=fold_idx)
     model, trainer = MatterTuner(mt_config).tune()
+    # clear torch cuda cache
+    torch.cuda.empty_cache()
+    if args_dict["model_type"] == "eqv2":
+        model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
+    elif args_dict["model_type"] == "jmp":
+        model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
+    elif args_dict["model_type"] == "orb":
+        model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
+    else:
+        raise ValueError("Invalid model type, please choose from 'eqv2', 'jmp', 'orb'.")
 
-    model = model.load_from_checkpoint(ckpt_path)
+    # rerain wandb
+    wandb.init(
+        project="MatterTune-Matbench-FoldX",
+        name=f"{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-{args_dict['normalize_method']}",
+        config=args_dict,
+        resume="allow",
+    )
+
     predictor = model.property_predictor(
         lightning_trainer_kwargs={
             "accelerator": "gpu",
-            "devices": args_dict["devices"],
+            "devices": [args_dict["devices"][0]],
             "precision": "bf16",
             "inference_mode": False,
             "enable_progress_bar": True,
@@ -210,14 +293,17 @@ def main(args_dict: dict):
     for idx, fold in enumerate(task.folds):
         test_data = task.get_test_data(fold, include_target=False)
         test_atoms_list = data_convert(test_data)
-        model_outs = predictor.predict(
-            test_atoms_list, batch_size=args_dict["batch_size"]
-        )
-        pred_properties: list[float] = [
-            out[args_dict["task"]].item() for out in model_outs
-        ]
-        print(len(test_data))
-        print(len(pred_properties))
+        if idx == fold_idx:
+            model_outs = predictor.predict(
+                test_atoms_list, batch_size=args_dict["batch_size"]
+            )
+            pred_properties: list[float] = [
+                out[args_dict["task"]].item() for out in model_outs
+            ]
+            print(len(test_data))
+            print(len(pred_properties))
+        else:
+            pred_properties = [0.0] * len(test_data)
         task.record(fold, pred_properties)
     file_name = f"./results/{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-results.json.gz"
     mb.to_file(file_name)
@@ -245,12 +331,20 @@ if __name__ == "__main__":
     parser.add_argument("--fold_index", type=int, default=0)
     parser.add_argument("--freeze_backbone", action="store_true")
     parser.add_argument("--task", type=str, default="matbench_mp_gap")
-    parser.add_argument("--normalize_method", type=str, default="reference")
+    parser.add_argument("--property_reduction", type=str, default="mean")
+    parser.add_argument("--normalize_method", type=str, default="none")
     parser.add_argument("--train_split", type=float, default=0.9)
     parser.add_argument("--batch_size", type=int, default=6)
     parser.add_argument("--lr", type=float, default=8.0e-5)
-    parser.add_argument("--max_epochs", type=int, default=5)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 5])
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        default="rlp",
+        choices=["cosine", "warmup-cosine", "rlp"],
+    )
+    parser.add_argument("--max_epochs", type=int, default=500)
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
+    parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()
     args_dict = vars(args)
 
