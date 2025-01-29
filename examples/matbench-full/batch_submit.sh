@@ -20,7 +20,6 @@ fold_index=0
 train_split=0.9
 batch_size=4
 max_epochs=500
-devices="0,1,2,3"
 property_reduction="mean"
 
 # 循环生成和提交任务
@@ -46,18 +45,17 @@ conda activate jmp-tune  # 激活环境
 
 # 使用 Slurm 自动分配任务
 srun python -u matbenchmark-foldx.py \\
-    --model_type "$model_type" \\
+    --model_type $model_type \\
     --fold_index $fold_index \\
     --task $task_name \\
     --train_split $train_split \\
     --batch_size $batch_size \\
     --max_epochs $max_epochs \\
-    --devices $devices \\
-    --property_reduction "$property_reduction"
+    --property_reduction $property_reduction
 EOF
 
-    # 提交作业
-    sbatch $job_file
+    # # 提交作业
+    # sbatch $job_file
 
     # 提示信息
     echo "Submitted job: $job_file"

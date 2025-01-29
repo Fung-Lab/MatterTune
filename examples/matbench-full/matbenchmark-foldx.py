@@ -93,7 +93,9 @@ def main(args_dict: dict):
                         "lr": 0.625 * args_dict["lr"],
                     },
                 },
-            ],
+            ]
+            if "jmp" in args_dict["model_type"]
+            else None,
         )
         if args_dict["lr_scheduler"] == "cosine":
             hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
@@ -152,9 +154,6 @@ def main(args_dict: dict):
                             f"./data/{args_dict['task']}_reference.json"
                         )
                     ),
-                    MC.MeanStdNormalizerConfig(
-                        mean=0.43146829646487334, std=1.4326315205898694
-                    ),
                 ]
             }
         elif args_dict["normalize_method"] == "mean_std":
@@ -177,7 +176,7 @@ def main(args_dict: dict):
             raise ValueError("Invalid normalization method")
 
         # Configure EMA
-        hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
+        # hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
 
         ## Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
@@ -191,7 +190,7 @@ def main(args_dict: dict):
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
             monitor=f"val/{args_dict['task']}_mae",
-            patience=30,
+            patience=50,
             mode="min",
             min_delta=1e-8,
         )
@@ -255,19 +254,21 @@ def main(args_dict: dict):
     fold_i = task.folds[fold_idx]
     inputs_data, outputs_data = task.get_train_and_val_data(fold_i)
     atoms_list = data_convert(inputs_data, outputs_data)
-    atoms_list = atoms_list[:1000]
     mt_config, ckpt_path = hparams(atoms_list, fold_idx=fold_idx)
     model, trainer = MatterTuner(mt_config).tune()
     # clear torch cuda cache
     torch.cuda.empty_cache()
-    if args_dict["model_type"] == "eqv2":
-        model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
-    elif args_dict["model_type"] == "jmp":
-        model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
-    elif args_dict["model_type"] == "orb":
-        model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
-    else:
-        raise ValueError("Invalid model type, please choose from 'eqv2', 'jmp', 'orb'.")
+    if args_dict["load_best_ckpt"]:
+        if args_dict["model_type"] == "eqv2":
+            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
+        elif args_dict["model_type"] == "jmp":
+            model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
+        elif args_dict["model_type"] == "orb":
+            model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
+        else:
+            raise ValueError(
+                "Invalid model type, please choose from 'eqv2', 'jmp', 'orb'."
+            )
 
     # rerain wandb
     wandb.init(
@@ -295,7 +296,8 @@ def main(args_dict: dict):
         test_atoms_list = data_convert(test_data)
         if idx == fold_idx:
             model_outs = predictor.predict(
-                test_atoms_list, batch_size=args_dict["batch_size"]
+                test_atoms_list,
+                batch_size=1,
             )
             pred_properties: list[float] = [
                 out[args_dict["task"]].item() for out in model_outs
@@ -345,6 +347,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int, default=500)
     parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
     parser.add_argument("--ema_decay", type=float, default=0.99)
+    parser.add_argument("--load_best_ckpt", action="store_true")
     args = parser.parse_args()
     args_dict = vars(args)
 

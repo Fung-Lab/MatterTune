@@ -20,49 +20,60 @@ def data_convert(structures, properties, task_name: str):
     return atoms_list
 
 
-task_name = "matbench_mp_gap"
-normalize_method = "rms"  ## "reference" or "mean_std" or "rms"
+tasks = [
+    "matbench_dielectric",
+    "matbench_log_kvrh",
+    "matbench_log_gvrh",
+    "matbench_perovskites",
+    "matbench_mp_gap",
+    "matbench_mp_e_form",
+    "matbench_phonons",
+    "matbench_jdft2d",
+]
 
-mb = MatbenchBenchmark(autoload=False, subset=[task_name])
-task = list(mb.tasks)[0]
-task.load()
-fold = task.folds[0]
+normalize_method = "mean_std"  ## "reference" or "mean_std" or "rms"
 
-input_data, output_data = task.get_train_and_val_data(fold)
+for task_name in tasks:
+    mb = MatbenchBenchmark(autoload=False, subset=[task_name])
+    task = list(mb.tasks)[0]
+    task.load()
+    fold = task.folds[0]
 
-atoms_list = data_convert(input_data, output_data, task_name)
+    input_data, output_data = task.get_train_and_val_data(fold)
 
-if normalize_method == "reference":
-    dataset_config = MC.AtomsListDatasetConfig(atoms_list=atoms_list)
-    dataset = dataset_config.create_dataset()
+    atoms_list = data_convert(input_data, output_data, task_name)
 
-    ref_dict = compute_per_atom_references(
-        dataset=dataset,
-        property=MC.GraphPropertyConfig(
-            loss=MC.MAELossConfig(),
-            loss_coefficient=1.0,
-            reduction="mean",
-            name=task_name,
-            dtype="float",
-        ),
-        reference_model="ridge",
-    )
+    if normalize_method == "reference":
+        dataset_config = MC.AtomsListDatasetConfig(atoms_list=atoms_list)
+        dataset = dataset_config.create_dataset()
 
-    filename = f"{task_name}_reference.json"
-    json.dump(ref_dict, open(f"./data/{filename}", "w"), indent=4)
-    print(f"Saved {task_name} reference to {filename}")
-elif normalize_method == "mean_std":
-    labels = [atoms.info[task_name] for atoms in atoms_list]
-    mean = np.mean(labels)
-    std = np.std(labels)
-    filename = f"{task_name}_mean_std.json"
-    json.dump({"mean": mean, "std": std}, open(f"./data/{filename}", "w"), indent=4)
-    print(f"Saved {task_name} mean_std to {filename}")
-elif normalize_method == "rms":
-    labels = [atoms.info[task_name] for atoms in atoms_list]
-    rms = np.sqrt(np.mean(np.square(labels)))
-    filename = f"{task_name}_rms.json"
-    json.dump({"rms": rms}, open(f"./data/{filename}", "w"), indent=4)
-    print(f"Saved {task_name} rms to {filename}")
-else:
-    raise ValueError("Invalid normalization method")
+        ref_dict = compute_per_atom_references(
+            dataset=dataset,
+            property=MC.GraphPropertyConfig(
+                loss=MC.MAELossConfig(),
+                loss_coefficient=1.0,
+                reduction="mean",
+                name=task_name,
+                dtype="float",
+            ),
+            reference_model="ridge",
+        )
+
+        filename = f"{task_name}_reference.json"
+        json.dump(ref_dict, open(f"./data/{filename}", "w"), indent=4)
+        print(f"Saved {task_name} reference to {filename}")
+    elif normalize_method == "mean_std":
+        labels = [atoms.info[task_name] for atoms in atoms_list]
+        mean = np.mean(labels)
+        std = np.std(labels)
+        filename = f"{task_name}_mean_std.json"
+        json.dump({"mean": mean, "std": std}, open(f"./data/{filename}", "w"), indent=4)
+        print(f"Saved {task_name} mean_std to {filename}")
+    elif normalize_method == "rms":
+        labels = [atoms.info[task_name] for atoms in atoms_list]
+        rms = np.sqrt(np.mean(np.square(labels)))
+        filename = f"{task_name}_rms.json"
+        json.dump({"rms": rms}, open(f"./data/{filename}", "w"), indent=4)
+        print(f"Saved {task_name} rms to {filename}")
+    else:
+        raise ValueError("Invalid normalization method")
