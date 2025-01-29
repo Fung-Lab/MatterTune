@@ -226,3 +226,4 @@ examples/matbench/data/
 bfg.jar
 .dir2textignore
 docs/_autosummary/
+contents/

@@ -2,26 +2,37 @@
 # Source the conda.sh script to enable 'conda' command
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
-# conda activate orb-tune
-# python matbenchmark.py --model_type orb --batch_size 96 --normalize_method reference --fold_index 0
+list_of_tasks=(
+    # "matbench_dielectric"
+    "matbench_jdft2d"
+    "matbench_log_gvrh"
+    "matbench_log_kvrh"
+    "matbench_perovskites"
+    "matbench_phonons"
+    "matbench_mp_e_form"
+    "matbench_mp_gap"
+)
 
-conda activate jmp-tune
-python matbenchmark-foldx.py --model_type jmp --batch_size 4 --normalize_method none --devices 0 1 2 3 4 5 6 7
+model_type="jmp"
+fold_index=0
+train_split=0.9
+batch_size=4
+max_epochs=500
+normalize_method="none"
+property_reduction="mean"
 
-# conda activate eqv2-tune
-# python matbenchmark.py --model_type eqv2 --batch_size 8
+conda activate $model_type-tune
 
-
-# # Plot Y-Distribution
-# conda activate jmp-tune
-# python y_distribution.py --task matbench_mp_gap --normalize_method reference
-# python y_distribution.py --task matbench_mp_gap --normalize_method mean_std
-# python y_distribution.py --task matbench_mp_gap --normalize_method rms
-
-# python y_distribution.py --task matbench_log_kvrh --normalize_method reference
-# python y_distribution.py --task matbench_log_kvrh --normalize_method mean_std
-# python y_distribution.py --task matbench_log_kvrh --normalize_method rms
-
-# python y_distribution.py --task matbench_perovskites --normalize_method reference
-# python y_distribution.py --task matbench_perovskites --normalize_method mean_std
-# python y_distribution.py --task matbench_perovskites --normalize_method rms
+for task_name in "${list_of_tasks[@]}"; do
+    python matbenchmark-foldx.py \
+        --model_type $model_type \
+        --fold_index $fold_index \
+        --task $task_name \
+        --train_split $train_split \
+        --batch_size $batch_size \
+        --max_epochs $max_epochs \
+        --normalize_method $normalize_method \
+        --property_reduction $property_reduction \
+        --devices 0 1 2 3 4 5 6 7 \
+        --load_best_ckpt
+done
