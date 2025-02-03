@@ -3,20 +3,20 @@
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
 list_of_tasks=(
-    "matbench_dielectric"
-    "matbench_jdft2d"
-    "matbench_log_gvrh"
-    "matbench_log_kvrh"
-    "matbench_perovskites"
+    # "matbench_dielectric"
+    # "matbench_jdft2d"
+    # "matbench_log_gvrh"
+    # "matbench_log_kvrh"
+    # "matbench_perovskites"
     "matbench_phonons"
     "matbench_mp_e_form"
     "matbench_mp_gap"
 )
 
-model_type="eqv2"
+model_type="orb"
 fold_index=0
 train_split=0.9
-batch_size=4
+batch_size=64
 max_epochs=500
 normalize_method="none"
 property_reduction="mean"
@@ -33,6 +33,6 @@ for task_name in "${list_of_tasks[@]}"; do
         --max_epochs $max_epochs \
         --normalize_method $normalize_method \
         --property_reduction $property_reduction \
-        --devices 0 1 2 3 4 5 \
+        --devices 0 1 \
         --load_best_ckpt
 done

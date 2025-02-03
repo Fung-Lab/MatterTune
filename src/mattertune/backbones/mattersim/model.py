@@ -198,30 +198,29 @@ class MatterSimM3GNetBackboneModule(
 
         input = batch_to_dict(batch)
         if mode == "train":
-            output_pred = self.backbone(
+            output = self.backbone(
                 input,
                 include_forces=self.calc_forces,
                 include_stresses=self.calc_stress,
+                return_intermediate=return_backbone_output,
             )
         else:
             with self.backbone.ema.average_parameters():
-                output_pred = self.backbone(
+                output = self.backbone(
                     input,
                     include_forces=self.calc_forces,
                     include_stresses=self.calc_stress,
+                    return_intermediate=return_backbone_output,
                 )
-        output_pred[self.energy_prop_name] = output_pred.get(
-            "total_energy", torch.zeros(1)
-        )
+        output_pred = {}
+        output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))
         if self.calc_forces:
-            output_pred[self.forces_prop_name] = output_pred.get("forces")
+            output_pred[self.forces_prop_name] = output.get("forces")
         if self.calc_stress:
-            output_pred[self.stress_prop_name] = output_pred.get("stresses") * GPa
+            output_pred[self.stress_prop_name] = output.get("stresses") * GPa
         pred: ModelOutput = {"predicted_properties": output_pred}
         if return_backbone_output:
-            raise NotImplementedError(
-                "return_backbone_output is not implemented for MatterSim-M3GNet"
-            )
+            pred["backbone_output"] = output["intermediate"]
         return pred
 
     @override

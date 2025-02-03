@@ -94,14 +94,14 @@ def main(args_dict: dict):
     plt.subplot(1, 2, 2)
     plt.hist(normalized_values.numpy(), bins=100, color="red", alpha=0.5)
     plt.title("Normalized Distribution")
-    plt.savefig(f"{args_dict['task']}_{normalize_method}_distribution.png")
+    plt.savefig(f"./y_distribution_plots/{args_dict['task']}_{normalize_method}_distribution.png")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="matbench_log_kvrh")
+    parser.add_argument("--task", type=str, default="matbench_mp_e_form")
     parser.add_argument("--normalize_method", type=str, default="reference")
     args = parser.parse_args()
 
