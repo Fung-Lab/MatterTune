@@ -36,6 +36,14 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+MODEL_URLS = {
+    "jmp-s": "https://jmp-iclr-datasets.s3.amazonaws.com/jmp-s.pt",
+    "jmp-l": "https://jmp-iclr-datasets.s3.amazonaws.com/jmp-l.pt",
+}
+CACHE_DIR = Path(torch.hub.get_dir()) / "jmp_checkpoints"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 class CutoffsConfig(C.Config):
     main: float
     aeaint: float
@@ -110,8 +118,8 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
     name: Literal["jmp"] = "jmp"
     """The type of the backbone."""
 
-    ckpt_path: Path | CE.CachedPath
-    """The path to the pre-trained model checkpoint."""
+    pretrained_model: str
+    """pretrained model name"""
 
     graph_computer: JMPGraphComputerConfig
     """The configuration for the graph computer."""
@@ -225,14 +233,29 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     def create_model(self):
         # Resolve the checkpoint path
-        if isinstance(ckpt_path := self.hparams.ckpt_path, CE.CachedPath):
-            ckpt_path = ckpt_path.resolve()
+        pretrained_model = self.hparams.pretrained_model
+        if pretrained_model in MODEL_URLS:
+            cached_ckpt_path = CACHE_DIR / f"{pretrained_model}.pt"
+            if not cached_ckpt_path.exists():
+                log.info(
+                    f"Downloading the pretrained model from {MODEL_URLS[pretrained_model]}"
+                )
+                torch.hub.download_url_to_file(
+                    MODEL_URLS[pretrained_model], str(cached_ckpt_path)
+                )
+            ckpt_path = cached_ckpt_path
+        else:
+            ckpt_path = None
+            raise ValueError(
+                f"Unknown pretrained model: {pretrained_model}, available models: {MODEL_URLS.keys()}"
+            )
 
         # Load the backbone from the checkpoint
         with optional_import_error_message("jmp"):
             from jmp.models.gemnet import GemNetOCBackbone  # type: ignore[reportMissingImports] # noqa
             from jmp.models.gemnet.graph import GraphComputer  # type: ignore[reportMissingImports] # noqa
 
+        assert ckpt_path is not None
         self.backbone = GemNetOCBackbone.from_pretrained_ckpt(ckpt_path)
         log.info(
             f"Loaded the model from the checkpoint at {ckpt_path}. The model "
@@ -277,7 +300,12 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     @override
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
-        backbone_output = self.backbone(batch)
+        if return_backbone_output:
+            backbone_output, intermediate = self.backbone(
+                batch, return_intermediate=True
+            )
+        else:
+            backbone_output = self.backbone(batch)
 
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
@@ -295,7 +323,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         pred: ModelOutput = {"predicted_properties": predicted_properties}
         if return_backbone_output:
-            pred["backbone_output"] = backbone_output
+            pred["backbone_output"] = dict(backbone_output).update(intermediate)
         return pred
 
     @override

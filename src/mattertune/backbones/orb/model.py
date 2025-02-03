@@ -107,9 +107,9 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
 
-        assert isinstance(
-            pretrained_model, GraphRegressor
-        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
+        assert isinstance(pretrained_model, GraphRegressor), (
+            f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
+        )
         match prop:
             case props.EnergyPropertyConfig():
                 with optional_import_error_message("orb-models"):
@@ -260,9 +260,9 @@ class ORBBackboneModule(
         assert pretrained_model is not None, "The pretrained model is not available"
 
         # This should be a `GraphRegressor` object, so we need to extract the backbone.
-        assert isinstance(
-            pretrained_model, GraphRegressor
-        ), f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
+        assert isinstance(pretrained_model, GraphRegressor), (
+            f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
+        )
         backbone = pretrained_model.model
 
         # By default, ORB runs the `load_model_for_inference` function on the model,
@@ -283,9 +283,9 @@ class ORBBackboneModule(
         self.output_heads = nn.ModuleDict()
         for prop in self.hparams.properties:
             head = self._create_output_head(prop, pretrained_model)
-            assert (
-                head is not None
-            ), f"Find the head for the property {prop.name} is None"
+            assert head is not None, (
+                f"Find the head for the property {prop.name} is None"
+            )
             self.output_heads[prop.name] = head
 
     @override
@@ -303,7 +303,14 @@ class ORBBackboneModule(
     @override
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
-        batch = cast("AtomGraphs", self.backbone(batch))
+        if return_backbone_output:
+            batch, intermediate = self.backbone(batch, return_intermediate=True)
+        else:
+            batch = self.backbone(batch)
+        batch = cast("AtomGraphs", batch)
+        
+        # merge the node and feature features
+        
 
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
@@ -341,7 +348,8 @@ class ORBBackboneModule(
             with optional_import_error_message("orb-models"):
                 from orb_models.forcefield.gns import _KEY  # type: ignore[reportMissingImports] # noqa
 
-            pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
+            # pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
+            pred_dict["backbone_output"] = intermediate
 
         return pred_dict
 

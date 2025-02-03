@@ -44,9 +44,7 @@ def main(args_dict: dict):
             hparams.model = MC.JMPBackboneConfig.draft()
             hparams.model.graph_computer = MC.JMPGraphComputerConfig.draft()
             hparams.model.graph_computer.pbc = True
-            hparams.model.ckpt_path = Path(
-                "/net/csefiles/coc-fung-cluster/lingyu/checkpoints/jmp-s.pt"
-            )
+            hparams.model.pretrained_model = "jmp-s"
         elif args_dict["model_type"] == "orb":
             hparams.model = MC.ORBBackboneConfig.draft()
             hparams.model.pretrained_model = "orb-v2"
@@ -101,16 +99,6 @@ def main(args_dict: dict):
             hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
                 T_max=args_dict["max_epochs"], eta_min=1.0e-8
             )
-        elif args_dict["lr_scheduler"] == "warmup-cosine":
-            hparams.model.lr_scheduler = [
-                MC.LinearLRConfig(
-                    start_factor=1e-1,
-                    total_iters=4776 * 5,
-                ),
-                MC.CosineAnnealingLRConfig(
-                    T_max=args_dict["max_epochs"] - 5, eta_min=1.0e-8
-                ),
-            ]
         elif args_dict["lr_scheduler"] == "rlp":
             hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
                 mode="min",
@@ -201,7 +189,7 @@ def main(args_dict: dict):
             os.remove(ckpt_path)
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor=f"val/{args_dict['task']}_mae",
-            dirpath=f"./checkpoints-{args_dict['task']}",
+            dirpath=f"./checkpoints-test-{args_dict['task']}",
             filename=f"{args_dict['model_type']}-best-fold{fold_idx}",
             save_top_k=1,
             mode="min",
@@ -246,7 +234,7 @@ def main(args_dict: dict):
             atoms = adapter.get_atoms(structure)
             assert isinstance(atoms, ase.Atoms), "Expected an Atoms object"
             if properties is not None:
-                atoms.info[args_dict["task"]] = properties[i]
+                atoms.info[args_dict["task"]] = float(properties[i])
             atoms_list.append(atoms)
         return atoms_list
 
@@ -260,7 +248,7 @@ def main(args_dict: dict):
     torch.cuda.empty_cache()
     if args_dict["load_best_ckpt"]:
         if args_dict["model_type"] == "eqv2":
-            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
+            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path, map_location=f"cuda:{args_dict['devices'][0]}")
         elif args_dict["model_type"] == "jmp":
             model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
         elif args_dict["model_type"] == "orb":
@@ -332,7 +320,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--fold_index", type=int, default=0)
     parser.add_argument("--freeze_backbone", action="store_true")
-    parser.add_argument("--task", type=str, default="matbench_mp_gap")
+    parser.add_argument("--task", type=str, default="matbench_dielectric")
     parser.add_argument("--property_reduction", type=str, default="mean")
     parser.add_argument("--normalize_method", type=str, default="none")
     parser.add_argument("--train_split", type=float, default=0.9)
