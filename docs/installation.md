@@ -47,7 +47,7 @@ pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"
 conda create -n eqv2-tune python=3.10
 conda activate eqv2-tune
 pip install "git+https://github.com/FAIR-Chem/fairchem.git@omat24#subdirectory=packages/fairchem-core" --no-deps
-pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pymatgen>=2023.10.3" submitit tensorboard "torch>=2.4" wandb torch_geometric h5py netcdf4 opt-einsum spglib
+pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pymatgen>=2023.10.3" submitit tensorboard "torch==2.5.0" wandb torch_geometric h5py netcdf4 opt-einsum spglib
 ```
 
 ### MatterSim
