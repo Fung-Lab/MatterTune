@@ -129,34 +129,9 @@ class ORBBackboneModule(
                         predict_atom_avg=True,
                     )
 
-                if not self.hparams.reset_output_heads:
-                    return pretrained_model.graph_head
-                else:
-                    return EnergyHead(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target="energy",
-                        node_aggregation="mean",
-                        reference_energy_name="vasp-shifted",
-                        train_reference=True,
-                        predict_atom_avg=True,
-                    )
-
             case props.ForcesPropertyConfig(conservative=False):
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import NodeHead  # type: ignore[reportMissingImports] # noqa
-
-                if not self.hparams.reset_output_heads:
-                    return pretrained_model.node_head
-                else:
-                    return NodeHead(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target="forces",
-                        remove_mean=True,
-                    )
 
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.node_head
@@ -173,16 +148,6 @@ class ORBBackboneModule(
                 with optional_import_error_message("orb-models"):
                     from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
 
-                if not self.hparams.reset_output_heads:
-                    return pretrained_model.stress_head
-                else:
-                    return GraphHead(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target="stress",
-                        compute_stress=True,
-                    )
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.stress_head
                 else:

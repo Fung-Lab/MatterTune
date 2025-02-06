@@ -12,6 +12,7 @@ import nshconfig_extra as CE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.distributed as dist
 from typing_extensions import assert_never, final, override
 
 from ...finetune import properties as props

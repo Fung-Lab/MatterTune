@@ -34,5 +34,17 @@ for task_name in "${list_of_tasks[@]}"; do
         --normalize_method $normalize_method \
         --property_reduction $property_reduction \
         --devices 0 1 2 3 4 5 \
-        --load_best_ckpt
+        --skip_inference 
+    
+    python matbenchmark-foldx.py \
+        --model_type $model_type \
+        --fold_index $fold_index \
+        --task $task_name \
+        --train_split $train_split \
+        --batch_size $batch_size \
+        --max_epochs $max_epochs \
+        --normalize_method $normalize_method \
+        --property_reduction $property_reduction \
+        --devices 0 1 2 3 4 5 \
+        --skip_tuning
 done
