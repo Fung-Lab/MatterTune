@@ -177,8 +177,8 @@ def parse_relaxed_atoms_list(
 
 SETTINGS = {
     "eqv2" : {
-        "optimizer": LBFGS,
-        "filter": None,
+        "optimizer": FIRE,
+        "filter": FrechetCellFilter,
         "fmax": 0.02,
         "steps": 500,
     },
