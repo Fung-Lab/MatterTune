@@ -7,11 +7,12 @@ list_of_models=(
 )
 
 save_dir="./results"
+step_size=2500
 
 for model in "${list_of_models[@]}"; do
     l_idx=0
     while [ $l_idx -lt 260000 ]; do
-        r_idx=$((l_idx + 2500))
+        r_idx=$((l_idx + step_size))
         job_file="mb-discovery-${model}-${l_idx}-${r_idx}.sh"
         cat <<EOF > $job_file
 #!/bin/bash
@@ -39,6 +40,6 @@ EOF
 
         sbatch $job_file
         echo "Submitted job: $job_file"
-        l_idx=$((l_idx + 2500))
+        l_idx=$((l_idx + step_size))
     done
 done
