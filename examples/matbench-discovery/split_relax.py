@@ -178,7 +178,7 @@ def parse_relaxed_atoms_list(
 SETTINGS = {
     "eqv2" : {
         "optimizer": FIRE,
-        "filter": ExpCellFilter,
+        "filter": None,
         "fmax": 0.02,
         "steps": 500,
     },
