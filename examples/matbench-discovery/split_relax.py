@@ -43,23 +43,18 @@ def load_model_to_calculator(
     if "eqv2" in model_type:
         model_config = MC.EqV2BackboneConfig.draft()
         model_config.checkpoint_path = Path(
-            "/net/csefiles/coc-fung-cluster/nima/eqV2_dens_31M_mp.pt"
+            "./eqV2_dens_31M_mp.pt"
         )
         model_config.atoms_to_graph = MC.FAIRChemAtomsToGraphSystemConfig.draft()
         model_config.atoms_to_graph.radius = 8.0
         model_config.atoms_to_graph.max_num_neighbors = 20
     elif "orb" in model_type:
         model_config = MC.ORBBackboneConfig.draft()
-        model_config.pretrained_model = model_type
+        model_config.pretrained_model = "orb-v2"
     elif "mattersim" in model_type:
         model_config = MC.MatterSimBackboneConfig.draft()
         model_config.graph_convertor = MC.MatterSimGraphConvertorConfig.draft()
-        if model_type == "mattersim-1m":
-            model_config.pretrained_model = "MatterSim-v1.0.0-1M"
-        elif model_type == "mattersim-5m":
-            model_config.pretrained_model = "MatterSim-v1.0.0-5M"
-        else:
-            raise ValueError(f"Model type {model_type} not recognized")
+        model_config.pretrained_model = "MatterSim-v1.0.0-5M"
     else:
         raise ValueError(f"Model type {model_type} not recognized")
     model_config.ignore_gpu_batch_transform_error = True
@@ -219,7 +214,9 @@ def main(args_dict: dict):
     )
     total_length = len(init_wbm_atoms_list)
     rich.print(f"Found {total_length:,} initial structures")
-    l_idx, r_idx = args_dict["l_idx"], args_dict["r_idx"]
+    l_idx, r_idx = max(args_dict["l_idx"], 0), min(args_dict["r_idx"], total_length)
+    if l_idx >= total_length:
+        exit()
     init_wbm_atoms_list = init_wbm_atoms_list[l_idx:r_idx]
     rich.print(f"Processing structures {l_idx:,} to {r_idx:,}")
     
@@ -268,7 +265,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_type", type=str, default="eqv2")
     parser.add_argument("--l_idx", type=int, default=0)
-    parser.add_argument("--r_idx", type=int, default=300000)
+    parser.add_argument("--r_idx", type=int, default=260000)
     parser.add_argument("--device", type=int, default=2)
     parser.add_argument("--save_dir", type=str, default="/net/csefiles/coc-fung-cluster/lingyu/matbench-discovery")
     parser.add_argument("--show_log", action='store_true')
