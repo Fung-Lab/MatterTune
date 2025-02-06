@@ -43,7 +43,7 @@ def load_model_to_calculator(
     if "eqv2" in model_type:
         model_config = MC.EqV2BackboneConfig.draft()
         model_config.checkpoint_path = Path(
-            "./eqV2_dens_31M_mp.pt"
+            "./checkpoints/eqV2_dens_31M_mp.pt"
         )
         model_config.atoms_to_graph = MC.FAIRChemAtomsToGraphSystemConfig.draft()
         model_config.atoms_to_graph.radius = 8.0
@@ -177,8 +177,8 @@ def parse_relaxed_atoms_list(
 
 SETTINGS = {
     "eqv2" : {
-        "optimizer": LBFGS,
-        "filter": FrechetCellFilter,
+        "optimizer": FIRE,
+        "filter": ExpCellFilter,
         "fmax": 0.02,
         "steps": 500,
     },
