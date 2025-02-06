@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+import time
 
 import ase
 import nshutils as nu
@@ -189,7 +190,7 @@ def main(args_dict: dict):
             os.remove(ckpt_path)
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor=f"val/{args_dict['task']}_mae",
-            dirpath=f"./checkpoints-test-{args_dict['task']}",
+            dirpath=f"./checkpoints-{args_dict['task']}",
             filename=f"{args_dict['model_type']}-best-fold{fold_idx}",
             save_top_k=1,
             mode="min",
@@ -240,15 +241,22 @@ def main(args_dict: dict):
 
     fold_idx = args_dict["fold_index"]
     fold_i = task.folds[fold_idx]
-    inputs_data, outputs_data = task.get_train_and_val_data(fold_i)
-    atoms_list = data_convert(inputs_data, outputs_data)
-    mt_config, ckpt_path = hparams(atoms_list, fold_idx=fold_idx)
-    model, trainer = MatterTuner(mt_config).tune()
-    # clear torch cuda cache
-    torch.cuda.empty_cache()
+    if not args_dict["skip_tuning"]:
+        inputs_data, outputs_data = task.get_train_and_val_data(fold_i)
+        atoms_list = data_convert(inputs_data, outputs_data)
+        mt_config, ckpt_path = hparams(atoms_list, fold_idx=fold_idx)
+        model, trainer = MatterTuner(mt_config).tune()
+        time.sleep(5)
+        print(ckpt_path)
+        print(os.listdir(os.path.dirname(ckpt_path)))
+        # clear torch cuda cache
+        torch.cuda.empty_cache()
+    else:
+        args_dict["load_best_ckpt"] = True
+        ckpt_path = f"./checkpoints-{args_dict['task']}/{args_dict['model_type']}-best-fold{fold_idx}.ckpt"
     if args_dict["load_best_ckpt"]:
         if args_dict["model_type"] == "eqv2":
-            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path, map_location=f"cuda:{args_dict['devices'][0]}")
+            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
         elif args_dict["model_type"] == "jmp":
             model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
         elif args_dict["model_type"] == "orb":
@@ -258,56 +266,57 @@ def main(args_dict: dict):
                 "Invalid model type, please choose from 'eqv2', 'jmp', 'orb'."
             )
 
-    # rerain wandb
-    wandb.init(
-        project="MatterTune-Matbench-FoldX",
-        name=f"{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-{args_dict['normalize_method']}",
-        config=args_dict,
-        resume="allow",
-    )
+    if not args_dict["skip_inference"]:
+        # rerain wandb
+        wandb.init(
+            project="MatterTune-Matbench-FoldX",
+            name=f"{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-{args_dict['normalize_method']}",
+            config=args_dict,
+            resume="allow",
+        )
 
-    predictor = model.property_predictor(
-        lightning_trainer_kwargs={
-            "accelerator": "gpu",
-            "devices": [args_dict["devices"][0]],
-            "precision": "bf16",
-            "inference_mode": False,
-            "enable_progress_bar": True,
-            "enable_model_summary": False,
-            "logger": False,
-            "barebones": False,
-        }
-    )
+        predictor = model.property_predictor( # type: ignore[attr-defined]
+            lightning_trainer_kwargs={
+                "accelerator": "gpu",
+                "devices": [args_dict["devices"][0]],
+                "precision": "bf16",
+                "inference_mode": False,
+                "enable_progress_bar": True,
+                "enable_model_summary": False,
+                "logger": False,
+                "barebones": False,
+            }
+        )
 
-    for idx, fold in enumerate(task.folds):
-        test_data = task.get_test_data(fold, include_target=False)
-        test_atoms_list = data_convert(test_data)
-        if idx == fold_idx:
-            model_outs = predictor.predict(
-                test_atoms_list,
-                batch_size=1,
-            )
-            pred_properties: list[float] = [
-                out[args_dict["task"]].item() for out in model_outs
-            ]
-            print(len(test_data))
-            print(len(pred_properties))
-        else:
-            pred_properties = [0.0] * len(test_data)
-        task.record(fold, pred_properties)
-    file_name = f"./results/{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-results.json.gz"
-    mb.to_file(file_name)
+        for idx, fold in enumerate(task.folds):
+            test_data = task.get_test_data(fold, include_target=False)
+            test_atoms_list = data_convert(test_data)
+            if idx == fold_idx:
+                model_outs = predictor.predict(
+                    test_atoms_list,
+                    batch_size=1,
+                )
+                pred_properties: list[float] = [
+                    out[args_dict["task"]].item() for out in model_outs
+                ]
+                print(len(test_data))
+                print(len(pred_properties))
+            else:
+                pred_properties = [0.0] * len(test_data)
+            task.record(fold, pred_properties)
+        file_name = f"./results/{args_dict['model_type']}-{args_dict['task']}-fold{fold_idx}-results.json.gz"
+        mb.to_file(file_name)
 
-    results = getattr(mb, args_dict["task"]).results
-    fold_x_scores = results["fold_" + str(fold_idx)]["scores"]
-    print(
-        f"============================= Results on Fold {fold_idx} ============================="
-    )
-    print(f"Fold {fold_idx} scores: {fold_x_scores}")
+        results = getattr(mb, args_dict["task"]).results
+        fold_x_scores = results["fold_" + str(fold_idx)]["scores"]
+        print(
+            f"============================= Results on Fold {fold_idx} ============================="
+        )
+        print(f"Fold {fold_idx} scores: {fold_x_scores}")
 
-    wandb.save(file_name)
-    wandb.save(ckpt_path)
-    wandb.finish()
+        wandb.save(ckpt_path)
+        wandb.save(file_name)
+        wandb.finish()
 
 
 if __name__ == "__main__":
@@ -336,6 +345,8 @@ if __name__ == "__main__":
     parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
     parser.add_argument("--ema_decay", type=float, default=0.99)
     parser.add_argument("--load_best_ckpt", action="store_true")
+    parser.add_argument("--skip_tuning", action="store_true")
+    parser.add_argument("--skip_inference", action="store_true")
     args = parser.parse_args()
     args_dict = vars(args)
 

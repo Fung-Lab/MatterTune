@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import time
+import rich
 
 import ase
 import pandas as pd
+import numpy as np
 from ase.constraints import ExpCellFilter
 from ase.optimize import FIRE
 from matbench_discovery import today
 from matbench_discovery.data import DataFiles, ase_atoms_from_zip
 from matbench_discovery.energy import get_e_form_per_atom
+from matbench_discovery.enums import MbdKey
+from matbench_discovery.metrics.discovery import stable_metrics
 from pymatgen.entries.compatibility import MaterialsProject2020Compatibility
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.io.ase import AseAtomsAdaptor
@@ -116,7 +121,7 @@ def relax_atoms_list(
 def parse_relaxed_atoms_list_as_df(
     atoms_list: list[ase.Atoms], *, keep_unconverged: bool = True
 ) -> pd.DataFrame:
-    e_form_col = "e_form_per_atom_mattersim"
+    e_form_col = "e_form_per_atom"
 
     wbm_cse_paths = DataFiles.wbm_computed_structure_entries.path
     df_cse = pd.read_json(wbm_cse_paths).set_index(Key.mat_id)
@@ -141,7 +146,6 @@ def parse_relaxed_atoms_list_as_df(
 
         processed = MaterialsProject2020Compatibility(check_potcar=False).process_entry(
             cse,  # type: ignore
-            verbose=False,
             clean=True,
         )
         corrected_energy = processed.energy if processed is not None else energy
@@ -173,7 +177,7 @@ def parse_relaxed_atoms_list_as_df(
             Key.mat_id: mat_id_list,
             "converged": converged_list,
             e_form_col: e_form_list,
-            "mattersim_energy": energy_list,
+            "model_energy": energy_list,
             "corrected_energy": corrected_energy_list,
         }
     )
@@ -187,21 +191,39 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=int, default=0)
     args = parser.parse_args()
     args_dict = vars(args)
-
+    
+    # Load the model and get the calculator
     calculator = load_model_to_calculator(
         model_type=args_dict["model_type"],
         device=args_dict["device"],
     )
-
+    # Load the initial structures
     init_wbm_atoms_list: list[ase.Atoms] = ase_atoms_from_zip(
         DataFiles.wbm_initial_atoms.path
     )
-
+    init_wbm_atoms_list = init_wbm_atoms_list[:2]
+    # Relax
+    start_time = time.time()
     relaxed_atoms_list = relax_atoms_list(
         atoms_list=init_wbm_atoms_list,
         calculator=calculator,
     )
+    end_time = time.time() - start_time
+    print(f"Relaxation took {end_time:.2f} seconds")
 
-    parse_relaxed_atoms_list_as_df(relaxed_atoms_list).to_csv(
-        f"{today}-{args_dict['model_type']}-wbm-IS2RE.csv.gz"
-    )
+    # Results analysis
+    result_df = parse_relaxed_atoms_list_as_df(relaxed_atoms_list)
+    e_form_pred = np.array(result_df["e_form_per_atom"])
+    df_wbm = pd.read_csv(DataFiles.wbm_summary.path)
+    e_form_true = np.array(df_wbm[MbdKey.e_form_dft.label])
+    e_hull_true = np.array(df_wbm[MbdKey.each_true.label])
+    e_hull_pred = e_hull_true + e_form_pred - e_form_true
+    e_hull_pred = e_hull_pred.tolist()
+    e_hull_true = e_hull_true.tolist()
+    
+    rich.print(stable_metrics(e_hull_true, e_hull_pred))
+    
+    # result_df.to_csv(
+    #     f"{today}-{args_dict['model_type']}-wbm-IS2RE.csv.gz"
+    # )
+    
