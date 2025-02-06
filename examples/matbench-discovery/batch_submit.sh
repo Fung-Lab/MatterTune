@@ -25,8 +25,8 @@ for model in "${list_of_models[@]}"; do
 #SBATCH -C gpu&hbm40g
 #SBATCH -A m4555_g
 
-module load python  # 加载 Python 模块
-conda activate ${model}-tune  # 激活环境
+module load python
+conda activate ${model}-mbd
 
 # 使用 Slurm 自动分配任务
 srun python split_relax.py \\
