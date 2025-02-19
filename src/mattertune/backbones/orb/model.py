@@ -315,7 +315,7 @@ class ORBBackboneModule(
         #   PR: https://github.com/orbital-materials/orb-models/pull/35
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
-            self.hparams.system._to_orb_system_config(),
+            system_config = self.hparams.system._to_orb_system_config(),
             device=torch.device("cpu"),
         )
 
