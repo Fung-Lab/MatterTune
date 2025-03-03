@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
+import copy
 
 import ase
 import torch
@@ -205,3 +206,36 @@ def _atoms_list_to_dataloader(
         num_workers=0,
     )
     return dataloader
+
+class MatterTuneInternalFeaturePredictor(MatterTunePropertyPredictor):
+    @override
+    def __init__(
+        self,
+        lightning_module: FinetuneModuleBase[Any, Any, FinetuneModuleBaseConfig],
+        lightning_trainer_kwargs: dict[str, Any] | None = None,
+    ):
+        lightning_module = copy.deepcopy(lightning_module)
+        lightning_module.predict_mode = "internal_feature"
+        super().__init__(lightning_module, lightning_trainer_kwargs)
+        
+    @override
+    def predict(
+        self,
+        atoms_list: list[ase.Atoms],
+        properties: Sequence[str | PropertyConfig] | None = None,
+        *,
+        batch_size: int = 1,
+    ) -> list[dict[str, torch.Tensor]]:
+        
+        trainer = _create_trainer(self._lightning_trainer_kwargs, self.lightning_module)
+
+        dataloader = _atoms_list_to_dataloader(
+            atoms_list, self.lightning_module, batch_size
+        )
+
+        internal_features = trainer.predict(
+            self.lightning_module, dataloader, return_predictions=True
+        )
+        assert internal_features is not None, "Internal_features should not be None. Report a bug."
+        internal_features = cast(list[dict[str, torch.Tensor]], internal_features)
+        return internal_features

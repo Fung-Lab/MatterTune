@@ -21,17 +21,17 @@ def data_convert(structures, properties, task_name: str):
 
 
 tasks = [
-    "matbench_dielectric",
-    "matbench_log_kvrh",
-    "matbench_log_gvrh",
-    "matbench_perovskites",
-    "matbench_mp_gap",
+    # "matbench_dielectric",
+    # "matbench_log_kvrh",
+    # "matbench_log_gvrh",
+    # "matbench_perovskites",
+    # "matbench_mp_gap",
     "matbench_mp_e_form",
-    "matbench_phonons",
-    "matbench_jdft2d",
+    # "matbench_phonons",
+    # "matbench_jdft2d",
 ]
 
-normalize_method = "mean_std"  ## "reference" or "mean_std" or "rms"
+normalize_method = "reference"  ## "reference" or "mean_std" or "rms"
 
 for task_name in tasks:
     mb = MatbenchBenchmark(autoload=False, subset=[task_name])

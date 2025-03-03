@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
-from collections.abc import Iterable
+from collections.abc import Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -28,6 +28,7 @@ from ...normalization import NormalizationContext
 from ...registry import backbone_registry
 from ...util import optional_import_error_message
 from .util import get_activation_cls
+from ...finetune.optimizer import PerParamHparamsDict
 
 if TYPE_CHECKING:
     from torch_geometric.data import Batch, Data  # type: ignore[reportMissingImports] # noqa
@@ -323,7 +324,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         pred: ModelOutput = {"predicted_properties": predicted_properties}
         if return_backbone_output:
-            pred["backbone_output"] = dict(backbone_output).update(intermediate)
+            pred["backbone_output"] = intermediate # type: ignore[assignment]
         return pred
 
     @override
@@ -446,3 +447,86 @@ def _get_fixed(atoms: Atoms):
         fixed[constraint.index] = True
 
     return fixed
+
+
+def get_jmp_s_lr_decay(lr: float):
+    per_parameter_hparams = [
+        {
+            "patterns": ["embedding.*"],
+            "hparams": {
+                "lr": 0.3 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.0.*"],
+            "hparams": {
+                "lr": 0.3 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.1.*"],
+            "hparams": {
+                "lr": 0.4 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.2.*"],
+            "hparams": {
+                "lr": 0.55 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.3.*"],
+            "hparams": {
+                "lr": 0.625 * lr,
+            },
+        },
+    ]
+    return cast(Sequence[PerParamHparamsDict], per_parameter_hparams)
+
+def get_jmp_l_lr_decay(lr: float):
+    per_parameter_hparams = [
+        {
+            "patterns": ["embedding.*"],
+            "hparams": {
+                "lr": 0.3 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.0.*"],
+            "hparams": {
+                "lr": 0.55 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.1.*"],
+            "hparams": {
+                "lr": 0.4 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.2.*"],
+            "hparams": {
+                "lr": 0.3 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.3.*"],
+            "hparams": {
+                "lr": 0.4 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.4.*"],
+            "hparams": {
+                "lr": 0.55 * lr,
+            },
+        },
+        {
+            "patterns": ["int_blocks.5.*"],
+            "hparams": {
+                "lr": 0.625 * lr,
+            },
+        },
+    ]
+    return cast(Sequence[PerParamHparamsDict], per_parameter_hparams)

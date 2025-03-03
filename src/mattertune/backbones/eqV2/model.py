@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import nshconfig as C
 import nshconfig_extra as CE
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -99,7 +100,7 @@ def _combine_scalar_irrep2(stress_head, scalar, irrep2):
     return stress
 
 
-def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
+def _get_pretrained_model(hparams: EqV2BackboneConfig):
     with optional_import_error_message("fairchem"):
         from fairchem.core.common.registry import registry  # type: ignore[reportMissingImports] # noqa
         from fairchem.core.common.utils import update_config  # type: ignore[reportMissingImports] # noqa
@@ -177,18 +178,11 @@ def _get_pretrained_model(hparams: EqV2BackboneConfig) -> nn.Module:
     assert isinstance(model, cast(type, HydraModel)), (
         f"Expected model to be of type HydraModel, but got {type(model)}"
     )
+    
+    normalizers = trainer.normalizers
+    elementrefs = trainer.elementrefs
 
-    return model
-
-    return model
-
-    from fairchem.core.models.equiformer_v2.equiformer_v2 import EquiformerV2Backbone  # type: ignore[reportMissingImports] # noqa
-
-    assert isinstance(backbone := model.backbone, cast(type, EquiformerV2Backbone)), (
-        f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
-    )
-
-    return backbone
+    return model, normalizers, elementrefs
 
 
 @final
@@ -219,10 +213,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     return EquiformerV2EnergyHead(self.backbone, reduce="sum")
                 else:
                     return pretrained_model.output_heads["energy"]
-                if self.hparams.reset_output_heads:
-                    return EquiformerV2EnergyHead(self.backbone, reduce="sum")
-                else:
-                    return pretrained_model.output_heads["energy"]
+
             case props.ForcesPropertyConfig():
                 assert not prop.conservative, (
                     "Conservative forces are not supported for eqV2 (yet)"
@@ -236,10 +227,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     return EquiformerV2ForceHead(self.backbone)
                 else:
                     return pretrained_model.output_heads["forces"]
-                if self.hparams.reset_output_heads:
-                    return EquiformerV2ForceHead(self.backbone)
-                else:
-                    return pretrained_model.output_heads["forces"]
+
             case props.StressesPropertyConfig():
                 assert not prop.conservative, (
                     "Conservative stresses are not supported for eqV2 (yet)"
@@ -260,16 +248,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
                     )
                 else:
                     return pretrained_model.output_heads["stress"]
-                if self.hparams.reset_output_heads:
-                    return Rank2SymmetricTensorHead(
-                        self.backbone,
-                        output_name="stress",
-                        use_source_target_embedding=True,
-                        decompose=True,
-                        extensive=False,
-                    )
-                else:
-                    return pretrained_model.output_heads["stress"]
+
             case props.GraphPropertyConfig():
                 assert prop.reduction in ("sum", "mean"), (
                     f"Unsupported reduction: {prop.reduction} for eqV2. "
@@ -297,7 +276,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         )
 
         # Get the pre-trained backbone
-        pretrained_model = _get_pretrained_model(self.hparams)
+        pretrained_model, normalizers, elementrefs = _get_pretrained_model(self.hparams)
 
         assert isinstance(
             backbone := pretrained_model.backbone, cast(type, EquiformerV2Backbone)
@@ -305,14 +284,17 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
             f"Expected backbone to be of type EquiformerV2Backbone, but got {type(backbone)}"
         )
 
-        self.backbone = backbone
+        self.backbone = backbone.float()
+        if self.hparams.use_pretrained_normalizers:
+            self.pretrained_normalizers = nn.ModuleDict(normalizers)
+            self.pretrained_elementrefs = nn.ModuleDict(elementrefs)
 
         # Create the output heads
         self.output_heads = nn.ModuleDict()
         for prop in self.hparams.properties:
             self.output_heads[prop.name] = self._create_output_head(
                 prop, pretrained_model
-            )
+            ).float()
 
     @override
     def trainable_parameters(self):
@@ -329,6 +311,8 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     @override
     def model_forward(self, batch, mode: str, return_backbone_output=False):
         # Run the backbone
+        if mode == "predict":
+            self.eval()
         emb = self.backbone(batch)
 
         # Feed the backbone output to the output heads
@@ -347,13 +331,26 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
             match prop:
                 case props.EnergyPropertyConfig():
-                    pred = head_output["energy"]
+                    pred = head_output["energy"].view(-1, 1)
+                    if self.hparams.use_pretrained_normalizers:
+                        pred = self.pretrained_normalizers["energy"](pred)
+                    pred = pred.squeeze(-1)
                 case props.ForcesPropertyConfig():
                     pred = head_output["forces"]
+                    if self.hparams.use_pretrained_normalizers:
+                        pred = self.pretrained_normalizers["forces"](pred)
                 case props.StressesPropertyConfig():
                     # Convert the stress tensor to the full 3x3 form
                     stress_rank0 = head_output["stress_isotropic"]  # (bsz 1)
+                    if self.hparams.use_pretrained_normalizers:
+                        stress_rank0 = self.pretrained_normalizers["stress_isotropic"](
+                            stress_rank0
+                        )
                     stress_rank2 = head_output["stress_anisotropic"]  # (bsz, 5)
+                    if self.hparams.use_pretrained_normalizers:
+                        stress_rank2 = self.pretrained_normalizers["stress_anisotropic"](
+                            stress_rank2
+                        )
                     pred = _combine_scalar_irrep2(head, stress_rank0, stress_rank2)
                 case props.GraphPropertyConfig():
                     pred = head_output["energy"]
@@ -364,7 +361,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
         pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
         if return_backbone_output:
-            pred_dict["backbone_output"] = emb
+            pred_dict["backbone_output"] = {"node_embedding": emb["node_embedding"].embedding}
+            
+        if mode == "predict":
+            self.train()
 
         return pred_dict
 
@@ -466,8 +466,11 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         if hasattr(data, "cell"):
             data.cell = data.cell.reshape(1, 3, 3)
         if hasattr(data, "stress"):
-            data.stress = data.stress.reshape(1, 3, 3)
-
+            data.stress = data.stress.reshape(1, 3, 3).float()
+        if hasattr(data, "energy"):
+            data.energy = torch.tensor(float(data.energy), dtype=torch.float32)
+        if hasattr(data, "forces"):
+            data.forces = data.forces.float()
         return data
 
     @override

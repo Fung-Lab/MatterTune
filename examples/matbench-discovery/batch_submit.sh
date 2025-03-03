@@ -8,6 +8,7 @@ list_of_models=(
 
 save_dir="./results"
 step_size=2500
+n_jobs=50
 
 for model in "${list_of_models[@]}"; do
     l_idx=0
@@ -20,7 +21,7 @@ for model in "${list_of_models[@]}"; do
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=${n_jobs}
 #SBATCH --qos=regular
 #SBATCH --time=48:00:00
 #SBATCH -C gpu&hbm40g
