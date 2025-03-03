@@ -8,6 +8,7 @@ import numpy as np
 from ase import Atoms
 from ase.io import read
 from scipy.ndimage import gaussian_filter1d
+from tqdm import tqdm
 
 
 def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None):
@@ -39,7 +40,7 @@ def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None):
         density = num_atoms / volume
 
     hist, bin_edges = np.histogram(distances, range=(0, r_max), bins=n_bins)
-    rdf_x = 0.5 * (bin_edges[1:] + bin_edges[:-1])
+    rdf_x = 0.5 * (bin_edges[1:] + bin_edges[:-1]) + 0.5 * r_max / n_bins
     bin_volume = (4 / 3) * np.pi * (bin_edges[1:] ** 3 - bin_edges[:-1] ** 3)
     num_species = len(set(elements)) if elements is not None else 1
     rdf_y = hist / (bin_volume * density * num_atoms) / num_species
@@ -59,7 +60,7 @@ def main(args_dict: dict):
     if not args_dict["load"]:
         rdf_ys = []
         rdf_xs = []
-        for atoms in md_traj:
+        for atoms in tqdm(md_traj):
             rdf = rdf_compute(atoms, r_max, n_bins, elements)
             rdf_ys.append(rdf[0, 0])
             rdf_xs.append(rdf[0, 1])
@@ -186,7 +187,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--md_traj",
         type=str,
-        default="./md_results/water_MatterSim-v1.0.0-1M-bestTrue0.9_NPT.xyz",
+        default="/net/csefiles/coc-fung-cluster/lingyu/water_md/water_orb-v2-best-30-refill_NPT.xyz",
     )
     parser.add_argument("--n_frames", type=int, default=150000)
     parser.add_argument("--r_max", type=float, default=6.0)

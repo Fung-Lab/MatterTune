@@ -10,6 +10,8 @@ import ase
 import ase.io as ase_io
 import pandas as pd
 import numpy as np
+import torch
+from ase.calculators.calculator import Calculator
 from ase.filters import Filter, FrechetCellFilter, UnitCellFilter, ExpCellFilter
 from ase.optimize import BFGS, FIRE, LBFGS
 from ase.optimize.optimize import Optimizer
@@ -17,37 +19,60 @@ from matbench_discovery.data import DataFiles, ase_atoms_from_zip
 from matbench_discovery.energy import get_e_form_per_atom
 from matbench_discovery.enums import MbdKey
 from matbench_discovery.metrics.discovery import stable_metrics
+from matbench_discovery.plots import wandb_scatter
 from pymatgen.entries.compatibility import MaterialsProject2020Compatibility
 from pymatgen.entries.computed_entries import ComputedStructureEntry
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatviz.enums import Key
 from tqdm import tqdm
+import multiprocessing
 import wandb
 
 import mattertune.configs as MC
 from mattertune.wrappers.ase_calculator import MatterTuneCalculator
 
+torch.set_float32_matmul_precision("high")
 
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 
 FILTER_CLS: dict = {"frechet": FrechetCellFilter, "unit": UnitCellFilter, "exp": ExpCellFilter}
 OPTIM_CLS: dict = {"FIRE": FIRE, "LBFGS": LBFGS, "BFGS": BFGS}
 
+SETTINGS = {
+    "eqv2" : {
+        "optimizer": "FIRE",
+        "filter": "exp",
+        "fmax": 0.02,
+        "steps": 500,
+    },
+    "orb" : {
+        "optimizer": "FIRE",
+        "filter": "exp",
+        "fmax": 0.02,
+        "steps": 500,
+    },
+    "mattersim" : {
+        "optimizer": "FIRE",
+        "filter": "exp",
+        "fmax": 0.02,
+        "steps": 500,
+    },
+}
+
 
 def load_model_to_calculator(
     model_type: str,
-    device: int,
 ):
     model_type = model_type.lower()
 
     if "eqv2" in model_type:
         model_config = MC.EqV2BackboneConfig.draft()
         model_config.checkpoint_path = Path(
-            "./checkpoints/eqV2_dens_31M_mp.pt"
+            "/net/csefiles/coc-fung-cluster/lingyu/checkpoints/eqV2_dens_31M_mp.pt"
         )
         model_config.atoms_to_graph = MC.FAIRChemAtomsToGraphSystemConfig.draft()
-        model_config.atoms_to_graph.radius = 8.0
-        model_config.atoms_to_graph.max_num_neighbors = 20
+        model_config.atoms_to_graph.radius = 6.0
+        model_config.atoms_to_graph.max_num_neighbors = 200
     elif "orb" in model_type:
         model_config = MC.ORBBackboneConfig.draft()
         model_config.pretrained_model = "orb-v2"
@@ -75,45 +100,42 @@ def load_model_to_calculator(
 
     model = model_config.create_model()
     calculator = model.ase_calculator(
-        lightning_trainer_kwargs={
-            "accelerator": "gpu",
-            "devices": [device],
-            "precision": "32" if "mattersim" in model_type else "bf16-mixed",
-            "inference_mode": False,
-            "enable_progress_bar": False,
-            "enable_model_summary": False,
-            "logger": False,
-            "barebones": True,
-        }
+        device=f"cuda:0",
+        intense=True,
     )
     return calculator
 
 def relax_atoms_list(
     atoms_list: list[ase.Atoms],
-    calculator: MatterTuneCalculator,
-    optimizer_cls: Optimizer,
-    filter_cls: Filter | None = None,
+    calculator: Calculator,
+    optimizer: str,
+    filter: str | None = None,
     fmax: float = 0.02,
-    steps: int = 500,
+    max_steps: int = 500,
 ):
     relaxed_atoms_list = []
-    pbar = tqdm(atoms_list, desc="Relaxing structures")
     for atoms in atoms_list:
+        time1 = time.time()
         assert type(atoms) == ase.Atoms
-        atoms.set_calculator(calculator)
-        if filter_cls is not None:
-            ecf = filter_cls(atoms) # type: ignore
+        atoms.calc = calculator
+        if filter is not None:
+            ecf = FILTER_CLS[filter](atoms) # type: ignore
         else:
             ecf = atoms
-        opt = optimizer_cls(ecf, logfile="-" if args_dict["show_log"] else None)  # type: ignore
-        opt.run(fmax=fmax, steps=steps)
-        if opt.get_number_of_steps() == steps:
+        optimizer_cls = OPTIM_CLS[optimizer]
+        opt = optimizer_cls(ecf, logfile="-")  # type: ignore
+        opt.run(fmax=fmax, steps=max_steps)
+        if opt.get_number_of_steps() == max_steps:
             atoms.info["converged"] = False
         else:
             atoms.info["converged"] = True
         relaxed_atoms_list.append(atoms)
-        pbar.update(1)
-    pbar.close()
+        time2 = time.time()
+        steps = opt.get_number_of_steps()
+        wandb.log({
+            "Relax time": time2 - time1,
+            "Number of steps": steps,
+        })
     return relaxed_atoms_list
 
 def parse_relaxed_atoms_list(
@@ -128,11 +150,12 @@ def parse_relaxed_atoms_list(
     ]
     df_wbm = pd.read_csv(DataFiles.wbm_summary.path)
     mat_id_to_eform = dict(zip(df_wbm["material_id"], df_wbm[MbdKey.e_form_dft]))
-    mat_id_tp_ehull = dict(zip(df_wbm["material_id"], df_wbm[MbdKey.each_true]))
+    mat_id_to_ehull = dict(zip(df_wbm["material_id"], df_wbm[MbdKey.each_true]))
+    mat_id_to_e = dict(zip(df_wbm["material_id"], df_wbm[MbdKey.dft_energy]))
 
     def parse_single_atoms(atoms: ase.Atoms):
         structure = AseAtomsAdaptor.get_structure(atoms)  # type: ignore
-        energy = atoms.get_potential_energy()
+        energy = atoms.info["energy"]
         mat_id = atoms.info["material_id"]
         converged = atoms.info["converged"]
 
@@ -152,14 +175,16 @@ def parse_relaxed_atoms_list(
         )
         
         e_form_true = mat_id_to_eform[mat_id]
-        e_hull_true = mat_id_tp_ehull[mat_id]
+        e_hull_true = mat_id_to_ehull[mat_id]
         e_hull_pred = e_hull_true + e_form_pred - e_form_true
+        
+        e_true = mat_id_to_e[mat_id]
 
-        return mat_id, converged, e_form_pred, e_form_true, e_hull_pred, e_hull_true, energy, corrected_energy
+        return mat_id, converged, e_form_pred, e_form_true, e_hull_pred, e_hull_true, energy, corrected_energy, e_true
 
 
     for atoms in tqdm(atoms_list, "Processing relaxed structures"):
-        mat_id, converged, e_form_pred, e_form_true, e_hull_pred, e_hull_true, energy, corrected_energy = (
+        mat_id, converged, e_form_pred, e_form_true, e_hull_pred, e_hull_true, energy, corrected_energy, e_true= (
             parse_single_atoms(atoms)
         )
         
@@ -171,44 +196,32 @@ def parse_relaxed_atoms_list(
         atoms.info["e_hull_true"] = e_hull_true
         atoms.info["model_energy"] = energy
         atoms.info["corrected_energy"] = corrected_energy
+        atoms.info["true_energy"] = e_true
 
     return atoms_list
 
 
-SETTINGS = {
-    "eqv2" : {
-        "optimizer": FIRE,
-        "filter": FrechetCellFilter,
-        "fmax": 0.02,
-        "steps": 500,
-    },
-    "orb" : {
-        "optimizer": FIRE,
-        "filter": FrechetCellFilter,
-        "fmax": 0.05,
-        "steps": 500,
-    },
-    "mattersim-1m" : {
-        "optimizer": FIRE,
-        "filter": ExpCellFilter,
-        "fmax": 0.02,
-        "steps": 500,
-    },
-    "mattersim-5m" : {
-        "optimizer": FIRE,
-        "filter": ExpCellFilter,
-        "fmax": 0.02,
-        "steps": 500,
-    },
-}
-
-
-def main(args_dict: dict):
-    # Load calculator and initial structures
+def single_process_relax(args_dict: dict, atoms_list: list[ase.Atoms]):
     calculator = load_model_to_calculator(
         model_type=args_dict["model_type"],
-        device=args_dict["device"],
     )
+    relaxed_atoms_list = relax_atoms_list(
+        atoms_list=atoms_list,
+        calculator=calculator,
+        optimizer=SETTINGS[args_dict["model_type"]]["optimizer"], # type: ignore
+        filter=SETTINGS[args_dict["model_type"]]["filter"], # type: ignore
+        fmax=SETTINGS[args_dict["model_type"]]["fmax"], # type: ignore
+        max_steps=SETTINGS[args_dict["model_type"]]["steps"], # type: ignore
+    )
+    
+    # Remove calculator and store infomation in atoms.info
+    for atoms in relaxed_atoms_list:
+        atoms.info["energy"] = atoms.get_potential_energy()
+        atoms.arrays["forces"] = atoms.get_forces()
+        atoms.calc = None
+    return relaxed_atoms_list
+
+def main(args_dict: dict):
     init_wbm_atoms_list: list[ase.Atoms] = ase_atoms_from_zip(
         DataFiles.wbm_initial_atoms.path
     )
@@ -228,17 +241,21 @@ def main(args_dict: dict):
         config=args_dict,
     )
     
+    # Relax structures with multiprocessing
     start_time = time.time()
-    relaxed_atoms_list = relax_atoms_list(
-        atoms_list=init_wbm_atoms_list,
-        calculator=calculator,
-        optimizer_cls=SETTINGS[args_dict["model_type"]]["optimizer"], # type: ignore
-        filter_cls=SETTINGS[args_dict["model_type"]]["filter"], # type: ignore
-        fmax=SETTINGS[args_dict["model_type"]]["fmax"], # type: ignore
-        steps=SETTINGS[args_dict["model_type"]]["steps"], # type: ignore
-    )
+    n_jobs = args_dict["n_jobs"]
+    n_jobs = max(min(n_jobs, multiprocessing.cpu_count()), 1)
+    rich.print(f"Using {n_jobs} jobs")
+    if n_jobs == 1:
+        relaxed_atoms_list = single_process_relax(args_dict, init_wbm_atoms_list)
+    else:
+        chunk_size = len(init_wbm_atoms_list) // n_jobs
+        chunks = [init_wbm_atoms_list[i:i + chunk_size] for i in range(0, len(init_wbm_atoms_list), chunk_size)]
+        with multiprocessing.Pool(n_jobs) as pool:
+            results = pool.starmap(single_process_relax, [(args_dict, chunk) for chunk in chunks])
+        relaxed_atoms_list = [atoms for chunk in results for atoms in chunk]
     end_time = time.time()
-    print(f"Relaxation took {end_time - start_time:.2f} seconds")
+    rich.print(f"Relaxation of {len(init_wbm_atoms_list)} structures took {end_time - start_time:.2f} seconds")
     
     # Save results
     relax_atoms_list_with_info = parse_relaxed_atoms_list(relaxed_atoms_list)
@@ -246,33 +263,65 @@ def main(args_dict: dict):
     os.makedirs(save_dir, exist_ok=True)
     save_path = f"{save_dir}/relaxed_atoms_{l_idx}_{r_idx}.xyz"
     ase_io.write(save_path, relax_atoms_list_with_info)
-    
-    for atoms in relax_atoms_list_with_info:
-        print(atoms.info)
-        print("===============================")
         
     e_hull_preds = np.array([atoms.info["e_hull_pred"] for atoms in relax_atoms_list_with_info])
     e_hull_trues = np.array([atoms.info["e_hull_true"] for atoms in relax_atoms_list_with_info])
     
     rich.print(stable_metrics(e_hull_trues, e_hull_preds))
-    
     wandb.save(save_path)
+    
+    e_preds = np.array([atoms.info["corrected_energy"] for atoms in relax_atoms_list_with_info])
+    e_trues = np.array([atoms.info["true_energy"] for atoms in relax_atoms_list_with_info])
+    
+    e_form_preds = np.array([atoms.info["e_form_pred"] for atoms in relax_atoms_list_with_info])
+    e_form_trues = np.array([atoms.info["e_form_true"] for atoms in relax_atoms_list_with_info])
+    
+    data_frame = pd.DataFrame(
+        {
+            "e_form_pred": e_form_preds,
+            "e_form_true": e_form_trues,
+            "e_hull_pred": e_hull_preds,
+            "e_hull_true": e_hull_trues,
+            "e_pred": e_preds,
+            "e_true": e_trues,
+        }
+    )
+    table = wandb.Table(dataframe=data_frame)
+    wandb_scatter(
+        table=table,
+        fields=dict(x="e_form_true", y="e_form_pred"),
+        title=f"{args_dict['model_type']} e_form {l_idx}-{r_idx}",
+    )
+    wandb_scatter(
+        table=table,
+        fields=dict(x="e_hull_true", y="e_hull_pred"),
+        title=f"{args_dict['model_type']} e_hull {l_idx}-{r_idx}",
+    )
+    wandb_scatter(
+        table=table,
+        fields=dict(x="e_true", y="e_pred"),
+        title=f"{args_dict['model_type']} e {l_idx}-{r_idx}",
+    )
+    
+    if args_dict["delete_files"]:
+        os.system(f"rm -rf {save_path}")
     
     
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_type", type=str, default="eqv2")
+    parser.add_argument("--model_type", type=str, default="mattersim")
     parser.add_argument("--l_idx", type=int, default=0)
-    parser.add_argument("--r_idx", type=int, default=260000)
-    parser.add_argument("--device", type=int, default=2)
+    parser.add_argument("--r_idx", type=int, default=100)
+    parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--n_jobs", type=int, default=4)
     parser.add_argument("--save_dir", type=str, default="/net/csefiles/coc-fung-cluster/lingyu/matbench-discovery")
     parser.add_argument("--show_log", action='store_true')
+    parser.add_argument("--delete_files", action='store_true')
     args = parser.parse_args()
     args_dict = vars(args)
+    
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args_dict["device"])
 
     main(args_dict)
-    
-    # pip install "git+https://github.com/FAIR-Chem/fairchem.git@omat24#subdirectory=packages/fairchem-core" --no-deps
-    # pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pymatgen>=2023.10.3" submitit tensorboard "torch==2.4" wandb torch_geometric h5py netcdf4 opt-einsum spglib

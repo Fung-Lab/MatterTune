@@ -3,22 +3,22 @@
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
 list_of_tasks=(
-    "matbench_dielectric"
-    "matbench_jdft2d"
-    "matbench_log_gvrh"
-    "matbench_log_kvrh"
-    "matbench_perovskites"
-    "matbench_phonons"
+    # "matbench_dielectric"
+    # "matbench_jdft2d"
+    # "matbench_log_gvrh"
+    # "matbench_log_kvrh"
+    # "matbench_perovskites"
+    # "matbench_phonons"
     "matbench_mp_e_form"
-    "matbench_mp_gap"
+    # "matbench_mp_gap"
 )
 
-model_type="eqv2"
+model_type="jmp"
 fold_index=0
 train_split=0.9
 batch_size=4
 max_epochs=500
-normalize_method="none"
+normalize_method="reference"
 property_reduction="mean"
 
 conda activate $model_type-tune

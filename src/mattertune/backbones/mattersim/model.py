@@ -197,21 +197,12 @@ class MatterSimM3GNetBackboneModule(
             from mattersim.forcefield.potential import batch_to_dict
 
         input = batch_to_dict(batch)
-        if mode == "train":
-            output = self.backbone(
-                input,
-                include_forces=self.calc_forces,
-                include_stresses=self.calc_stress,
-                return_intermediate=return_backbone_output,
-            )
-        else:
-            with self.backbone.ema.average_parameters():
-                output = self.backbone(
-                    input,
-                    include_forces=self.calc_forces,
-                    include_stresses=self.calc_stress,
-                    return_intermediate=return_backbone_output,
-                )
+        output = self.backbone(
+            input,
+            include_forces=self.calc_forces,
+            include_stresses=self.calc_stress,
+            return_intermediate=return_backbone_output,
+        )
         output_pred = {}
         output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))
         if self.calc_forces:
@@ -315,17 +306,6 @@ class MatterSimM3GNetBackboneModule(
             optimizer,
             optimizer_closure,
         )
-        self.backbone.ema.to(self.device)
-        self.backbone.ema.update()
-
-    @override
-    def on_save_checkpoint(self, checkpoint: dict[str, Any]):
-        checkpoint["ema_state_dict"] = self.backbone.ema.state_dict()
-
-    @override
-    def on_load_checkpoint(self, checkpoint: dict[str, Any]):
-        if "ema_state_dict" in checkpoint:
-            self.backbone.ema.load_state_dict(checkpoint["ema_state_dict"])
 
     @override
     def apply_callable_to_backbone(self, fn):

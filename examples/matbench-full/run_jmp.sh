@@ -18,7 +18,7 @@ python matbenchmark-foldx.py \
     --max_epochs $max_epochs \
     --normalize_method reference \
     --property_reduction mean \
-    --devices 0 1 2 3 4 5 6 7 \
+    --devices 0 1 2 3 4 5 \
     --load_best_ckpt
 
 python matbenchmark-foldx.py \
@@ -30,7 +30,7 @@ python matbenchmark-foldx.py \
     --max_epochs $max_epochs \
     --normalize_method none \
     --property_reduction mean \
-    --devices 0 1 2 3 4 5 6 7 \
+    --devices 0 1 2 3 4 5 \
     --load_best_ckpt
 
 python matbenchmark-foldx.py \
@@ -42,7 +42,7 @@ python matbenchmark-foldx.py \
     --max_epochs $max_epochs \
     --normalize_method reference \
     --property_reduction mean \
-    --devices 0 1 2 3 4 5 6 7 \
+    --devices 0 1 2 3 4 5 \
     --load_best_ckpt
 
 python matbenchmark-foldx.py \
@@ -54,5 +54,5 @@ python matbenchmark-foldx.py \
     --max_epochs $max_epochs \
     --normalize_method none \
     --property_reduction mean \
-    --devices 0 1 2 3 4 5 6 7 \
+    --devices 0 1 2 3 4 5 \
     --load_best_ckpt

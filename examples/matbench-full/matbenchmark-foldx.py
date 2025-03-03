@@ -23,6 +23,7 @@ from mattertune.backbones import (
     ORBBackboneModule,
 )
 from mattertune.configs import WandbLoggerConfig
+from mattertune.backbones.jmp.model import get_jmp_s_lr_decay
 
 logging.basicConfig(level=logging.WARNING)
 nu.pretty()
@@ -61,40 +62,7 @@ def main(args_dict: dict):
             betas=(0.9, 0.95),
             eps=1.0e-8,
             weight_decay=0.1,
-            per_parameter_hparams=[
-                {
-                    "patterns": ["embedding.*"],
-                    "hparams": {
-                        "lr": 0.3 * args_dict["lr"],
-                    },
-                },
-                {
-                    "patterns": ["int_blocks.0.*"],
-                    "hparams": {
-                        "lr": 0.3 * args_dict["lr"],
-                    },
-                },
-                {
-                    "patterns": ["int_blocks.1.*"],
-                    "hparams": {
-                        "lr": 0.4 * args_dict["lr"],
-                    },
-                },
-                {
-                    "patterns": ["int_blocks.2.*"],
-                    "hparams": {
-                        "lr": 0.55 * args_dict["lr"],
-                    },
-                },
-                {
-                    "patterns": ["int_blocks.3.*"],
-                    "hparams": {
-                        "lr": 0.625 * args_dict["lr"],
-                    },
-                },
-            ]
-            if "jmp" in args_dict["model_type"]
-            else None,
+            per_parameter_hparams=get_jmp_s_lr_decay(args_dict["lr"]) if "jmp" in args_dict["model_type"] else None,
         )
         if args_dict["lr_scheduler"] == "cosine":
             hparams.model.lr_scheduler = MC.CosineAnnealingLRConfig(
@@ -117,7 +85,8 @@ def main(args_dict: dict):
         # Add property
         hparams.model.properties = []
         property = MC.GraphPropertyConfig(
-            loss=MC.HuberLossConfig(delta=0.1),
+            # loss=MC.HuberLossConfig(delta=0.1),
+            loss = MC.MSELossConfig(),
             loss_coefficient=1.0,
             reduction=args_dict["property_reduction"],
             name=args_dict["task"],
@@ -174,7 +143,7 @@ def main(args_dict: dict):
         hparams.trainer.devices = args_dict["devices"]
         hparams.trainer.gradient_clip_algorithm = "value"
         hparams.trainer.gradient_clip_val = 1.0
-        hparams.trainer.precision = "bf16"
+        hparams.trainer.precision = "32"
 
         # Configure Early Stopping
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
@@ -256,7 +225,7 @@ def main(args_dict: dict):
         ckpt_path = f"./checkpoints-{args_dict['task']}/{args_dict['model_type']}-best-fold{fold_idx}.ckpt"
     if args_dict["load_best_ckpt"]:
         if args_dict["model_type"] == "eqv2":
-            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
+            model = EqV2BackboneModule.load_from_checkpoint(ckpt_path, strict=False)
         elif args_dict["model_type"] == "jmp":
             model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
         elif args_dict["model_type"] == "orb":

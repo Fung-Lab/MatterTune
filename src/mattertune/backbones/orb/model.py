@@ -59,9 +59,6 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
     freeze_backbone: bool = False
     """Whether to freeze the backbone model."""
 
-    freeze_backbone: bool = False
-    """Whether to freeze the backbone model."""
-
     @override
     def create_model(self):
         return ORBBackboneModule(self)
@@ -181,22 +178,6 @@ class ORBBackboneModule(
                         ),
                         compute_stress=False,
                     )
-                if not self.hparams.reset_output_heads:
-                    raise ValueError(
-                        "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
-                    )
-                else:
-                    return GraphHead(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target=PropertyDefinition(
-                            name=prop.name,
-                            dim=1,
-                            domain="real",
-                        ),
-                        compute_stress=False,
-                    )
             case _:
                 raise ValueError(
                     f"Unsupported property config: {prop} for ORB"
@@ -267,6 +248,10 @@ class ORBBackboneModule(
 
     @override
     def model_forward(self, batch, mode: str, return_backbone_output=False):
+        
+        if mode == "predict":
+            self.eval()
+        
         # Run the backbone
         if return_backbone_output:
             batch, intermediate = self.backbone(batch, return_intermediate=True)
@@ -288,20 +273,24 @@ class ORBBackboneModule(
                 f"Property {name} not found in properties. "
                 "This should not happen, please report this."
             )
+            
+            if mode == "predict" and self.hparams.use_pretrained_normalizers:
+                pred = head.predict(batch)
+            
+            else:
+                batch = cast("AtomGraphs", head(batch))
 
-            batch = cast("AtomGraphs", head(batch))
-
-            match prop_type := prop.property_type():
-                case "system":
-                    if isinstance(prop, props.StressesPropertyConfig):
-                        pred = batch.system_features.pop("stress_pred")
-                    else:
-                        pred = batch.system_features.pop("graph_pred")
-                case "atom":
-                    pred = batch.node_features.pop("node_pred")
-                case _:
-                    assert_never(prop_type)
-
+                match prop_type := prop.property_type():
+                    case "system":
+                        if isinstance(prop, props.StressesPropertyConfig):
+                            pred = batch.system_features.pop("stress_pred")
+                        else:
+                            pred = batch.system_features.pop("graph_pred")
+                    case "atom":
+                        pred = batch.node_features.pop("node_pred")
+                    case _:
+                        assert_never(prop_type)
+            
             # Convert the stress tensor to the full 3x3 form
             if isinstance(prop, props.StressesPropertyConfig):
                 pred = voigt_6_to_full_3x3_stress_torch(pred)
@@ -315,6 +304,9 @@ class ORBBackboneModule(
 
             # pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
             pred_dict["backbone_output"] = intermediate
+            
+        if mode == "predict":
+            self.train()
 
         return pred_dict
 
@@ -388,12 +380,8 @@ class ORBBackboneModule(
             if atom_graphs.system_targets is None:
                 atom_graphs = atom_graphs._replace(system_targets={})
 
-            if atom_graphs.node_targets is None:
-                atom_graphs = atom_graphs._replace(node_targets={})
-
             # Making the type checker happy
             assert atom_graphs.system_targets is not None
-            assert atom_graphs.node_targets is not None
 
             # Also, pass along any other targets/properties. This includes:
             #   - energy: The total energy of the system
@@ -431,13 +419,13 @@ class ORBBackboneModule(
         # Now we need to sum this up to get the composition vector
         composition = atom_types_onehot.sum(dim=0, keepdim=True)
         # ^ (1, 120)
-        atom_graphs.system_features["composition"] = composition
+        atom_graphs.system_features["norm_composition"] = composition
 
         return atom_graphs
 
     @override
     def create_normalization_context_from_batch(self, batch):
-        compositions = batch.system_features.get("composition")
+        compositions = batch.system_features.get("norm_composition")
         if compositions is None:
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element

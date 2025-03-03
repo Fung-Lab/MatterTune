@@ -101,8 +101,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="matbench_phonons")
-    parser.add_argument("--normalize_method", type=str, default="reference")
+    parser.add_argument("--task", type=str, default="matbench_mp_e_form")
+    parser.add_argument("--normalize_method", type=str, default="mean_std")
     args = parser.parse_args()
 
     main(vars(args))
