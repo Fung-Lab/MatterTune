@@ -83,12 +83,13 @@ def main(args_dict: dict):
         # Add model properties
         hparams.model.properties = []
         energy_coefficient = 1.0 / (192**2)
+        conservative = args_dict["conservative"] or "mattersim" in args_dict["model_type"]
         energy = MC.EnergyPropertyConfig(
             loss=MC.MSELossConfig(), loss_coefficient=energy_coefficient
         )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MSELossConfig(), conservative=True if "mattersim" in args_dict["model_type"] else False, loss_coefficient=1.0
+            loss=MC.MSELossConfig(), conservative=conservative, loss_coefficient=1.0
         )
         hparams.model.properties.append(forces)
 
@@ -118,7 +119,7 @@ def main(args_dict: dict):
         hparams.trainer.max_epochs = args_dict["max_epochs"]
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
-        hparams.trainer.strategy = "ddp" if not "orb" in args_dict["model_type"] else DDPStrategy(static_graph=True, find_unused_parameters=True)
+        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True) if not "orb" in args_dict["model_type"] else DDPStrategy(static_graph=True, find_unused_parameters=True)
         hparams.trainer.gradient_clip_algorithm = "norm"
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "32"
@@ -132,6 +133,8 @@ def main(args_dict: dict):
         ckpt_name = f"{args_dict['model_type']}-best-{args_dict['train_down_sample']}"
         if args_dict["down_sample_refill"]:
             ckpt_name += "-refill"
+        if args_dict["conservative"]:
+            ckpt_name += "-conservative"
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_mae",
             dirpath="./checkpoints",
@@ -165,17 +168,18 @@ def main(args_dict: dict):
 
     ckpt_path = f"./checkpoints/{args_dict['model_type']}-best-{args_dict['train_down_sample']}"
     if args_dict["down_sample_refill"]:
-        ckpt_path += "-refill.ckpt"
-    else:
-        ckpt_path += ".ckpt"
+        ckpt_path += "-refill"
+    if args_dict["conservative"]:
+        ckpt_path += "-conservative"
+    ckpt_path += ".ckpt"
     
-    if args_dict["model_type"] == "mattersim-1m":
+    if "mattersim" in args_dict["model_type"]:
         ft_model = MatterSimM3GNetBackboneModule.load_from_checkpoint(ckpt_path)
-    elif args_dict["model_type"] == "jmp-s":
+    elif "jmp" in args_dict["model_type"]:
         ft_model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
-    elif args_dict["model_type"] == "orb-v2":
+    elif "orb" in args_dict["model_type"]:
         ft_model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
-    if args_dict["model_type"] == "eqv2":
+    elif "eqv2" in args_dict["model_type"]:
         ft_model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
     else:
         raise ValueError(
@@ -219,13 +223,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_type", type=str, default="mattersim-1m")
+    parser.add_argument("--conservative", action="store_true")
     parser.add_argument("--train_down_sample", type=int, default=30)
     parser.add_argument("--down_sample_refill", action="store_true")
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=8e-5)
     parser.add_argument("--max_epochs", type=int, default=1000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 2, 3])
-    parser.add_argument("--lr_scheduler", type=str, default="rlp")
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
+    parser.add_argument("--lr_scheduler", type=str, default="steplr")
     parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()
     args_dict = vars(args)

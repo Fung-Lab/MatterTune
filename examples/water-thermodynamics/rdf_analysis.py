@@ -187,9 +187,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--md_traj",
         type=str,
-        default="/net/csefiles/coc-fung-cluster/lingyu/water_md/water_orb-v2-best-30-refill_NPT.xyz",
+        default="/net/csefiles/coc-fung-cluster/lingyu/water_md/water_eqv2-best-30-refill_NPT.xyz",
     )
-    parser.add_argument("--n_frames", type=int, default=150000)
+    parser.add_argument("--n_frames", type=int, default=130000)
     parser.add_argument("--r_max", type=float, default=6.0)
     parser.add_argument("--r_step", type=float, default=0.06)
     parser.add_argument("--transparent", action="store_true")

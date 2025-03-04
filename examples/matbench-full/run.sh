@@ -16,7 +16,7 @@ list_of_tasks=(
 model_type="jmp"
 fold_index=0
 train_split=0.9
-batch_size=4
+batch_size=6
 max_epochs=500
 normalize_method="reference"
 property_reduction="mean"
@@ -33,7 +33,7 @@ for task_name in "${list_of_tasks[@]}"; do
         --max_epochs $max_epochs \
         --normalize_method $normalize_method \
         --property_reduction $property_reduction \
-        --devices 0 1 2 3 4 5 \
+        --devices 0 1 2 3 4 5 6 7 \
         --skip_inference 
     
     python matbenchmark-foldx.py \
@@ -45,6 +45,6 @@ for task_name in "${list_of_tasks[@]}"; do
         --max_epochs $max_epochs \
         --normalize_method $normalize_method \
         --property_reduction $property_reduction \
-        --devices 0 1 2 3 4 5 \
+        --devices 0 1 2 3 4 5 6 7 \
         --skip_tuning
 done
