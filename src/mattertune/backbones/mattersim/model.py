@@ -132,6 +132,10 @@ class MatterSimM3GNetBackboneModule(
                 reset_head_for_finetune=True,
             )
         self.backbone.model.train()
+        if self.hparams.reset_backbone:
+            for module in self.backbone.modules():
+                if hasattr(module, "reset_parameters"):
+                    module.reset_parameters()
 
         if isinstance(self.hparams.graph_convertor, dict):
             self.hparams.graph_convertor = MatterSimGraphConvertorConfig(
@@ -310,3 +314,13 @@ class MatterSimM3GNetBackboneModule(
     @override
     def apply_callable_to_backbone(self, fn):
         return fn(self.backbone)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is None:
+            pass
+        else:
+            self.backbone.model.num_blocks = min(self.backbone.model.num_blocks, message_passing_steps)
