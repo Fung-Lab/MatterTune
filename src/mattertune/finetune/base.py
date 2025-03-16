@@ -28,6 +28,9 @@ log = logging.getLogger(__name__)
 
 class FinetuneModuleBaseConfig(C.Config, ABC):
     
+    reset_backbone: bool = False
+    """Whether to reset the backbone of the model when creating the model."""
+    
     reset_output_heads: bool = False
     """Whether to reset the output heads of the model when creating the model."""
     
@@ -57,6 +60,9 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
 
     The normalizers are applied in the order they are defined in the list.
     """
+    
+    early_stop_message_passing: int | None = None
+    """Number of message passing steps for early stopping. If None, no early stopping is applied."""
 
     @classmethod
     @abstractmethod
@@ -159,6 +165,13 @@ class FinetuneModuleBase(
 
         You should also construct any other ``nn.Module`` instances
         necessary for the forward pass here.
+        """
+        ...
+        
+    @abstractmethod
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
         """
         ...
 
@@ -326,6 +339,7 @@ class FinetuneModuleBase(
 
         # Create the backbone model and output heads
         self.create_model()
+        self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
 
         # Create metrics
         self.create_metrics()
@@ -704,7 +718,10 @@ class FinetuneModuleBase(
         self, 
         # lightning_trainer_kwargs: dict[str, Any] | None = None,
         device: str = "cpu",
-        intense: bool = False
+        intense: bool = False,
+        energy_weight: float = 1.0,
+        force_weight: float = 1.0,
+        stress_weight: float = 1.0,
     ):
         """Returns an ASE calculator wrapper for the interatomic potential.
 
@@ -758,7 +775,6 @@ class FinetuneModuleBase(
                 "enable_progress_bar": False,
                 "enable_model_summary": False,
                 "logger": False,
-                "barebones": True,
             }
             property_predictor = self.property_predictor(
                 lightning_trainer_kwargs=lightning_trainer_kwargs

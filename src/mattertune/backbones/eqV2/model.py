@@ -53,9 +53,6 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
     freeze_backbone: bool = False
     """Whether to freeze the backbone during training."""
 
-    freeze_backbone: bool = False
-    """Whether to freeze the backbone during training."""
-
     @override
     @classmethod
     def ensure_dependencies(cls):
@@ -493,3 +490,11 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        Does nothing for eqV2.
+        """
+        pass

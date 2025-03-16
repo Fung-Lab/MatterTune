@@ -16,7 +16,10 @@ if TYPE_CHECKING:
 
 class MatterTuneCalculator(Calculator):
     @override
-    def __init__(self, property_predictor: MatterTunePropertyPredictor):
+    def __init__(
+        self, 
+        property_predictor: MatterTunePropertyPredictor,
+    ):
         super().__init__()
 
         self.property_predictor = property_predictor
@@ -125,7 +128,13 @@ class MatterTuneCalculator(Calculator):
             self.results[ase_prop_name] = value
 
 
+import time
+
 class MatterTuneIntenseCalculator(Calculator):
+    """
+    A faster version of the MatterTuneCalculator that uses the `predict_step` method directly without creating a trainer.
+    """
+    
     @override
     def __init__(self, model: FinetuneModuleBase, device: torch.device):
         super().__init__()
@@ -141,6 +150,10 @@ class MatterTuneIntenseCalculator(Calculator):
                 continue
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
+        
+        self.prepare_times = []
+        self.forward_times = []
+        self.collect_times = []
 
     @override
     def calculate(
@@ -149,8 +162,8 @@ class MatterTuneIntenseCalculator(Calculator):
         properties: list[str] | None = None,
         system_changes: list[str] | None = None,
     ):
-        # if properties is None:
-        #     properties = copy.deepcopy(self.implemented_properties)
+        if properties is None:
+            properties = copy.deepcopy(self.implemented_properties)
 
         # Call the parent class to set `self.atoms`.
         Calculator.calculate(self, atoms)
@@ -167,16 +180,21 @@ class MatterTuneIntenseCalculator(Calculator):
             "Please report this as a bug."
         )
         
+        time1 = time.time()
         data = self.model.atoms_to_data(self.atoms, has_labels=False)
         batch = self.model.collate_fn([data])
         batch = batch.to(self.model.device)
+        self.prepare_times.append(time.time() - time1)
         
-        prop_configs = [self._ase_prop_to_config[prop] for prop in self.implemented_properties]
+        time1 = time.time()
         pred = self.model.predict_step(
             batch = batch,
             batch_idx = 0,
         )
+        self.forward_times.append(time.time() - time1)
         
+        time1 = time.time() 
+        prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         for prop in prop_configs:
             ase_prop_name = prop.ase_calculator_property_name()
             assert ase_prop_name is not None, (
@@ -185,10 +203,10 @@ class MatterTuneIntenseCalculator(Calculator):
                 "Please report this as a bug."
             )
 
-            value = pred[prop.name].detach().to(torch.float32).cpu().numpy()
+            value = pred[prop.name].detach().to(torch.float32).cpu().numpy() # type: ignore
             value = value.astype(prop._numpy_dtype())
             value = prop.prepare_value_for_ase_calculator(value)
 
             self.results[ase_prop_name] = value
-        
+        self.collect_times.append(time.time() - time1)
         

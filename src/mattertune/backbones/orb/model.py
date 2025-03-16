@@ -219,6 +219,10 @@ class ORBBackboneModule(
 
         backbone = backbone.train()
         self.backbone = backbone
+        if self.hparams.reset_backbone:
+            for module in self.backbone.modules():
+                if hasattr(module, "reset_parameters"):
+                    module.reset_parameters()
 
         log.info(
             f'Loaded the ORB pre-trained model "{self.hparams.pretrained_model}". The model '
@@ -430,3 +434,15 @@ class ORBBackboneModule(
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is None:
+            pass
+        else:
+            self.backbone.num_message_passing_steps = min(
+                message_passing_steps, self.backbone.num_message_passing_steps
+            )

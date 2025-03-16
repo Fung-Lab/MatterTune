@@ -54,7 +54,7 @@ def main(args_dict: dict):
             "Invalid fine-tuning model, must be one of 'jmp', 'orb', 'm3gnet', or 'mattersim', 'eqv2'"
         )
     calc = model.ase_calculator(
-        device=f"cuda:{args_dict['device']}",
+        device=f"cuda:{args_dict['device']}", intense=True
     )
     atoms = read(args_dict["init_struct"])
     assert isinstance(atoms, Atoms), "Expected an Atoms object"
@@ -134,11 +134,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="./checkpoints/eqv2-best-30-refill.ckpt",
+        default="/nethome/lkong88/MatterTune/examples/hidden/early_stop_mp/water-checkpoints/mattersim-1m-best-30-refill-reset_backbone.ckpt",
     )
     parser.add_argument("--thermo_state", type=str, default="NPT")
     parser.add_argument("--init_struct", type=str, default="./data/H2O.xyz")
-    parser.add_argument("--device", type=int, default=1)
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--temperature", type=float, default=298)
     parser.add_argument("--timestep", type=float, default=0.5)
     parser.add_argument("--friction", type=float, default=0.02)
