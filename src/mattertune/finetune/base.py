@@ -718,10 +718,7 @@ class FinetuneModuleBase(
         self, 
         # lightning_trainer_kwargs: dict[str, Any] | None = None,
         device: str = "cpu",
-        intense: bool = False,
-        energy_weight: float = 1.0,
-        force_weight: float = 1.0,
-        stress_weight: float = 1.0,
+        intense: bool = True,
     ):
         """Returns an ASE calculator wrapper for the interatomic potential.
 
