@@ -82,11 +82,9 @@ def load_model_to_calculator(
         model_config.pretrained_model = "MatterSim-v1.0.0-5M"
     else:
         raise ValueError(f"Model type {model_type} not recognized")
-    model_config.ignore_gpu_batch_transform_error = True
-    model_config.freeze_backbone = False
-    model_config.optimizer = MC.AdamConfig(lr=1e-3)
-
+    model_config.optimizer = MC.AdamConfig(lr=1e-3)  # Dummy optimizer, since we are not training
     model_config.reset_output_heads = False
+    model_config.use_pretrained_normalizers = True
     conservative = True if "mattersim" in model_type else False
     model_config.properties = []
     energy = MC.EnergyPropertyConfig(loss=MC.MSELossConfig())

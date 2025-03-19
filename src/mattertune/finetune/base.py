@@ -34,10 +34,10 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     freeze_backbone: bool = False
     """Whether to freeze the backbone during training."""
     
-    reset_output_heads: bool = False
+    reset_output_heads: bool = True
     """Whether to reset the output heads of the model when creating the model."""
     
-    use_pretrained_normalizers: bool = True
+    use_pretrained_normalizers: bool = False
     """Whether to use the pretrained normalizers."""
     
     output_internal_features: bool = False

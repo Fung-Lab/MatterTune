@@ -8,7 +8,7 @@ MatterTune is a flexible and powerful machine learning library designed specific
 
 ## Features
 
-- Pre-trained model support: JMP, EquiformerV2, M3GNet, ORB, and more to be added.
+- Pre-trained model support: JMP, EquiformerV2, MatterSim, ORB, and more to be added.
 - Multiple property predictions: energy, forces, stress, and custom properties.
 - Various supported dataset formats: XYZ, ASE databases, Materials Project, Matbench, and more.
 - Comprehensive training features with automated data splitting and logging.
@@ -17,7 +17,7 @@ MatterTune is a flexible and powerful machine learning library designed specific
 
 ```python
 import mattertune as mt
-from pathlib import Path
+import mattertune.configs as MC
 
 # Phase 1: Fine-tuning the model
 # -----------------------------
@@ -25,28 +25,38 @@ from pathlib import Path
 # Define the configuration for model, data, and training
 config = mt.configs.MatterTunerConfig(
     # Configure the model: using JMP backbone with energy prediction
-    model=mt.configs.JMPBackboneConfig(
-        ckpt_path=Path("YOUR_CHECKPOINT_PATH"),  # Path to pre-trained model
-        properties=[
-            mt.configs.EnergyPropertyConfig(  # Configure energy prediction
-                loss=mt.configs.MAELossConfig(),  # Using MAE loss
+    model=MC.JMPBackboneConfig(
+        pretrained_model = "jmp-s",  # Select pretrained model type
+        graph_computer = MC.JMPGraphComputerConfig(pbc=True)
+        properties = [
+            MC.EnergyPropertyConfig(  # Configure energy prediction
+                loss=MC.MAELossConfig(),  # Using MAE loss
                 loss_coefficient=1.0  # Weight for this property's loss
+            ),
+            MC.ForcesPropertyConfig(
+                loss=MC.MSELossConfig(), 
+                conservative=False, 
+                loss_coefficient=1.0
             )
         ],
+        optimizer = MC.AdamWConfig(lr=8.0e-5)
     ),
     # Configure the data: loading from XYZ file with automatic train/val split
-    data=mt.configs.AutoSplitDataModuleConfig(
-        dataset=mt.configs.XYZDatasetConfig(
+    data=MC.AutoSplitDataModuleConfig(
+        dataset=MC.XYZDatasetConfig(
             src=Path("YOUR_XYZFILE_PATH")  # Path to your XYZ data
         ),
         train_split=0.8,  # Use 80% of data for training
         batch_size=32  # Process 32 structures per batch
     ),
     # Configure the training process
-    trainer=mt.configs.TrainerConfig(
+    trainer=MC.TrainerConfig(
         max_epochs=10,  # Train for 10 epochs
         accelerator="gpu",  # Use GPU for training
         devices=[0]  # Use first GPU
+        additional_trainer_kwargs={
+            "inference_mode": False,
+        }
     ),
 )
 
