@@ -56,9 +56,6 @@ class MatterSimBackboneConfig(FinetuneModuleBaseConfig):
     graph_convertor: MatterSimGraphConvertorConfig | dict[str, Any]
     """Configuration for the graph converter."""
 
-    freeze_backbone: bool = False
-    """Whether to freeze the backbone model."""
-
     @override
     def create_model(self):
         if self.pretrained_model in ["MatterSim-v1.0.0-1M", "MatterSim-v1.0.0-5M"]:
@@ -122,7 +119,7 @@ class MatterSimM3GNetBackboneModule(
 
         ## Load the pretrained model
         self.backbone = Potential.from_checkpoint(  # type: ignore[no-untyped-call]
-            # device="cpu",
+            device="cpu",
             load_path=self.hparams.pretrained_model,
             model_name=self.hparams.model_type,
             load_training_state=False,
@@ -314,13 +311,3 @@ class MatterSimM3GNetBackboneModule(
     @override
     def apply_callable_to_backbone(self, fn):
         return fn(self.backbone)
-    
-    @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
-        """
-        Apply message passing for early stopping.
-        """
-        if message_passing_steps is None:
-            pass
-        else:
-            self.backbone.model.num_blocks = min(self.backbone.model.num_blocks, message_passing_steps)

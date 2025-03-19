@@ -1,0 +1,1 @@
+To support exporting internal features, users need to do some slight modification to model's source code, which we have listed in this dir. Users can directly copy our modificated codes to overwrite the original ones. 

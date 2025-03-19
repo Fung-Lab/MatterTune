@@ -134,11 +134,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="/nethome/lkong88/MatterTune/examples/hidden/early_stop_mp/water-checkpoints/mattersim-1m-best-30-refill-reset_backbone.ckpt",
+        default="./checkpoints/MatterSim-v1.0.0-1M-bestTrue0.9.ckpt",
     )
     parser.add_argument("--thermo_state", type=str, default="NPT")
     parser.add_argument("--init_struct", type=str, default="./data/H2O.xyz")
-    parser.add_argument("--device", type=int, default=0)
+    parser.add_argument("--device", type=int, default=3)
     parser.add_argument("--temperature", type=float, default=298)
     parser.add_argument("--timestep", type=float, default=0.5)
     parser.add_argument("--friction", type=float, default=0.02)

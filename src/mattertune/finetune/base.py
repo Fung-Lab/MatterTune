@@ -31,11 +31,17 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     reset_backbone: bool = False
     """Whether to reset the backbone of the model when creating the model."""
     
+    freeze_backbone: bool = False
+    """Whether to freeze the backbone during training."""
+    
     reset_output_heads: bool = False
     """Whether to reset the output heads of the model when creating the model."""
     
     use_pretrained_normalizers: bool = True
     """Whether to use the pretrained normalizers."""
+    
+    output_internal_features: bool = False
+    """If set to True, the model will output the internal features of the backbone model instead of the predicted properties."""
 
     properties: Sequence[PropertyConfig]
     """Properties to predict."""
@@ -60,9 +66,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
 
     The normalizers are applied in the order they are defined in the list.
     """
-    
-    early_stop_message_passing: int | None = None
-    """Number of message passing steps for early stopping. If None, no early stopping is applied."""
 
     @classmethod
     @abstractmethod
@@ -165,13 +168,6 @@ class FinetuneModuleBase(
 
         You should also construct any other ``nn.Module`` instances
         necessary for the forward pass here.
-        """
-        ...
-        
-    @abstractmethod
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
-        """
-        Apply message passing for early stopping.
         """
         ...
 
@@ -339,7 +335,6 @@ class FinetuneModuleBase(
 
         # Create the backbone model and output heads
         self.create_model()
-        self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
 
         # Create metrics
         self.create_metrics()
@@ -353,8 +348,6 @@ class FinetuneModuleBase(
                 "No parameters require gradients. "
                 "Please ensure that some parts of the model are trainable."
             )
-            
-        self.predict_mode = "property"
 
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
@@ -594,7 +587,7 @@ class FinetuneModuleBase(
 
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
-        if self.predict_mode == "property":
+        if self.hparams.output_internal_features is False:
             output: ModelOutput = self(
                 batch, mode="predict", ignore_gpu_batch_transform_error=False
             )
@@ -603,7 +596,7 @@ class FinetuneModuleBase(
                 normalization_ctx = self.create_normalization_context_from_batch(batch)
                 predictions = self.denormalize(predictions, normalization_ctx)
             return predictions
-        elif self.predict_mode == "internal_feature":
+        else:
             output: ModelOutput = self(
                 batch,
                 mode="predict",
@@ -717,8 +710,9 @@ class FinetuneModuleBase(
     def ase_calculator(
         self, 
         # lightning_trainer_kwargs: dict[str, Any] | None = None,
-        device: str = "cpu",
+        device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
         intense: bool = True,
+        precision: Literal["32", "16-mixed", "bf16-mixed", "64"] = "32",
     ):
         """Returns an ASE calculator wrapper for the interatomic potential.
 
@@ -767,7 +761,7 @@ class FinetuneModuleBase(
             lightning_trainer_kwargs={
                 "accelerator": accelerator,
                 "devices": [device_idx],
-                "precision": "32",
+                "precision": precision,
                 "inference_mode": False,
                 "enable_progress_bar": False,
                 "enable_model_summary": False,

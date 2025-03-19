@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from ase.io import read
+from ase import Atoms
+import numpy as np
+import wandb
 
 from mattertune.backbones import (
     EqV2BackboneModule,
@@ -24,7 +27,7 @@ def main(args_dict: dict):
     elif "eqv2" in args_dict["ckpt_path"]:
         model_type = "eqv2"
         model = EqV2BackboneModule.load_from_checkpoint(
-            checkpoint_path=args_dict["ckpt_path"], map_location="cpu"
+            checkpoint_path=args_dict["ckpt_path"], map_location="cpu", strict=False
         )
     else:
         raise ValueError(
@@ -32,12 +35,15 @@ def main(args_dict: dict):
         )
 
     ## Load Screening Data
-    atoms_list = read("./data/gnome_Bandgap.xyz", index=":")
-    assert isinstance(atoms_list, list), "Expected a list of Atoms objects"
-    true_properties = [atoms.info["bandgap"] for atoms in atoms_list]
+    atoms_list: list[Atoms] = read("/net/csefiles/coc-fung-cluster/lingyu/gnome_Bandgap.xyz", index=":") # type: ignore
+    true_properties = np.array([atoms.info["bandgap"] for atoms in atoms_list])
+    exclude_inf_indices = np.where(np.isinf(true_properties))[0]
+    atoms_list = [atoms_list[i] for i in range(len(atoms_list)) if i not in exclude_inf_indices]
+    true_properties = np.array([true_properties[i] for i in range(len(true_properties)) if i not in exclude_inf_indices])
+    
 
     ## Run Property Prediction
-    import wandb
+
 
     wandb.init(
         project="MatterTune-Examples",
@@ -50,7 +56,7 @@ def main(args_dict: dict):
         lightning_trainer_kwargs={
             "accelerator": "gpu",
             "devices": args_dict["devices"],
-            "precision": "bf16",
+            "precision": "32",
             "inference_mode": False,
             "enable_progress_bar": True,
             "enable_model_summary": False,
@@ -62,9 +68,9 @@ def main(args_dict: dict):
         atoms_list, batch_size=args_dict["batch_size"]
     )
     pred_properties = [out["matbench_mp_gap"].item() for out in model_outs]
+    print(pred_properties)
 
     ## Compare Predictions
-    import numpy as np
     from sklearn.metrics import (
         accuracy_score,
         confusion_matrix,
@@ -147,9 +153,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--ckpt_path", type=str, default="./checkpoints-matbench_mp_gap/eqv2-best.ckpt"
+        "--ckpt_path", type=str, default="./checkpoints-matbench_mp_gap/orb-best-fold0.ckpt"
     )
-    parser.add_argument("--devices", type=int, nargs="+", default=[3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[2])
     parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--thresholds", type=float, nargs="+", default=[1.0, 3.0])
     args = parser.parse_args()

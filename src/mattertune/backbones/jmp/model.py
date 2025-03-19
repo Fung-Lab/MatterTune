@@ -125,9 +125,6 @@ class JMPBackboneConfig(FinetuneModuleBaseConfig):
     graph_computer: JMPGraphComputerConfig
     """The configuration for the graph computer."""
 
-    freeze_backbone: bool = False
-    """Whether to freeze the backbone during training."""
-
     @override
     def create_model(self):
         return JMPBackboneModule(self)
@@ -434,16 +431,6 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
-    
-    @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
-        """
-        Apply message passing for early stopping.
-        """
-        if message_passing_steps is None:
-            pass
-        else:
-            self.backbone.num_blocks = min(self.backbone.num_blocks, message_passing_steps)
 
 
 def _get_fixed(atoms: Atoms):
