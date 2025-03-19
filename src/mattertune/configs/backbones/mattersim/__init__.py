@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __codegen__ = True
 
 from mattertune.backbones.mattersim.model import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
