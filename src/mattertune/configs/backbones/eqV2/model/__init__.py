@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __codegen__ = True
 
 from mattertune.backbones.eqV2.model import EqV2BackboneConfig as EqV2BackboneConfig

@@ -1,6 +1,6 @@
-__codegen__ = True
+from __future__ import annotations
 
-from mattertune.data.base import DatasetConfigBase as DatasetConfigBase
+__codegen__ = True
 
 from mattertune.data.base import DatasetConfigBase as DatasetConfigBase
 
