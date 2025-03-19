@@ -56,9 +56,6 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
     system: ORBSystemConfig = ORBSystemConfig(radius=10.0, max_num_neighbors=20)
     """The system configuration, controlling how to featurize a system of atoms."""
 
-    freeze_backbone: bool = False
-    """Whether to freeze the backbone model."""
-
     @override
     def create_model(self):
         return ORBBackboneModule(self)
@@ -434,15 +431,3 @@ class ORBBackboneModule(
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
-    
-    @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
-        """
-        Apply message passing for early stopping.
-        """
-        if message_passing_steps is None:
-            pass
-        else:
-            self.backbone.num_message_passing_steps = min(
-                message_passing_steps, self.backbone.num_message_passing_steps
-            )

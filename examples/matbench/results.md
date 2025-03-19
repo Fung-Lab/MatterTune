@@ -1,100 +1,12 @@
-# Property Screening
+# matbench
 
-Three models are fine-tuned with Matbench-MP-Gap data and do property screening on GNoME equilibrium structures (389918 samples with ground truth band-gap labels)
-
-We do property screening to find structures whose band-gaps are within 1.0eV-3.0eV, which implies probably to be medium bandgap semiconductors that could be used in areas like integrated circuits and solar cells. 
-
-## Data Distribution
-
-![](./plots/bandgap_distribution.png)
-
-## Fine-tuning on Matbench-MP-Gap
-
-|           |JMP  |EqV2 | ORB |
-|-          |-    |-    |-    |
-|val-mae(eV)|0.153|0.106|0.094|     
-
-## Prediction on GNoME
-
-### JMP
-
-|             |Actual Positive |Actual Negative |
-|-            |-               |-               |
-|Pred Positive|16645           |5194            |
-|Pred Negative|3141            |364938          |
-
-MAE: 0.0583
-
-MSE: 0.0579
-
-RMSE: 0.2407
-
-Accuracy: 97.86%
-
-Recall: 84.13%
-
-F1 Score: 0.7998
-
-![](./plots/jmp-gnome.png)
-
-### EqV2
-
-|             |Actual Positive |Actual Negative |
-|-            |-               |-               |
-|Pred Positive|17383           |3628            |
-|Pred Negative|2403            |366504          |
-
-MAE: 0.0459
-
-MSE: 0.0422
-
-RMSE: 0.2054
-
-Accuracy: 98.45%
-
-Recall: 87.86%
-
-F1 Score: 0.8522
-
-![](./plots/eqv2-gnome.png)
-
-### ORB
-
-|             |Actual Positive |Actual Negative |
-|-            |-               |-               |
-|Pred Positive|18060           |3219            |
-|Pred Negative|1726            |366913          |
-
-MAE: 0.0386
-
-MSE: 0.0243
-
-RMSE: 0.1560
-
-Accuracy: 98.73%
-
-Recall: 91.28%
-
-F1 Score: 0.8796
-
-![](./plots/orb-gnome.png)
-
-## Other Properties Prediction
-
-### Matbench-Log-Kvrh
-
-90% for training and 10% for valizdation
-
-| | JMP | ORB | EqV2 |
-|-|-|-|-|
-|val-mae|0.0517|0.0542|0.0497|
-|val-mse|0.0109|0.0101|0.0094|
-
-### Matbench-Perovskites
-
-90% for training and 10% for valizdation
-
-| | JMP | ORB | EqV2 |
-|-|-|-|-|
-|val-mae|0.0333|0.0346|0.0317|
-|val-mse|0.0044|0.0042|0.0043|
+| | jmp-mattertune | jmp-ori | orb-mattertune | eqv2-mattertune|
+|-|-|-|-|-|
+|matbench_dielectric|0.146 | 0.133 / 0.252 | 0.142 | 0.111 |
+|matbench_jdft2d| 19.42 | 20.72 / 30.16 | 21.44 | 23.45 |
+|matbench_log_gvrh| 0.059 | 0.06 / 0.062 | 0.053 | 0.056 |
+|matbench_log_kvrh| 0.033 | 0.044 / 0.046| 0.046 | 0.046 |
+|matbench_mp_e_form| 25.2 | 13.6 / 13.3 | 9.4 | 24.5 |
+|matbench_mp_gap| 0.119 | 0.119 / 0.121 | 0.093 | 0.098 |
+|matbench_perovskites| 0.029 | 0.029 / 0.028 | 0.033 | 0.027 |
+|matbench_phonons| 42.23 | 26.6 / 22.77 | 67.92 | 50.57 |

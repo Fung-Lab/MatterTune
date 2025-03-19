@@ -3,9 +3,9 @@
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
 models=(
-    # "mattersim-1m"
+    "mattersim-1m"
     # "orb-v2"
-    "jmp-s"
+    # "jmp-s"
     # "eqv2"
 )
 

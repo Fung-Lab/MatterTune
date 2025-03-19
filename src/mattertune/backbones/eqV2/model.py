@@ -3,17 +3,14 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import logging
-from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import nshconfig as C
 import nshconfig_extra as CE
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributed as dist
 from typing_extensions import assert_never, final, override
 
 from ...finetune import properties as props
@@ -45,13 +42,11 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
 
     checkpoint_path: Path | CE.CachedPath
     """The path to the checkpoint to load."""
+    ## TODO: For now, we only support loading from a local path, since EqV2 checkpoints don't provide public access. In the future, we should support loading from a URL or name. 
 
     atoms_to_graph: FAIRChemAtomsToGraphSystemConfig
     """Configuration for converting ASE Atoms to a graph."""
     # TODO: Add functionality to load the atoms to graph config from the checkpoint
-
-    freeze_backbone: bool = False
-    """Whether to freeze the backbone during training."""
 
     @override
     @classmethod
@@ -61,13 +56,6 @@ class EqV2BackboneConfig(FinetuneModuleBaseConfig):
             raise ImportError(
                 "The fairchem module is not installed. Please install it by running"
                 " pip install fairchem-core."
-            )
-
-        # Make sure torch-geometric is available
-        if importlib.util.find_spec("torch_geometric") is None:
-            raise ImportError(
-                "The torch-geometric module is not installed. Please install it by running"
-                " pip install torch-geometric."
             )
 
     @override
@@ -490,11 +478,3 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(compositions=compositions)
-    
-    @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
-        """
-        Apply message passing for early stopping.
-        Does nothing for eqV2.
-        """
-        pass

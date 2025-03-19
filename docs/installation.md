@@ -35,11 +35,13 @@ Please follow the installation instructions in the [jmp-backbone repository](htt
 
 ### ORB
 
-Please follow the installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models).
+ORB provides installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models). However, we spotted some bugs in their implementation, which may cause bugs in multi-GPU training. So in this installation guidance, we suggest users to install from our pull request using the following instruction:
 
 ```bash
 pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"
 ```
+
+After installing ORB, we suggest users to check whether the urls of the pretrained checkpoints are in newest version. In ```orb_models/forcefield/pretrained.py```, checkpoint urls are stored with the parameter named as ```weighted_path```, which has been frequently changed recently. One quick solution is copy the newest version [here](https://github.com/orbital-materials/orb-models/blob/main/orb_models/forcefield/pretrained.py) and overwrite your local version. 
 
 ### EquiformerV2
 

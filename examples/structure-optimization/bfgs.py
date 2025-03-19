@@ -21,17 +21,7 @@ def main(args_dict: dict):
     model = JMPBackboneModule.load_from_checkpoint(
         checkpoint_path=args_dict["checkpoint_path"], map_location="cpu"
     )
-    calc = model.ase_calculator(
-        lightning_trainer_kwargs={
-            "accelerator": "gpu",
-            "devices": args_dict["devices"],
-            "precision": "32",
-            "inference_mode": False,
-            "enable_progress_bar": False,
-            "enable_model_summary": False,
-            "logger": False,
-        }
-    )
+    calc = model.ase_calculator(device=f"cuda:{args_dict['devices']}")
 
     ## Perform Structure Optimization with BFGS
     os.makedirs(args_dict["save_dir"], exist_ok=True)
@@ -67,6 +57,6 @@ if __name__ == "__main__":
     parser.add_argument("--init_structs", type=str, default="./ZnMn2O4_random")
     parser.add_argument("--save_dir", type=str, default="./ZnMn2O4_mlrelaxed")
     parser.add_argument("--max_steps", type=int, default=None)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--device", type=int, default=0)
     args_dict = vars(parser.parse_args())
     main(args_dict)
