@@ -255,12 +255,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         assert ckpt_path is not None
         self.backbone = GemNetOCBackbone.from_pretrained_ckpt(ckpt_path)
-        
-        if self.hparams.reset_backbone:
-            for module in self.backbone.modules():
-                if hasattr(module, "reset_parameters"):
-                    module.reset_parameters()
-        
+                
         log.info(
             f"Loaded the model from the checkpoint at {ckpt_path}. The model "
             f"has {sum(p.numel() for p in self.backbone.parameters()):,} parameters."
@@ -302,7 +297,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
+    def model_forward(self, batch, mode: str, return_backbone_output=False, using_partition=False):
         # Run the backbone
         if return_backbone_output:
             backbone_output, intermediate = self.backbone(
@@ -320,7 +315,19 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             "predicted_props": predicted_properties,
         }
         for name, head in self.output_heads.items():
-            output = head(head_input)
+            assert (
+                prop := next(
+                    (p for p in self.hparams.properties if p.name == name), None
+                )
+            ) is not None, (
+                f"Property {name} not found in properties. "
+                "This should not happen, please report this."
+            )
+            if using_partition and isinstance(prop, props.EnergyPropertyConfig):
+                output, per_atom_energies = head(head_input, return_per_atom_energy=True)
+                head_input["predicted_props"]["energies_per_atom"] = per_atom_energies
+            else:
+                output = head(head_input)
             if torch.isnan(output).any() or torch.isinf(output).any():
                 raise _SkipBatchError("NaN or inf detected in the output")
             head_input["predicted_props"][name] = output
@@ -413,6 +420,17 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                 data_dict[prop.name] = value
 
         return Data.from_dict(data_dict)
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        graph = self.graph_computer(data)
+        edge_indices = graph["main_edge_index"].clone()
+        return edge_indices
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms) -> torch.Tensor:
+        data = self.atoms_to_data(atoms, has_labels=False)
+        return self.get_connectivity_from_data(data)
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -421,9 +439,19 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         atomic_numbers: torch.Tensor = batch["atomic_numbers"].long()  # (n_atoms,)
         batch_idx: torch.Tensor = batch["batch"]  # (n_atoms,)
+        
+        ## get num_atoms per sample
+        all_ones = torch.ones_like(atomic_numbers)
+        num_atoms = scatter(
+            all_ones,
+            batch_idx,
+            dim=0,
+            dim_size=batch.num_graphs,
+            reduce="sum",
+        )
 
         # Convert atomic numbers to one-hot encoding
-        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)  # (n_atoms, 120)
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
 
         compositions = scatter(
             atom_types_onehot,
@@ -433,7 +461,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             reduce="sum",
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
     def apply_early_stop_message_passing(self, message_passing_steps: int|None):

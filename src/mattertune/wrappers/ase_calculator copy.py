@@ -2,27 +2,140 @@ from __future__ import annotations
 
 import copy
 from typing import TYPE_CHECKING
-import time
 
 import torch
-import torch.distributed as dist
 import numpy as np
 from ase import Atoms
 from collections import deque
 from ase.calculators.calculator import Calculator
-from ase.stress import full_3x3_to_voigt_6_stress
-from typing_extensions import override, Any, cast
+from typing_extensions import override
 
+if TYPE_CHECKING:
+    from ..finetune.properties import PropertyConfig
+    from .property_predictor import MatterTunePropertyPredictor
+    from ..finetune.base import FinetuneModuleBase
+    from ..util import optional_import_error_message
 
-from ..util import optional_import_error_message
-from ..callbacks.multi_gpu_writer import CustomWriter
-from ..finetune.properties import PropertyConfig, ForcesPropertyConfig, StressesPropertyConfig
-from .property_predictor import _create_trainer, _atoms_list_to_dataloader
-from ..finetune.base import FinetuneModuleBase
 
 class MatterTuneCalculator(Calculator):
+    @override
+    def __init__(
+        self, 
+        property_predictor: MatterTunePropertyPredictor,
+    ):
+        super().__init__()
+
+        self.property_predictor = property_predictor
+
+        self.implemented_properties: list[str] = []
+        self._ase_prop_to_config: dict[str, PropertyConfig] = {}
+
+        for prop in self.property_predictor.lightning_module.hparams.properties:
+            # Ignore properties not marked as ASE calculator properties.
+            if (ase_prop_name := prop.ase_calculator_property_name()) is None:
+                continue
+            self.implemented_properties.append(ase_prop_name)
+            self._ase_prop_to_config[ase_prop_name] = prop
+
+    @override
+    def calculate(
+        self,
+        atoms: Atoms | None = None,
+        properties: list[str] | None = None,
+        system_changes: list[str] | None = None,
+    ):
+        """Calculate properties for the given atoms object using the MatterTune property predictor.
+        This method implements the calculation of properties like energy, forces, etc. for an ASE Atoms
+        object using the underlying MatterTune property predictor. It converts between ASE and MatterTune
+        property names and handles proper type conversions of the predicted values.
+
+        Args:
+            atoms (Atoms | None, optional): ASE Atoms object to calculate properties for. If None,
+                uses previously set atoms. Defaults to None.
+            properties (list[str] | None, optional): List of properties to calculate. If None,
+                calculates all implemented properties. Defaults to None.
+            system_changes (list[str] | None, optional): List of changes made to the system
+                since last calculation. Used by ASE for caching. Defaults to None.
+        Notes:
+            - The method first ensures atoms and property names are properly set
+            - Makes predictions using the MatterTune property predictor
+            - Converts predictions from PyTorch tensors to appropriate numpy types
+            - Maps MatterTune property names to ASE calculator property names
+            - Stores results in the calculator's results dictionary
+        Raises:
+            AssertionError: If atoms is not set properly or if predictions are not in expected format
+        """
+
+        # if properties is None:
+        #     properties = copy.deepcopy(self.implemented_properties)
+
+        # Call the parent class to set `self.atoms`.
+        # super().calculate(atoms, properties, system_changes)
+        Calculator.calculate(self, atoms)
+
+        # Make sure `self.atoms` is set.
+        assert self.atoms is not None, (
+            "`MatterTuneCalculator.atoms` is not set. "
+            "This should have been set by the parent class. "
+            "Please report this as a bug."
+        )
+        assert isinstance(self.atoms, Atoms), (
+            "`MatterTuneCalculator.atoms` is not an `ase.Atoms` object. "
+            "This should have been set by the parent class. "
+            "Please report this as a bug."
+        )
+
+        # Get the predictions.
+        prop_configs = [self._ase_prop_to_config[prop] for prop in self.implemented_properties]
+        predictions = self.property_predictor.predict(
+            [self.atoms],
+            prop_configs,
+        )
+        # The output of the predictor should be a list of predictions, where
+        #   each prediction is a dictionary of properties. The PropertyPredictor class
+        #   supports batch predictions, but we're only passing a single Atoms
+        #   object here. So we expect a single prediction.
+        assert len(predictions) == 1, "Expected a single prediction."
+        [prediction] = predictions
+
+        # Further, the output of the predictor is be a dictionary with the
+        #   property names as keys. These property are should be the
+        #   MatterTune property names (i.e., the names from the
+        #   `lightning_module.hparams.properties[*].name` attribute), not the ASE
+        #   calculator property names. Before feeding the properties to the
+        #   ASE calculator, we need to convert the property names to the ASE
+        #   calculator property names.
+        for prop in prop_configs:
+            ase_prop_name = prop.ase_calculator_property_name()
+            assert ase_prop_name is not None, (
+                f"Property '{prop.name}' does not have an ASE calculator property name. "
+                "This should have been checked when creating the MatterTuneCalculator. "
+                "Please report this as a bug."
+            )
+
+            # Update the ASE calculator results.
+            # We also need to convert the prediction to the correct type.
+            #   `PropertyPredictor.predict` returns the predictions as a
+            #   `dict[str, torch.Tensor]`, but the ASE calculator expects the
+            #   properties as numpy arrays/floats.
+            value = prediction[prop.name].detach().to(torch.float32).cpu().numpy()
+            value = value.astype(prop._numpy_dtype())
+
+            # Finally, some properties may define their own conversion functions
+            #   to do some final processing before setting the property value.
+            #   For example, `energy` ends up being a scalar, so we call
+            #   `value.item()` to get the scalar value. We handle this here.
+            value = prop.prepare_value_for_ase_calculator(value)
+
+            # Set the property value in the ASE calculator.
+            self.results[ase_prop_name] = value
+
+
+import time
+
+class MatterTuneIntenseCalculator(Calculator):
     """
-    A fast version of the MatterTuneCalculator that uses the `predict_step` method directly without creating a trainer.
+    A faster version of the MatterTuneCalculator that uses the `predict_step` method directly without creating a trainer.
     """
     
     @override
@@ -30,7 +143,6 @@ class MatterTuneCalculator(Calculator):
         super().__init__()
 
         self.model = model.to(device)
-        self.model.hparams.using_partition = False
 
         self.implemented_properties: list[str] = []
         self._ase_prop_to_config: dict[str, PropertyConfig] = {}
@@ -71,10 +183,6 @@ class MatterTuneCalculator(Calculator):
             "Please report this as a bug."
         )
         
-        diabled_properties = list(set(self.implemented_properties) - set(properties))
-        self.model.set_disabled_heads(diabled_properties)
-        prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
-        
         time1 = time.time()
         data = self.model.atoms_to_data(self.atoms, has_labels=False)
         batch = self.model.collate_fn([data])
@@ -86,10 +194,10 @@ class MatterTuneCalculator(Calculator):
             batch = batch,
             batch_idx = 0,
         )
-        pred = pred[0] # type: ignore
         self.forward_times.append(time.time() - time1)
         
         time1 = time.time() 
+        prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         for prop in prop_configs:
             ase_prop_name = prop.ase_calculator_property_name()
             assert ase_prop_name is not None, (
@@ -156,7 +264,6 @@ def partition_graph_with_extensions(
                     depths.append(depth + 1)
     
     ## convert edge indices to networkx graph
-    
     with optional_import_error_message("networkx"):
         import networkx as nx
     
@@ -215,7 +322,6 @@ def partition_atoms(
         part_i_atoms = Atoms(current_partition, cell=atoms.cell, pbc=atoms.pbc)
         part_i_atoms.info["root_node_indices"] = root_node_indices ## root_node_indices[i]=idx -> idx-th atom in part_i is a root node
         part_i_atoms.info["indices_map"] = current_indices_map ## indices_map[i]=idx -> i-th atom in part_i corresponds to idx-th atom in original atoms
-        part_i_atoms.info["partition_id"] = len(partitioned_atoms)
         partitioned_atoms.append(part_i_atoms)
     
     return partitioned_atoms
@@ -228,25 +334,10 @@ class MatterTunePartitionCalculator(Calculator):
     """
     
     @override
-    def __init__(
-        self, 
-        model: FinetuneModuleBase, 
-        mp_steps: int,
-        num_partitions: int,
-        batch_size: int = 1,
-        lightning_trainer_kwargs: dict[str, Any] = {},
-    ):
+    def __init__(self, model: FinetuneModuleBase, device: torch.device):
         super().__init__()
 
-        self.model = model
-        self.model.hparams.using_partition = True
-        self.mp_steps = mp_steps
-        self.num_partitions = num_partitions
-        self.batch_size = batch_size
-        ## TODO: batch size is fixed to 1 to support MatterSim. 
-        ## When summing energies_i, we need to sum over only the root nodes.
-        ## The root_node_indices comes from ase.Atoms and is stored in info["root_node_indices"]
-        self.lightning_trainer_kwargs = lightning_trainer_kwargs
+        self.model = model.to(device)
 
         self.implemented_properties: list[str] = []
         self._ase_prop_to_config: dict[str, PropertyConfig] = {}
@@ -261,7 +352,6 @@ class MatterTunePartitionCalculator(Calculator):
         self.prepare_times = []
         self.forward_times = []
         self.collect_times = []
-        self.partition_sizes = []
 
     @override
     def calculate(
@@ -288,97 +378,45 @@ class MatterTunePartitionCalculator(Calculator):
             "Please report this as a bug."
         )
         
-        diabled_properties = list(set(self.implemented_properties) - set(properties))
-        self.model.set_disabled_heads(diabled_properties)
-        
         time1 = time.time()
-        edge_indices = self.model.get_connectivity_from_atoms(self.atoms)
+        data = self.model.atoms_to_data(self.atoms, has_labels=False)
+        edge_indices = self.model.get_connectivity_from_data(data)
         src_indices = edge_indices[0].cpu().numpy()
         dst_indices = edge_indices[1].cpu().numpy()
         
-        partitioned_atoms_list = partition_atoms(
+        partitioned_atoms = partition_atoms(
             atoms=self.atoms,
             src_indices=src_indices,
             dst_indices=dst_indices,
-            num_partitions=self.num_partitions,
-            mp_steps=self.mp_steps
+            num_partitions=4,
+            mp_steps=2
         )
-        avg_part_size = np.mean([len(part) for part in partitioned_atoms_list])
+        
+        
+        batch = self.model.collate_fn([data])
+        batch = batch.to(self.model.device)
         self.prepare_times.append(time.time() - time1)
-        self.partition_sizes.append(avg_part_size)
         
         time1 = time.time()
-        # writer_callback = CustomWriter(write_interval="epoch")
-        # trainer_kwargs = self.lightning_trainer_kwargs
-        # trainer_kwargs["callbacks"] = [writer_callback]
-        trainer = _create_trainer(self.lightning_trainer_kwargs, self.model)
-        dataloader = _atoms_list_to_dataloader(
-            partitioned_atoms_list, self.model, batch_size=self.batch_size
-        )
-        predictions = trainer.predict(
-            self.model, dataloader, return_predictions=True
-        )
-        predictions = [p for batch in predictions for p in batch]
-        # if trainer.is_global_zero:
-        #     dist.barrier()
-        # else:
-        #     exit()
-        # predictions = writer_callback.gather_all_predictions()
-        # writer_callback.cleanup()
-
-        assert predictions is not None, "Predictions should not be None. Report a bug."
-        predictions = cast(list[dict[str, torch.Tensor]], predictions)
-        assert len(predictions) == len(partitioned_atoms_list), (
-            f"Number of predictions does not match the number of partitions. Find {len(predictions)} predictions for {len(partitioned_atoms_list)} partitions. Report a bug."
+        pred = self.model.predict_step(
+            batch = batch,
+            batch_idx = 0,
         )
         self.forward_times.append(time.time() - time1)
         
-        time1 = time.time()
-        
-        results = {}
-        if "energy" in properties:
-            results["energy"] = np.zeros(len(self.atoms), dtype=np.float32)
-        if "forces" in properties:
-            results["forces"] = np.zeros((len(self.atoms), 3), dtype=np.float32)
-            forces_config_i = self._ase_prop_to_config["forces"]
-            assert isinstance(forces_config_i, ForcesPropertyConfig)
-        if "stress" in properties:
-            results["stress"] = np.zeros((3, 3), dtype=np.float32)
-            stress_config_i = self._ase_prop_to_config["stress"]
-            assert isinstance(stress_config_i, StressesPropertyConfig)
-        
-        for i in range(len(partitioned_atoms_list)):
-            part_i_atoms = partitioned_atoms_list[i]
-            part_i_pred = predictions[i]
-            if "energy" in properties:
-                part_i_pred["energies_per_atom"] = part_i_pred["energies_per_atom"].detach().to(torch.float32).cpu().numpy() # type: ignore
-            if "forces" in properties:
-                part_i_pred["forces"] = part_i_pred["forces"].detach().to(torch.float32).cpu().numpy()
-            if "stress" in properties:
-                part_i_pred["stress"] = part_i_pred["stress"].detach().to(torch.float32).cpu().numpy()
-            root_node_indices_i = part_i_atoms.info["root_node_indices"]
-            indices_map_i = part_i_atoms.info["indices_map"]
-            
-            for j in range(len(part_i_atoms)):
-                original_idx = indices_map_i[j]
-                if "energy" in properties and j in root_node_indices_i:
-                    results["energy"][original_idx] = part_i_pred["energies_per_atom"][j]
-                if "forces" in properties:
-                    if forces_config_i.conservative:
-                        results["forces"][original_idx] += part_i_pred["forces"][j]
-                    else:
-                        results["forces"][original_idx] = part_i_pred["forces"][j]
-                if "stress" in properties:
-                    if stress_config_i.conservative:
-                        results["stress"] += part_i_pred["stress"].reshape(3, 3)
-                    else:
-                        raise NotImplementedError("Non-conservative stress calculation is not implemented for partitioned calculations.")
-        
-        if "energy" in properties:
-            results["energy"] = np.sum(results["energy"]).item()
-        if "stress" in properties:
-            results["stress"] = full_3x3_to_voigt_6_stress(results["stress"])
-        self.results.update(results)
+        time1 = time.time() 
+        prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
+        for prop in prop_configs:
+            ase_prop_name = prop.ase_calculator_property_name()
+            assert ase_prop_name is not None, (
+                f"Property '{prop.name}' does not have an ASE calculator property name. "
+                "This should have been checked when creating the MatterTuneCalculator. "
+                "Please report this as a bug."
+            )
+
+            value = pred[prop.name].detach().to(torch.float32).cpu().numpy() # type: ignore
+            value = value.astype(prop._numpy_dtype())
+            value = prop.prepare_value_for_ase_calculator(value)
+
+            self.results[ase_prop_name] = value
         self.collect_times.append(time.time() - time1)
-            
-        

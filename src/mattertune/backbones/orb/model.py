@@ -110,12 +110,12 @@ class ORBBackboneModule(
         match prop:
             case props.EnergyPropertyConfig():
                 with optional_import_error_message("orb-models"):
-                    from orb_models.forcefield.graph_regressor import EnergyHead  # type: ignore[reportMissingImports] # noqa
+                    from orb_models.forcefield.graph_regressor import EnergyHeadPoolAfter  # type: ignore[reportMissingImports] # noqa
 
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.graph_head
                 else:
-                    return EnergyHead(
+                    return EnergyHeadPoolAfter(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -219,10 +219,6 @@ class ORBBackboneModule(
 
         backbone = backbone.train()
         self.backbone = backbone
-        if self.hparams.reset_backbone:
-            for module in self.backbone.modules():
-                if hasattr(module, "reset_parameters"):
-                    module.reset_parameters()
 
         log.info(
             f'Loaded the ORB pre-trained model "{self.hparams.pretrained_model}". The model '
@@ -251,7 +247,7 @@ class ORBBackboneModule(
         yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
+    def model_forward(self, batch, mode: str, return_backbone_output=False, using_partition: bool = False):
         
         if mode == "predict":
             self.eval()
@@ -278,22 +274,20 @@ class ORBBackboneModule(
                 "This should not happen, please report this."
             )
             
-            if mode == "predict" and self.hparams.use_pretrained_normalizers:
-                pred = head.predict(batch)
-            
-            else:
-                batch = cast("AtomGraphs", head(batch))
-
-                match prop_type := prop.property_type():
-                    case "system":
-                        if isinstance(prop, props.StressesPropertyConfig):
-                            pred = batch.system_features.pop("stress_pred")
-                        else:
-                            pred = batch.system_features.pop("graph_pred")
-                    case "atom":
-                        pred = batch.node_features.pop("node_pred")
-                    case _:
-                        assert_never(prop_type)
+            batch = cast("AtomGraphs", head(batch))
+            match prop_type := prop.property_type():
+                case "system":
+                    if isinstance(prop, props.StressesPropertyConfig):
+                        pred = batch.system_features.pop("stress_pred")
+                    else:
+                        pred = batch.system_features.pop("graph_pred")
+                    if using_partition and isinstance(prop, props.EnergyPropertyConfig):
+                        energies_per_atom = batch.node_features.pop("energy_per_atom")
+                        predicted_properties["energy_per_atom"] = energies_per_atom
+                case "atom":
+                    pred = batch.node_features.pop("node_pred")
+                case _:
+                    assert_never(prop_type)
             
             # Convert the stress tensor to the full 3x3 form
             if isinstance(prop, props.StressesPropertyConfig):
@@ -307,7 +301,7 @@ class ORBBackboneModule(
                 from orb_models.forcefield.gns import _KEY  # type: ignore[reportMissingImports] # noqa
 
             # pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
-            pred_dict["backbone_output"] = intermediate
+            pred_dict["backbone_output"] = intermediate # type: ignore[reportMissingImports] # noqa
             
         if mode == "predict":
             self.train()
@@ -408,7 +402,7 @@ class ORBBackboneModule(
                             value.reshape(1, 1) if value.dim() == 0 else value
                         )
                     case "atom":
-                        atom_graphs.node_targets[prop.name] = value
+                        atom_graphs.node_targets[prop.name] = value # type: ignore[reportUnboundType]
                     case _:
                         assert_never(prop_type)
 
@@ -426,14 +420,26 @@ class ORBBackboneModule(
         atom_graphs.system_features["norm_composition"] = composition
 
         return atom_graphs
+    
+    @override
+    def get_connectivity_from_data(self, data: AtomGraphs) -> torch.Tensor:
+        senders = data.senders.clone()
+        receivers = data.receivers.clone()
+        return torch.stack([senders, receivers], dim=0)
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms) -> torch.Tensor:
+        data = self.atoms_to_data(atoms, has_labels=False)
+        return self.get_connectivity_from_data(data)
 
     @override
     def create_normalization_context_from_batch(self, batch):
+        num_atoms = batch.n_node
         compositions = batch.system_features.get("norm_composition")
         if compositions is None:
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
     def apply_early_stop_message_passing(self, message_passing_steps: int|None):

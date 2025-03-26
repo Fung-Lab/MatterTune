@@ -35,6 +35,8 @@ class NormalizationContext:
     deviation normalization. For example, subtracting linear references
     from total energies can be implemented using this interface.
     """
+    
+    num_atoms: torch.Tensor  # (num_samples,)
 
     compositions: torch.Tensor  # (num_samples, num_elements)
     """
@@ -85,11 +87,44 @@ class NormalizerModule(Protocol):
 
 
 class NormalizerConfigBase(C.Config, ABC):
+    only_for_target: bool
+    """
+    Whether the normalizer should only be applied to the target property or to both predictions and targets.
+    """
     @abstractmethod
     def create_normalizer_module(self) -> NormalizerModule: ...
+    
+    
+class PerAtomNormalizerConfig(NormalizerConfigBase):
+    only_for_target: bool = False
+    @override
+    def create_normalizer_module(self) -> NormalizerModule:
+        return PerAtomNormalizerModule(self)
+
+class PerAtomNormalizerModule(nn.Module, NormalizerModule, ABC):
+    
+    def __init__(self, config: PerAtomNormalizerConfig):
+        super().__init__()
+        self.only_for_target = config.only_for_target
+    
+    @override
+    def normalize(self, value: torch.Tensor, ctx: NormalizationContext) -> torch.Tensor:
+        if len(value.shape) == 1:
+            return value / ctx.num_atoms
+        else:
+            return value / ctx.num_atoms[:, None]
+
+    @override
+    def denormalize(self, value: torch.Tensor, ctx: NormalizationContext) -> torch.Tensor:
+        if len(value.shape) == 1:
+            return value * ctx.num_atoms
+        else:
+            return value * ctx.num_atoms[:, None]
 
 
 class MeanStdNormalizerConfig(NormalizerConfigBase):
+    only_for_target: bool = True
+    
     mean: float
     """The mean of the property values."""
 
@@ -111,6 +146,7 @@ class MeanStdNormalizerModule(nn.Module, NormalizerModule, ABC):
 
         self.register_buffer("mean", torch.tensor(config.mean))
         self.register_buffer("std", torch.tensor(config.std))
+        self.only_for_target = config.only_for_target
 
     @override
     def normalize(self, value, ctx):
@@ -122,6 +158,8 @@ class MeanStdNormalizerModule(nn.Module, NormalizerModule, ABC):
 
 
 class RMSNormalizerConfig(NormalizerConfigBase):
+    only_for_target: bool = True
+    
     rms: float
     """The root mean square of the property values."""
 
@@ -138,6 +176,7 @@ class RMSNormalizerModule(nn.Module, NormalizerModule, ABC):
         super().__init__()
 
         self.register_buffer("rms", torch.tensor(config.rms))
+        self.only_for_target = config.only_for_target
 
     @override
     def normalize(self, value, ctx):
@@ -149,6 +188,8 @@ class RMSNormalizerModule(nn.Module, NormalizerModule, ABC):
 
 
 class PerAtomReferencingNormalizerConfig(NormalizerConfigBase):
+    only_for_target: bool = True
+    
     per_atom_references: Mapping[int, float] | Sequence[float] | Path
     """The reference values for each element.
 
@@ -189,6 +230,7 @@ class PerAtomReferencingNormalizerModule(nn.Module, NormalizerModule):
         ## delete reference with key 0
         references = references[1:]
         self.register_buffer("references", references)
+        self.only_for_target = config.only_for_target
 
     @override
     def normalize(self, value: torch.Tensor, ctx: NormalizationContext) -> torch.Tensor:
@@ -216,25 +258,52 @@ class PerAtomReferencingNormalizerModule(nn.Module, NormalizerModule):
         return value + references
 
 
-class ComposeNormalizers(nn.Module, NormalizerModule):
+class ComposeNormalizers(nn.Module):
     def __init__(self, normalizers: Sequence[NormalizerModule]):
         super().__init__()
 
         self.normalizers = nn.ModuleList(cast(list[nn.Module], normalizers))
 
-    @override
-    def normalize(self, value: torch.Tensor, ctx: NormalizationContext) -> torch.Tensor:
+    def normalize(
+        self, prediction: torch.Tensor, target: torch.Tensor, ctx: NormalizationContext) -> tuple[torch.Tensor, torch.Tensor]:
         for normalizer in self.normalizers:
-            value = normalizer.normalize(value, ctx)
-        return value
+            if normalizer.only_for_target:
+                ## When only_for target, model's prediction is already normalized
+                target = normalizer.normalize(target, ctx)
+            else:
+                ## When not only_for_target, model's prediction is not normalized, where we need to normalize both prediction and target
+                prediction = normalizer.normalize(prediction, ctx)
+                target = normalizer.normalize(target, ctx)
+        return prediction, target
 
-    @override
     def denormalize(
-        self, value: torch.Tensor, ctx: NormalizationContext
-    ) -> torch.Tensor:
+        self, prediction: torch.Tensor, target: torch.Tensor, ctx: NormalizationContext
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         for normalizer in reversed(self.normalizers):
-            value = normalizer.denormalize(value, ctx)
-        return value
+            if normalizer.only_for_target:
+                ## When only_for target, model's prediction is already normalized
+                ## So we need to denormalize the target
+                target = normalizer.denormalize(target, ctx)
+            else:
+                ## When not only_for_target, model's prediction is both normalized, where we need to denormalize both prediction and target
+                prediction = normalizer.denormalize(prediction, ctx)
+                target = normalizer.denormalize(target, ctx)
+        return prediction, target
+
+    def denormalize_predict(
+        self, prediction: torch.Tensor, ctx: NormalizationContext
+    ) -> torch.Tensor:
+        ## NOTE: in denormalize, we should denormalize both prediction and target whether or not the normalizer is only for target
+        ## This is because even if the normalizer is only for target, model's prediction is the normalized value, so we need to denormalize it
+        for normalizer in reversed(self.normalizers):
+            if normalizer.only_for_target:
+                ## When only_for target, model's prediction is already normalized
+                ## So we need to denormalize the prediction
+                prediction = normalizer.denormalize(prediction, ctx)
+            else:
+                ## When not only_for_target, model's prediction is not normalized, just pass
+                pass
+        return prediction
 
 
 def compute_per_atom_references(
@@ -346,7 +415,8 @@ def compute_per_atom_references_cli_main(
 NormalizerConfig = TypeAliasType(
     "NormalizerConfig",
     Annotated[
-        MeanStdNormalizerConfig
+        PerAtomNormalizerConfig
+        | MeanStdNormalizerConfig
         | RMSNormalizerConfig
         | PerAtomReferencingNormalizerConfig,
         C.Field(

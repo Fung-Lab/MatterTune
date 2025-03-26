@@ -33,9 +33,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     reset_output_heads: bool = False
     """Whether to reset the output heads of the model when creating the model."""
-    
-    use_pretrained_normalizers: bool = True
-    """Whether to use the pretrained normalizers."""
 
     properties: Sequence[PropertyConfig]
     """Properties to predict."""
@@ -63,6 +60,9 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     early_stop_message_passing: int | None = None
     """Number of message passing steps for early stopping. If None, no early stopping is applied."""
+    
+    using_partition: bool = False
+    """Whether to be using partitioning in the model."""
 
     @classmethod
     @abstractmethod
@@ -91,14 +91,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
                 raise ValueError(
                     f"Key '{key}' in 'normalizers' is not a valid property name."
                 )
-        # if set custom normalizers, then use them, set use_pretrained_normalizers to False
-        if len(self.normalizers) > 0:
-            self.use_pretrained_normalizers = False
-        # else if use pretrained normalizers, then reset_output_heads should be True
-        if self.use_pretrained_normalizers and self.reset_output_heads:
-            log.warning("use_pretrained_normalizers is True, reset_output_heads should be False")
-            log.warning("find reset_output_heads is True, set use_pretrained_normalizers to False")
-            self.use_pretrained_normalizers = False
 
 
 class _SkipBatchError(Exception):
@@ -200,6 +192,7 @@ class FinetuneModuleBase(
         batch: TBatch,
         mode: str,
         return_backbone_output: bool = False,
+        using_partition: bool = False,
     ) -> ModelOutput:
         """
         Forward pass of the model.
@@ -293,6 +286,30 @@ class FinetuneModuleBase(
             has_labels: Whether the atoms object contains labels.
         """
         ...
+        
+    @abstractmethod
+    def get_connectivity_from_data(self, data: TData) -> torch.Tensor:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Tensor of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        ...
+        
+    @abstractmethod
+    def get_connectivity_from_atoms(self, atoms: ase.Atoms) -> torch.Tensor:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Tensor of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        ...
 
     @abstractmethod
     def create_normalization_context_from_batch(
@@ -340,6 +357,14 @@ class FinetuneModuleBase(
         # Create the backbone model and output heads
         self.create_model()
         self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
+        
+        if self.hparams.reset_backbone:
+            for name, param in self.backbone.named_parameters():
+                if param.dim() > 1:
+                    print(f"Resetting {name}")
+                    nn.init.xavier_uniform_(param)
+                else:
+                    nn.init.zeros_(param)
 
         # Create metrics
         self.create_metrics()
@@ -355,6 +380,10 @@ class FinetuneModuleBase(
             )
             
         self.predict_mode = "property"
+        self.diabled_heads = []
+        
+    def set_disabled_heads(self, disabled_heads: list[str]):
+        self.disabled_heads = disabled_heads
 
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
@@ -377,59 +406,88 @@ class FinetuneModuleBase(
 
     def normalize(
         self,
-        properties: dict[str, torch.Tensor],
+        predictions: dict[str, torch.Tensor],
+        targets: dict[str, torch.Tensor],
         ctx: NormalizationContext,
     ):
         """
-        Normalizes the ``properties`` dictionary. ``properties`` can either be
-        the predicted properties or the ground truth labels.
+        Normalizes predictions and targets
 
         Args:
-            properties: Dictionary of properties to normalize. The dictionary
-                should have the same format as the output of ``batch_to_labels``.
+            predictions: Dictionary of predicted values to normalize. 
+            targets: Dictionary of target values to normalize. 
             ctx: Normalization context. This should be created using
                 ``create_normalization_context_from_batch``.
 
         Returns:
-            Normalized properties.
+            Normalized predictions and targets.
         """
-        normalized_properties = {}
-        for prop_name, prop_value in properties.items():
-            if prop_name in self.normalizers:
-                normalizer = cast(ComposeNormalizers, self.normalizers[prop_name])
-                normalized_properties[prop_name] = normalizer.normalize(prop_value, ctx)
-            else:
-                normalized_properties[prop_name] = prop_value
-        return normalized_properties
+        normalized_predictions = {}
+        normalized_targets = {}
+        for key in predictions.keys():
+            pred = predictions[key]
+            target = None if targets is None else targets[key]
+            if key in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[key])
+                pred, target = normalizer.normalize(predictions[key], targets[key], ctx)
+            normalized_predictions[key] = pred
+            normalized_targets[key] = target
+        return normalized_predictions, normalized_targets
 
     def denormalize(
         self,
-        properties: dict[str, torch.Tensor],
+        predictions: dict[str, torch.Tensor],
+        targets: dict[str, torch.Tensor],
         ctx: NormalizationContext,
     ):
         """
-        Denormalizes the ``properties`` dictionary. ``properties`` can either be
-        the predicted properties or the ground truth labels.
+        Denormalizes predictions and targets
 
         Args:
-            properties: Dictionary of properties to denormalize. The dictionary
-                should have the same format as the output of ``batch_to_labels``.
+            predictions: Dictionary of predicted values to denormalize.
+            targets: Dictionary of target values to denormalize.
             ctx: Normalization context. This should be created using
                 ``create_normalization_context_from_batch``.
 
         Returns:
-            Denormalized properties.
+            Denormalized predictions and targets.
         """
-        denormalized_properties = {}
-        for prop_name, prop_value in properties.items():
-            if prop_name in self.normalizers:
-                normalizer = cast(ComposeNormalizers, self.normalizers[prop_name])
-                denormalized_properties[prop_name] = normalizer.denormalize(
-                    prop_value, ctx
-                )
-            else:
-                denormalized_properties[prop_name] = prop_value
-        return denormalized_properties
+        denormalized_predictions = {}
+        denormalized_targets = {}
+        for key in predictions.keys():
+            pred = predictions[key]
+            target = targets[key]
+            if key in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[key])
+                pred, target = normalizer.denormalize(pred, target, ctx)
+            denormalized_predictions[key] = pred
+            denormalized_targets[key] = target
+        return denormalized_predictions, denormalized_targets
+    
+    def denormalize_predict(
+        self,
+        predictions: dict[str, torch.Tensor],
+        ctx: NormalizationContext,
+    ):
+        """
+        Denormalizes predictions
+
+        Args:
+            predictions: Dictionary of predicted values to denormalize.
+            ctx: Normalization context. This should be created using
+                ``create_normalization_context_from_batch``.
+
+        Returns:
+            Denormalized predictions.
+        """
+        denormalized_predictions = {}
+        for key in predictions.keys():
+            pred = predictions[key]
+            if key in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[key])
+                pred = normalizer.denormalize_predict(pred, ctx)
+            denormalized_predictions[key] = pred
+        return denormalized_predictions
 
     @override
     def forward(
@@ -438,6 +496,7 @@ class FinetuneModuleBase(
         mode: str,
         return_backbone_output: bool = False,
         ignore_gpu_batch_transform_error: bool | None = None,
+        using_partition: bool = False,
     ) -> ModelOutput:
         if ignore_gpu_batch_transform_error is None:
             ignore_gpu_batch_transform_error = (
@@ -457,7 +516,7 @@ class FinetuneModuleBase(
 
             # Run the model
             model_output = self.model_forward(
-                batch, mode=mode, return_backbone_output=return_backbone_output
+                batch, mode=mode, return_backbone_output=return_backbone_output, using_partition=using_partition
             )
 
             model_output["predicted_properties"] = {
@@ -531,15 +590,7 @@ class FinetuneModuleBase(
             # Create the normalization context required for normalization/referencing.
             # We only need to create the context once per batch.
             normalization_ctx = self.create_normalization_context_from_batch(batch)
-
-            # Normalize the properties.
-            # NOTE: We normalize the target properties before computing the loss.
-            #   This ensures that the model is effectively learning the normalized
-            #   properties.
-            # NOTE: Some other implementations may instead choose to denormalize
-            #   the predictions before computing the loss. We don't do this because
-            #   it can lead to numerical instability in the loss computation.
-            labels = self.normalize(labels, normalization_ctx)
+            predictions, labels = self.normalize(predictions, labels, normalization_ctx)
 
         for key, value in labels.items():
             labels[key] = value.contiguous()
@@ -551,27 +602,23 @@ class FinetuneModuleBase(
             log=log,
             log_prefix=f"{mode}/",
         )
-
+        
         # NOTE: After computing the loss, we denormalize the predictions.
-        #   This is done so that the values that are output by the model
-        #   (and those used for metric computation) are measured in the
-        #   denormalized units, which are more interpretable.
-        # NOTE: Again, we only denormalize the predictions, not the labels.
-        #   This is because the labels are already in the denormalized units.
         if len(self.normalizers) > 0:
-            predictions = self.denormalize(predictions, normalization_ctx) # type: ignore
-            labels = self.denormalize(labels, normalization_ctx) # type: ignore
+            predictions, labels = self.denormalize(predictions, labels, normalization_ctx) # type: ignore
 
         # Log metrics
         if log and (metrics is not None):
+            denormalized_metrics = {
+                f"{mode}/{metric_name}": metric
+                for metric_name, metric in metrics(predictions, labels).items()
+            }
             self.log_dict(
-                {
-                    f"{mode}/{metric_name}": metric
-                    for metric_name, metric in metrics(predictions, labels).items()
-                },
+                denormalized_metrics,
                 on_epoch=True,
                 sync_dist=True,
             )
+
         return output, loss
 
     @override
@@ -596,13 +643,40 @@ class FinetuneModuleBase(
     def predict_step(self, batch: TBatch, batch_idx: int):
         if self.predict_mode == "property":
             output: ModelOutput = self(
-                batch, mode="predict", ignore_gpu_batch_transform_error=False
+                batch, mode="predict", ignore_gpu_batch_transform_error=False, using_partition=self.hparams.using_partition
             )
             predictions = output["predicted_properties"]
+            normalization_ctx = self.create_normalization_context_from_batch(batch)
             if len(self.normalizers) > 0:
-                normalization_ctx = self.create_normalization_context_from_batch(batch)
-                predictions = self.denormalize(predictions, normalization_ctx)
-            return predictions
+                predictions = self.denormalize_predict(predictions, normalization_ctx)
+            ## split predictions into a list of dicts
+            num_atoms = normalization_ctx.num_atoms
+            pred_list = []
+            for i in range(len(num_atoms)):
+                pred_dict = {}
+                for key, value in predictions.items():
+                    if key == "energies_per_atom":
+                        prop_type = "atom"
+                    else:
+                        assert (
+                            prop := next(
+                                (p for p in self.hparams.properties if p.name == key), None
+                            )
+                        ) is not None, (
+                            f"Property {key} not found in properties. "
+                            "This should not happen, please report this."
+                        )
+                        prop_type = prop.property_type()
+                    match prop_type:
+                        case "atom":
+                            pred_dict[key] = value[torch.sum(num_atoms[:i]):torch.sum(num_atoms[:i])+num_atoms[i]]
+                        case "system":
+                            pred_dict[key] = value[i]
+                        case _:
+                            raise ValueError(f"Unknown property type: {prop_type}")
+                pred_list.append(pred_dict)
+                
+            return pred_list
         elif self.predict_mode == "internal_feature":
             output: ModelOutput = self(
                 batch,
@@ -718,62 +792,24 @@ class FinetuneModuleBase(
         self, 
         # lightning_trainer_kwargs: dict[str, Any] | None = None,
         device: str = "cpu",
-        intense: bool = True,
     ):
-        """Returns an ASE calculator wrapper for the interatomic potential.
-
-        This method creates an ASE (Atomic Simulation Environment) calculator that can be used
-        to compute energies and forces using the trained interatomic potential model.
-
-        The calculator integrates with ASE's standard interfaces for molecular dynamics
-        and structure optimization.
-
-        Parameters
-        ----------
-        lightning_trainer_kwargs : dict[str, Any] | None, optional
-            Keyword arguments to pass to the PyTorch Lightning trainer used for inference.
-            If None, default trainer settings will be used.
-
-        Returns
-        -------
-        MatterTuneCalculator
-            An ASE calculator wrapper around the trained potential that can be used
-            for energy and force calculations via ASE's interfaces.
-
-        Examples
-        --------
-        >>> model = MyModel()
-        >>> calc = model.ase_calculator()
-        >>> atoms = ase.Atoms("H2O", positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]], cell=[10, 10, 10], pbc=True)
-        >>> atoms.calc = calc
-        >>> energy = atoms.get_potential_energy()
-        >>> forces = atoms.get_forces()
-        """
+        from ..wrappers.ase_calculator import MatterTuneCalculator
         
-        from ..wrappers.ase_calculator import MatterTuneCalculator, MatterTuneIntenseCalculator
-
-        if device == "cpu":
-            accelerator = "cpu"
-            device_idx = 0
-        else:
-            accelerator = "gpu"
-            device_idx = int(device.split(":")[1])
-            assert device.split(":")[0] == "cuda"
-            assert device.split(":")[1].isdigit()
+        return MatterTuneCalculator(self, device=torch.device(device))
+    
+    def ase_calculator_with_partition(
+        self, 
+        mp_steps: int,
+        num_partitions: int,
+        batch_size: int = 1,
+        lightning_trainer_kwargs: dict[str, Any] = {},
+    ):
+        from ..wrappers.ase_calculator import MatterTunePartitionCalculator
         
-        if intense:
-            return MatterTuneIntenseCalculator(self, device=torch.device(device))
-        else:
-            lightning_trainer_kwargs={
-                "accelerator": accelerator,
-                "devices": [device_idx],
-                "precision": "32",
-                "inference_mode": False,
-                "enable_progress_bar": False,
-                "enable_model_summary": False,
-                "logger": False,
-            }
-            property_predictor = self.property_predictor(
-                lightning_trainer_kwargs=lightning_trainer_kwargs
-            )
-            return MatterTuneCalculator(property_predictor)
+        return MatterTunePartitionCalculator(
+            self,
+            mp_steps=mp_steps,
+            num_partitions=num_partitions,
+            batch_size=batch_size,
+            lightning_trainer_kwargs=lightning_trainer_kwargs,
+        )
