@@ -282,9 +282,6 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         )
 
         self.backbone = backbone.float()
-        if self.hparams.use_pretrained_normalizers:
-            self.pretrained_normalizers = nn.ModuleDict(normalizers)
-            self.pretrained_elementrefs = nn.ModuleDict(elementrefs)
 
         # Create the output heads
         self.output_heads = nn.ModuleDict()
@@ -306,7 +303,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
+    def model_forward(self, batch, mode: str, return_backbone_output=False, using_partition: bool = False):
+        if using_partition:
+            raise NotImplementedError("Partitioning is not supported for eqV2.")
+        
         # Run the backbone
         if mode == "predict":
             self.eval()
@@ -329,25 +329,13 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
             match prop:
                 case props.EnergyPropertyConfig():
                     pred = head_output["energy"].view(-1, 1)
-                    if self.hparams.use_pretrained_normalizers:
-                        pred = self.pretrained_normalizers["energy"](pred)
                     pred = pred.squeeze(-1)
                 case props.ForcesPropertyConfig():
                     pred = head_output["forces"]
-                    if self.hparams.use_pretrained_normalizers:
-                        pred = self.pretrained_normalizers["forces"](pred)
                 case props.StressesPropertyConfig():
                     # Convert the stress tensor to the full 3x3 form
                     stress_rank0 = head_output["stress_isotropic"]  # (bsz 1)
-                    if self.hparams.use_pretrained_normalizers:
-                        stress_rank0 = self.pretrained_normalizers["stress_isotropic"](
-                            stress_rank0
-                        )
                     stress_rank2 = head_output["stress_anisotropic"]  # (bsz, 5)
-                    if self.hparams.use_pretrained_normalizers:
-                        stress_rank2 = self.pretrained_normalizers["stress_anisotropic"](
-                            stress_rank2
-                        )
                     pred = _combine_scalar_irrep2(head, stress_rank0, stress_rank2)
                 case props.GraphPropertyConfig():
                     pred = head_output["energy"]
@@ -469,6 +457,10 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         if hasattr(data, "forces"):
             data.forces = data.forces.float()
         return data
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        raise NotImplementedError("get_connectivity_from_data is not implemented for eqV2, since it is a Transformer-based model.")
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -477,6 +469,16 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
         atomic_numbers: torch.Tensor = batch["atomic_numbers"].long()  # (n_atoms,)
         batch_idx: torch.Tensor = batch["batch"]  # (n_atoms,)
+        
+        ## get num_atoms per sample
+        all_ones = torch.ones_like(atomic_numbers)
+        num_atoms = scatter(
+            all_ones,
+            batch_idx,
+            dim=0,
+            dim_size=batch.num_graphs,
+            reduce="sum",
+        )
 
         # Convert atomic numbers to one-hot encoding
         atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
@@ -489,7 +491,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
             reduce="sum",
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
     def apply_early_stop_message_passing(self, message_passing_steps: int|None):

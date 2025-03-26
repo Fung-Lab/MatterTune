@@ -34,6 +34,15 @@ def get_normalization_ctx(
 ):
     with optional_import_error_message("torch_scatter"):
         from torch_scatter import scatter
+        
+    all_ones = torch.ones_like(atomic_numbers)
+    num_atoms = scatter(
+        all_ones,
+        batch_idx,
+        dim=0,
+        dim_size=num_structs,
+        reduce="sum",
+    )
 
     atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)  # (n_atoms, 120)
     compositions = scatter(
@@ -44,7 +53,7 @@ def get_normalization_ctx(
         reduce="sum",
     )
     compositions = compositions[:, 1:]
-    return NormalizationContext(compositions=compositions)
+    return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
 
 
 def main(args_dict: dict):

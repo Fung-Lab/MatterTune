@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 import nshconfig as C
 import torch
 import torch.nn.functional as F
+from ase import Atoms
 from ase.units import GPa
+import numpy as np
+from pymatgen.optimization.neighbors import find_points_in_spheres
 from typing_extensions import final, override
 
 from ...finetune import properties as props
@@ -122,7 +125,7 @@ class MatterSimM3GNetBackboneModule(
 
         ## Load the pretrained model
         self.backbone = Potential.from_checkpoint(  # type: ignore[no-untyped-call]
-            # device="cpu",
+            device="cpu",
             load_path=self.hparams.pretrained_model,
             model_name=self.hparams.model_type,
             load_training_state=False,
@@ -132,10 +135,6 @@ class MatterSimM3GNetBackboneModule(
                 reset_head_for_finetune=True,
             )
         self.backbone.model.train()
-        if self.hparams.reset_backbone:
-            for module in self.backbone.modules():
-                if hasattr(module, "reset_parameters"):
-                    module.reset_parameters()
 
         if isinstance(self.hparams.graph_convertor, dict):
             self.hparams.graph_convertor = MatterSimGraphConvertorConfig(
@@ -195,7 +194,7 @@ class MatterSimM3GNetBackboneModule(
 
     @override
     def model_forward(
-        self, batch: Batch, mode: str, return_backbone_output: bool = False
+        self, batch: Batch, mode: str, return_backbone_output: bool = False, using_partition: bool = False
     ):
         with optional_import_error_message("mattersim"):
             from mattersim.forcefield.potential import batch_to_dict
@@ -206,9 +205,12 @@ class MatterSimM3GNetBackboneModule(
             include_forces=self.calc_forces,
             include_stresses=self.calc_stress,
             return_intermediate=return_backbone_output,
+            root_indices_mask=getattr(batch, "root_indices_mask", None) if using_partition else None
         )
         output_pred = {}
         output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))
+        if using_partition:
+            output_pred["energies_per_atom"] = output["total_energy_i"].reshape(-1)
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output.get("forces")
         if self.calc_stress:
@@ -263,6 +265,11 @@ class MatterSimM3GNetBackboneModule(
                 labels[prop.name] = torch.from_numpy(value)
             else:
                 labels[prop.name] = None
+                
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            root_node_indices = atoms.info["root_node_indices"]
+            root_indices_mask = [1 if i in root_node_indices else 0 for i in range(len(atoms))]
+                
         energy = labels.get(self.energy_prop_name, None)
         forces = labels.get(self.forces_prop_name, None)
         stress = labels.get(self.stress_prop_name, None)
@@ -273,7 +280,29 @@ class MatterSimM3GNetBackboneModule(
         setattr(graph, self.energy_prop_name, energy)
         setattr(graph, self.forces_prop_name, forces)
         setattr(graph, self.stress_prop_name, stress)
+        
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            setattr(graph, "root_indices_mask", torch.tensor(root_indices_mask, dtype=torch.long)) # type: ignore[assignment]
+        
         return graph
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        edge_indices = data.edge_index.clone()
+        return edge_indices
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms: Atoms) -> torch.Tensor:
+        twobody_cutoff = self.graph_convertor.twobody_cutoff
+        
+        cart_coords = np.array(atoms.get_positions())
+        lattice_matrix = np.array(atoms.get_cell())
+        src_indices, dst_indices, images, distances = find_points_in_spheres(
+            cart_coords, cart_coords, r=5.0, pbc=np.array([1, 1, 1], dtype=int), lattice=lattice_matrix, tol=1e-8
+        )
+        return torch.stack([torch.tensor(src_indices), torch.tensor(dst_indices)], dim=0)
+        
+        
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -282,9 +311,19 @@ class MatterSimM3GNetBackboneModule(
 
         atomic_numbers: torch.Tensor = batch["atomic_numbers"].long()  # (n_atoms,)
         batch_idx: torch.Tensor = batch["batch"]  # (n_atoms,)
+        
+        ## get num_atoms per sample
+        all_ones = torch.ones_like(atomic_numbers)
+        num_atoms = scatter(
+            all_ones,
+            batch_idx,
+            dim=0,
+            dim_size=batch.num_graphs,
+            reduce="sum",
+        )
 
         # Convert atomic numbers to one-hot encoding
-        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)  # (n_atoms, 120)
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
 
         compositions = scatter(
             atom_types_onehot,
@@ -294,7 +333,7 @@ class MatterSimM3GNetBackboneModule(
             reduce="sum",
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
 
     @override
     def optimizer_step(

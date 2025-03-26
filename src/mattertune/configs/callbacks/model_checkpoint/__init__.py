@@ -4,3 +4,8 @@ from mattertune.callbacks.model_checkpoint import ModelCheckpointConfig as Model
 
 from mattertune.callbacks.model_checkpoint import ModelCheckpointConfig as ModelCheckpointConfig
 
+
+
+__all__ = [
+    "ModelCheckpointConfig",
+]

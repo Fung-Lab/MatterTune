@@ -4,3 +4,8 @@ from mattertune.callbacks.early_stopping import EarlyStoppingConfig as EarlyStop
 
 from mattertune.callbacks.early_stopping import EarlyStoppingConfig as EarlyStoppingConfig
 
+
+
+__all__ = [
+    "EarlyStoppingConfig",
+]
