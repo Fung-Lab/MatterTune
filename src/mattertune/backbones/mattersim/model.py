@@ -129,10 +129,6 @@ class MatterSimM3GNetBackboneModule(
                 reset_head_for_finetune=True,
             )
         self.backbone.model.train()
-        if self.hparams.reset_backbone:
-            for module in self.backbone.modules():
-                if hasattr(module, "reset_parameters"):
-                    module.reset_parameters()
 
         if isinstance(self.hparams.graph_convertor, dict):
             self.hparams.graph_convertor = MatterSimGraphConvertorConfig(

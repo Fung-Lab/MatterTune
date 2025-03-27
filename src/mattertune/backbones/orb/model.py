@@ -216,10 +216,6 @@ class ORBBackboneModule(
 
         backbone = backbone.train()
         self.backbone = backbone
-        if self.hparams.reset_backbone:
-            for module in self.backbone.modules():
-                if hasattr(module, "reset_parameters"):
-                    module.reset_parameters()
 
         log.info(
             f'Loaded the ORB pre-trained model "{self.hparams.pretrained_model}". The model '
