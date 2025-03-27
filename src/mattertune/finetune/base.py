@@ -335,6 +335,8 @@ class FinetuneModuleBase(
 
         # Create the backbone model and output heads
         self.create_model()
+        if self.hparams.reset_backbone:
+            self.apply_reset_backbone()
 
         # Create metrics
         self.create_metrics()
@@ -348,6 +350,14 @@ class FinetuneModuleBase(
                 "No parameters require gradients. "
                 "Please ensure that some parts of the model are trainable."
             )
+            
+    def apply_reset_backbone(self):
+        for name, param in self.backbone.named_parameters():
+            if param.dim() > 1:
+                print(f"Resetting {name}")
+                nn.init.xavier_uniform_(param)
+            else:
+                nn.init.zeros_(param)
 
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)

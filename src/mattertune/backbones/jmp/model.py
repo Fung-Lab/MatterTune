@@ -252,11 +252,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         assert ckpt_path is not None
         self.backbone = GemNetOCBackbone.from_pretrained_ckpt(ckpt_path)
-        
-        if self.hparams.reset_backbone:
-            for module in self.backbone.modules():
-                if hasattr(module, "reset_parameters"):
-                    module.reset_parameters()
+
         
         log.info(
             f"Loaded the model from the checkpoint at {ckpt_path}. The model "
