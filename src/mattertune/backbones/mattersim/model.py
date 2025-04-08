@@ -18,7 +18,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 
 if TYPE_CHECKING:
     from torch_geometric.data import Batch, Data  # type: ignore[reportMissingImports] # noqa
@@ -288,19 +288,22 @@ class MatterSimM3GNetBackboneModule(
     
     @override
     def get_connectivity_from_data(self, data) -> torch.Tensor:
-        edge_indices = data.edge_index.clone()
+        edge_indices = data.edge_index.clone() # type: ignore[no-untyped-call]
         return edge_indices
     
     @override
-    def get_connectivity_from_atoms(self, atoms: Atoms) -> torch.Tensor:
+    def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
         twobody_cutoff = self.graph_convertor.twobody_cutoff
-        
-        cart_coords = np.array(atoms.get_positions())
-        lattice_matrix = np.array(atoms.get_cell())
-        src_indices, dst_indices, images, distances = find_points_in_spheres(
-            cart_coords, cart_coords, r=5.0, pbc=np.array([1, 1, 1], dtype=int), lattice=lattice_matrix, tol=1e-8
+        edge_indices, shifts = neighbor_list_and_relative_vec(
+            "vesin",
+            pos=np.array(atoms.get_positions()),
+            cell=np.array(atoms.get_cell()),
+            r_max=twobody_cutoff,
+            self_interaction=False,
+            strict_self_interaction=True,
+            pbc=True,
         )
-        return torch.stack([torch.tensor(src_indices), torch.tensor(dst_indices)], dim=0)
+        return edge_indices
         
         
 

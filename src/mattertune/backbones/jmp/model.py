@@ -428,9 +428,10 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         return edge_indices
     
     @override
-    def get_connectivity_from_atoms(self, atoms) -> torch.Tensor:
+    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
         data = self.atoms_to_data(atoms, has_labels=False)
-        return self.get_connectivity_from_data(data)
+        edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
+        return edge_indices
 
     @override
     def create_normalization_context_from_batch(self, batch):

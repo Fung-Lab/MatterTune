@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal, cast
 
 import nshconfig as C
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -273,8 +274,10 @@ class ORBBackboneModule(
                 f"Property {name} not found in properties. "
                 "This should not happen, please report this."
             )
-            
-            batch = cast("AtomGraphs", head(batch))
+            if isinstance(prop, props.EnergyPropertyConfig) and self.hparams.using_partition:
+                batch = cast("AtomGraphs", head(batch, return_per_atom_energy=True))
+            else:
+                batch = cast("AtomGraphs", head(batch))
             match prop_type := prop.property_type():
                 case "system":
                     if isinstance(prop, props.StressesPropertyConfig):
@@ -283,7 +286,7 @@ class ORBBackboneModule(
                         pred = batch.system_features.pop("graph_pred")
                     if using_partition and isinstance(prop, props.EnergyPropertyConfig):
                         energies_per_atom = batch.node_features.pop("energy_per_atom")
-                        predicted_properties["energy_per_atom"] = energies_per_atom
+                        predicted_properties["energies_per_atom"] = energies_per_atom
                 case "atom":
                     pred = batch.node_features.pop("node_pred")
                 case _:
@@ -428,9 +431,10 @@ class ORBBackboneModule(
         return torch.stack([senders, receivers], dim=0)
     
     @override
-    def get_connectivity_from_atoms(self, atoms) -> torch.Tensor:
+    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
         data = self.atoms_to_data(atoms, has_labels=False)
-        return self.get_connectivity_from_data(data)
+        edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
+        return edge_indices
 
     @override
     def create_normalization_context_from_batch(self, batch):

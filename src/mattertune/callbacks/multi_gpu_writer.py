@@ -24,7 +24,7 @@ class CustomWriter(BasePredictionWriter):
         self.output_dir = None
 
     @override
-    def write_on_epoch_end(self, trainer, pl_module, predictions, batch_indices):
+    def write_on_epoch_end(self, trainer, pl_module, predictions:list[dict[str, torch.Tensor]], batch_indices):
         """
         Called at the end of each epoch, saves the predictions and corresponding batch indices
         """
@@ -75,13 +75,10 @@ class CustomWriter(BasePredictionWriter):
                 all_items.append((indices[i], sample_pred))
 
         all_items = sorted(all_items, key=lambda x: x[0])
-        final_predictions = {}
+        final_predictions = []
         if all_items:
-            for key in all_items[0][1].keys():
-                final_predictions[key] = []
             for _, sample_pred in all_items:
-                for key, value in sample_pred.items():
-                    final_predictions[key].append(value)
+                final_predictions.append(sample_pred)
         return final_predictions
 
     def cleanup(self):
