@@ -185,6 +185,7 @@ def _atoms_list_to_dataloader(
     atoms_list: list[ase.Atoms],
     lightning_module: FinetuneModuleBase,
     batch_size: int = 1,
+    num_workers: int = 0,
 ):
     class AtomsDataset(Dataset):
         def __init__(self, atoms_list: list[ase.Atoms]):
@@ -203,7 +204,7 @@ def _atoms_list_to_dataloader(
         has_labels=False,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=num_workers,
     )
     return dataloader
 
