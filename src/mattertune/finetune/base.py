@@ -8,6 +8,7 @@ from typing import Any, Generic, Literal
 
 import ase
 import nshconfig as C
+import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch import LightningModule
@@ -300,14 +301,14 @@ class FinetuneModuleBase(
         ...
         
     @abstractmethod
-    def get_connectivity_from_atoms(self, atoms: ase.Atoms) -> torch.Tensor:
+    def get_connectivity_from_atoms(self, atoms: ase.Atoms) -> np.ndarray:
         """
         Get the connectivity from the data. This is used to extract the connectivity
         information from the data object. This is useful for message passing
         and other graph-based operations.
         
         Returns:
-            edge_index: Tensor of shape (2, num_edges) containing the src and dst indices of the edges.
+            edge_index: Array of shape (2, num_edges) containing the src and dst indices of the edges.
         """
         ...
 
@@ -796,20 +797,3 @@ class FinetuneModuleBase(
         from ..wrappers.ase_calculator import MatterTuneCalculator
         
         return MatterTuneCalculator(self, device=torch.device(device))
-    
-    def ase_calculator_with_partition(
-        self, 
-        mp_steps: int,
-        num_partitions: int,
-        batch_size: int = 1,
-        lightning_trainer_kwargs: dict[str, Any] = {},
-    ):
-        from ..wrappers.ase_calculator import MatterTunePartitionCalculator
-        
-        return MatterTunePartitionCalculator(
-            self,
-            mp_steps=mp_steps,
-            num_partitions=num_partitions,
-            batch_size=batch_size,
-            lightning_trainer_kwargs=lightning_trainer_kwargs,
-        )
