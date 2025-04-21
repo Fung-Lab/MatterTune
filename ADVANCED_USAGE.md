@@ -4,13 +4,13 @@ This guide covers advanced topics for extending MatterTune with custom component
 
 ## Table of Contents
 - [MatterTune Advanced Usage Guide](#mattertune-advanced-usage-guide)
-    - [Table of Contents](#table-of-contents)
-    - [Implementing Custom Backbones](#implementing-custom-backbones)
-        - [Basic Structure](#basic-structure)
-    - [Implementing Custom Datasets](#implementing-custom-datasets)
-        - [Dataset Structure](#dataset-structure)
-    - [Usage](#usage)
-    - [Best Practices](#best-practices)
+  - [Table of Contents](#table-of-contents)
+  - [Implementing Custom Backbones](#implementing-custom-backbones)
+    - [Basic Structure](#basic-structure)
+  - [Implementing Custom Datasets](#implementing-custom-datasets)
+    - [Dataset Structure](#dataset-structure)
+  - [Usage](#usage)
+  - [Best Practices](#best-practices)
 
 ## Implementing Custom Backbones
 
@@ -57,7 +57,7 @@ class MyBackboneModule(mt.FinetuneModuleBase["MyData", "MyBatch", MyBackboneConf
         pass
 
     @override
-    def model_forward(self, batch, return_backbone_output=False):
+    def model_forward(self, batch):
         """Forward pass implementation"""
         pass
 
