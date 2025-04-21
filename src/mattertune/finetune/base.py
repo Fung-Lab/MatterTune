@@ -656,6 +656,7 @@ class FinetuneModuleBase(
             for i in range(len(num_atoms)):
                 pred_dict = {}
                 for key, value in predictions.items():
+                    value = value.detach().cpu()
                     if key == "energies_per_atom":
                         prop_type = "atom"
                     else:

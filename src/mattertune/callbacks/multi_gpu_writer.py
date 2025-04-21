@@ -43,7 +43,7 @@ class CustomWriter(BasePredictionWriter):
         assert os.path.exists(self.output_dir), f"Output directory {self.output_dir} does not exist."
         
         flat_predictions = [p for batch in predictions for p in batch]
-        flat_indices = [i for batch in batch_indices for i in batch]
+        flat_indices = [i for batch in batch_indices[0] for i in batch]
 
         torch.save(flat_predictions, os.path.join(self.output_dir, f"pred_{trainer.global_rank}.pt")) # type: ignore
         torch.save(flat_indices, os.path.join(self.output_dir, f"batch_indices_{trainer.global_rank}.pt")) # type: ignore
@@ -65,6 +65,7 @@ class CustomWriter(BasePredictionWriter):
             assert global_rank_pred == global_rank_idx, f"Mismatch in global rank: {global_rank_pred} vs {global_rank_idx}"
             pred_list_of_dict = torch.load(os.path.join(self.output_dir, pred_file)) # type: ignore
             indices = torch.load(os.path.join(self.output_dir, idx_file)) # type: ignore
+            assert len(pred_list_of_dict) == len(indices), f"Mismatch in length: {len(pred_list_of_dict)} vs {len(indices)}"
             if isinstance(indices, torch.Tensor):
                 indices = indices.tolist()
 

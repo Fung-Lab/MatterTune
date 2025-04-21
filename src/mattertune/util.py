@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import contextlib
+import subprocess
+import threading
+import time
 
 import torch.distributed as dist
 import os
@@ -89,7 +92,7 @@ def neighbor_list_and_relative_vec(
     *,
     pos: np.ndarray,
     cell: np.ndarray,
-    r_max,
+    r_max: float,
     self_interaction=False,
     strict_self_interaction=True,
     pbc: bool | tuple[bool, bool, bool] = True,
@@ -115,14 +118,14 @@ def neighbor_list_and_relative_vec(
                 "different periodic boundary conditions on different axes are not supported by vesin neighborlist, use ASE or matscipy"
             )
 
-        first_idex, second_idex, shifts = vesin_nl(
+        first_idex, second_idex = vesin_nl(
             cutoff=float(r_max), full_list=True
-        ).compute(points=pos, box=cell, periodic=periodic, quantities="ijS")
+        ).compute(points=pos, box=cell, periodic=periodic, quantities="ij")
 
     elif method == "matscipy":
         assert strict_self_interaction and not self_interaction
         first_idex, second_idex, shifts = matscipy.neighbours.neighbour_list(
-            "ijS",
+            "ij",
             pbc=pbc,
             cell=cell,
             positions=pos,
@@ -130,7 +133,7 @@ def neighbor_list_and_relative_vec(
         )
     elif method == "ase":
         first_idex, second_idex, shifts = ase_nl.primitive_neighbor_list(
-            "ijS",
+            "ij",
             pbc,
             cell,
             pos,
@@ -148,16 +151,13 @@ def neighbor_list_and_relative_vec(
     # Eliminate true self-edges that don't cross periodic boundaries
     if not self_interaction:
         bad_edge = first_idex == second_idex
-        bad_edge &= np.all(shifts == 0, axis=1)
         keep_edge = ~bad_edge
         first_idex = first_idex[keep_edge]
         second_idex = second_idex[keep_edge]
-        shifts = shifts[keep_edge]
 
     # Build output:
     edge_indices = np.vstack((first_idex, second_idex)).astype(np.int32)
-    shifts = shifts.astype(np.float32)
-    return edge_indices, shifts
+    return edge_indices
 
 def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None):
     scaled_pos = atoms.get_scaled_positions()
@@ -199,3 +199,53 @@ def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None):
     rdf_y = hist / (bin_volume * density * num_atoms) / num_species
 
     return rdf_x, rdf_y
+
+
+class NvidiaSmiMonitor:
+    def __init__(self, device_id=0, interval=1.0, wait_for_start: float = 0.0):
+        self.device_id = device_id
+        self.interval = interval
+        self.wait_for_start = wait_for_start
+
+        self.memory_records = []
+
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def _monitor_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                cmd = [
+                    "nvidia-smi",
+                    "--query-gpu=memory.used",
+                    "--format=csv,noheader,nounits",
+                    "-i", str(self.device_id)
+                ]
+                output = subprocess.check_output(cmd)
+                gpu_mem_str = output.decode("utf-8").strip()
+                gpu_mem = int(gpu_mem_str)
+
+                # 存储记录
+                self.memory_records.append(gpu_mem)
+
+            except subprocess.CalledProcessError as e:
+                print(f"nvidia-smi error: {e}")
+                self.memory_records.append(None)
+
+            time.sleep(self.interval)
+
+    def start(self):
+        if self._thread is not None and self._thread.is_alive():
+            return
+
+        self._stop_event.clear()
+        time.sleep(self.wait_for_start)
+        self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> np.ndarray:
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join()
+        memory_records = np.array(self.memory_records)
+        return memory_records
