@@ -244,16 +244,13 @@ class ORBBackboneModule(
         yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
+    def model_forward(self, batch, mode: str):
         
         if mode == "predict":
             self.eval()
         
         # Run the backbone
-        if return_backbone_output:
-            batch, intermediate = self.backbone(batch, return_intermediate=True)
-        else:
-            batch = self.backbone(batch)
+        batch = self.backbone(batch)
         batch = cast("AtomGraphs", batch)
         
         # merge the node and feature features
@@ -295,12 +292,6 @@ class ORBBackboneModule(
             predicted_properties[name] = pred
 
         pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
-        if return_backbone_output:
-            with optional_import_error_message("orb-models"):
-                from orb_models.forcefield.gns import _KEY  # type: ignore[reportMissingImports] # noqa
-
-            # pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
-            pred_dict["backbone_output"] = intermediate
             
         if mode == "predict":
             self.train()

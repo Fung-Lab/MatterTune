@@ -39,9 +39,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     use_pretrained_normalizers: bool = False
     """Whether to use the pretrained normalizers."""
-    
-    output_internal_features: bool = False
-    """If set to True, the model will output the internal features of the backbone model instead of the predicted properties."""
 
     properties: Sequence[PropertyConfig]
     """Properties to predict."""
@@ -131,10 +128,6 @@ class ModelOutput(TypedDict):
     """Predicted properties. This dictionary should be exactly
     in the same shape/format  as the output of `batch_to_labels`."""
 
-    backbone_output: NotRequired[Any]
-    """Output of the backbone model. Only set if `return_backbone_output` is True."""
-
-
 TData = TypeVar("TData")
 TBatch = TypeVar("TBatch")
 TFinetuneModuleConfig = TypeVar(
@@ -195,14 +188,12 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
-        return_backbone_output: bool = False,
     ) -> ModelOutput:
         """
         Forward pass of the model.
 
         Args:
             batch: Input batch.
-            return_backbone_output: Whether to return the output of the backbone model.
 
         Returns:
             Prediction of the model.
@@ -439,7 +430,6 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
-        return_backbone_output: bool = False,
         ignore_gpu_batch_transform_error: bool | None = None,
     ) -> ModelOutput:
         if ignore_gpu_batch_transform_error is None:
@@ -460,7 +450,7 @@ class FinetuneModuleBase(
 
             # Run the model
             model_output = self.model_forward(
-                batch, mode=mode, return_backbone_output=return_backbone_output
+                batch, mode=mode
             )
 
             model_output["predicted_properties"] = {
@@ -515,7 +505,6 @@ class FinetuneModuleBase(
             def _zero_output():
                 return {
                     "predicted_properties": {},
-                    "backbone_output": None,
                 }
 
             def _zero_loss():
@@ -597,28 +586,14 @@ class FinetuneModuleBase(
 
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
-        if self.hparams.output_internal_features is False:
-            output: ModelOutput = self(
-                batch, mode="predict", ignore_gpu_batch_transform_error=False
-            )
-            predictions = output["predicted_properties"]
-            if len(self.normalizers) > 0:
-                normalization_ctx = self.create_normalization_context_from_batch(batch)
-                predictions = self.denormalize(predictions, normalization_ctx)
-            return predictions
-        else:
-            output: ModelOutput = self(
-                batch,
-                mode="predict",
-                ignore_gpu_batch_transform_error=False,
-                return_backbone_output=True,
-            )
-            assert "backbone_output" in output
-            backbone_output = output["backbone_output"]
-            for key, value in backbone_output.items():
-                if isinstance(value, torch.Tensor):
-                    backbone_output[key] = value.detach().cpu()
-            return backbone_output
+        output: ModelOutput = self(
+            batch, mode="predict", ignore_gpu_batch_transform_error=False
+        )
+        predictions = output["predicted_properties"]
+        if len(self.normalizers) > 0:
+            normalization_ctx = self.create_normalization_context_from_batch(batch)
+            predictions = self.denormalize(predictions, normalization_ctx)
+        return predictions
 
     def trainable_parameters(self) -> Iterable[tuple[str, nn.Parameter]]:
         return self.named_parameters()
@@ -703,16 +678,6 @@ class FinetuneModuleBase(
         from ..wrappers.property_predictor import MatterTunePropertyPredictor
 
         return MatterTunePropertyPredictor(
-            self,
-            lightning_trainer_kwargs=lightning_trainer_kwargs,
-        )
-        
-    def internal_feature_predictor(
-        self, lightning_trainer_kwargs: dict[str, Any] | None = None
-    ):
-        from ..wrappers.property_predictor import MatterTuneInternalFeaturePredictor
-        
-        return MatterTuneInternalFeaturePredictor(
             self,
             lightning_trainer_kwargs=lightning_trainer_kwargs,
         )

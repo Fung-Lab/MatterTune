@@ -295,14 +295,9 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False):
+    def model_forward(self, batch, mode: str):
         # Run the backbone
-        if return_backbone_output:
-            backbone_output, intermediate = self.backbone(
-                batch, return_intermediate=True
-            )
-        else:
-            backbone_output = self.backbone(batch)
+        backbone_output = self.backbone(batch)
 
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
@@ -319,8 +314,6 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             head_input["predicted_props"][name] = output
 
         pred: ModelOutput = {"predicted_properties": predicted_properties}
-        if return_backbone_output:
-            pred["backbone_output"] = intermediate # type: ignore[assignment]
         return pred
 
     @override
