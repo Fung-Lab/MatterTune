@@ -204,7 +204,7 @@ def _atoms_list_to_dataloader(
         has_labels=False,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
+        num_workers=min(num_workers, len(atoms_list)),
     )
     return dataloader
 
