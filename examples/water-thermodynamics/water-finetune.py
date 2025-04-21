@@ -82,7 +82,7 @@ def main(args_dict: dict):
 
         # Add model properties
         hparams.model.properties = []
-        energy_coefficient = 1.0 / (192**2)
+        energy_coefficient = 1.0 
         conservative = args_dict["conservative"] or "mattersim" in args_dict["model_type"]
         energy = MC.EnergyPropertyConfig(
             loss=MC.MSELossConfig(), loss_coefficient=energy_coefficient
@@ -106,11 +106,7 @@ def main(args_dict: dict):
         ## Add Normalization for Energy
         hparams.model.normalizers = {
             "energy": [
-                MC.PerAtomReferencingNormalizerConfig(
-                    per_atom_references=Path(
-                        "./data/water_1000_eVAng-energy_reference.json"
-                    )
-                )
+                MC.PerAtomNormalizerConfig(),
             ]
         }
 
@@ -161,7 +157,7 @@ def main(args_dict: dict):
         return hparams
 
     mt_config = hparams()
-    model, trainer = MatterTuner(mt_config).tune()
+    # model, trainer = MatterTuner(mt_config).tune()
     
     
     ## Perform Evaluation
@@ -225,7 +221,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="mattersim-1m")
     parser.add_argument("--conservative", action="store_true")
     parser.add_argument("--train_down_sample", type=int, default=30)
-    parser.add_argument("--down_sample_refill", action="store_true")
+    parser.add_argument("--down_sample_refill", type=bool, default=True)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=8e-5)
     parser.add_argument("--max_epochs", type=int, default=1000)
