@@ -294,7 +294,7 @@ class MatterSimM3GNetBackboneModule(
     @override
     def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
         twobody_cutoff = self.graph_convertor.twobody_cutoff
-        edge_indices, shifts = neighbor_list_and_relative_vec(
+        edge_indices = neighbor_list_and_relative_vec(
             "vesin",
             pos=np.array(atoms.get_positions()),
             cell=np.array(atoms.get_cell()),
