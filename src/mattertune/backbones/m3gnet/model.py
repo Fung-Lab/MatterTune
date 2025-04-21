@@ -396,6 +396,7 @@ class M3GNetBackboneModule(
         ).float()
 
         # Sum the one-hot encoded atom types for each graph in the batch
+        num_atoms = g.batch_num_nodes()
         compositions = dgl.readout_nodes(g, feat="atom_types_onehot", op="sum")
 
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)

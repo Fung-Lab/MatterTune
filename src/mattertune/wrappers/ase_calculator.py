@@ -25,7 +25,6 @@ class MatterTuneCalculator(Calculator):
         super().__init__()
 
         self.model = model.to(device)
-        self.model.hparams.using_partition = False
 
         self.implemented_properties: list[str] = []
         self._ase_prop_to_config: dict[str, PropertyConfig] = {}
@@ -66,8 +65,6 @@ class MatterTuneCalculator(Calculator):
             "Please report this as a bug."
         )
         
-        diabled_properties = list(set(self.implemented_properties) - set(properties))
-        self.model.set_disabled_heads(diabled_properties)
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
         time1 = time.time()

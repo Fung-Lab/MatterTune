@@ -54,7 +54,7 @@ def main(args_dict: dict):
             "Invalid fine-tuning model, must be one of 'jmp', 'orb', 'm3gnet', or 'mattersim', 'eqv2'"
         )
     calc = model.ase_calculator(
-        device=f"cuda:{args_dict['device']}", intense=True
+        device=f"cuda:{args_dict['device']}"
     )
     atoms = read(args_dict["init_struct"])
     assert isinstance(atoms, Atoms), "Expected an Atoms object"

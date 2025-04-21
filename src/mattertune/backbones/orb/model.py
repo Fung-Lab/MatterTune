@@ -413,8 +413,9 @@ class ORBBackboneModule(
 
     @override
     def create_normalization_context_from_batch(self, batch):
+        num_atoms = batch.n_node
         compositions = batch.system_features.get("norm_composition")
         if compositions is None:
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)

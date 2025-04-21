@@ -272,9 +272,19 @@ class MatterSimM3GNetBackboneModule(
 
         atomic_numbers: torch.Tensor = batch["atomic_numbers"].long()  # (n_atoms,)
         batch_idx: torch.Tensor = batch["batch"]  # (n_atoms,)
+        
+        ## get num_atoms per sample
+        all_ones = torch.ones_like(atomic_numbers)
+        num_atoms = scatter(
+            all_ones,
+            batch_idx,
+            dim=0,
+            dim_size=batch.num_graphs,
+            reduce="sum",
+        )
 
         # Convert atomic numbers to one-hot encoding
-        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)  # (n_atoms, 120)
+        atom_types_onehot = F.one_hot(atomic_numbers, num_classes=120)
 
         compositions = scatter(
             atom_types_onehot,
@@ -284,7 +294,7 @@ class MatterSimM3GNetBackboneModule(
             reduce="sum",
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
-        return NormalizationContext(compositions=compositions)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
 
     @override
     def optimizer_step(

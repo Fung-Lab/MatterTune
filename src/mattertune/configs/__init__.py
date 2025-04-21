@@ -51,6 +51,7 @@ from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfigBase
 from mattertune.recipes.lora import PeftConfig as PeftConfig
+from mattertune.normalization import PerAtomNormalizerConfig as PerAtomNormalizerConfig
 from mattertune.normalization import PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig
 from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigBase
 from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
@@ -122,6 +123,7 @@ from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.finetune.base import OptimizerConfig as OptimizerConfig
 from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfigBase
 from mattertune.recipes.lora import PeftConfig as PeftConfig
+from mattertune.normalization import PerAtomNormalizerConfig as PerAtomNormalizerConfig
 from mattertune.normalization import PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig
 from mattertune.finetune.base import PropertyConfig as PropertyConfig
 from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigBase
@@ -212,6 +214,7 @@ __all__ = [
     "OptimizerConfig",
     "OptimizerConfigBase",
     "PeftConfig",
+    "PerAtomNormalizerConfig",
     "PerAtomReferencingNormalizerConfig",
     "PropertyConfig",
     "PropertyConfigBase",
