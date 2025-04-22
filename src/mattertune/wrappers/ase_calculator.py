@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 from typing import TYPE_CHECKING
-import time
 
 import torch
 from ase import Atoms
@@ -35,10 +34,6 @@ class MatterTuneCalculator(Calculator):
                 continue
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
-        
-        self.partition_times = []
-        self.forward_times = []
-        self.collect_times = []
 
     @override
     def calculate(
@@ -67,21 +62,16 @@ class MatterTuneCalculator(Calculator):
         
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
-        time1 = time.time()
         data = self.model.atoms_to_data(self.atoms, has_labels=False)
         batch = self.model.collate_fn([data])
         batch = batch.to(self.model.device)
-        self.partition_times.append(time.time() - time1)
         
-        time1 = time.time()
         pred = self.model.predict_step(
             batch = batch,
             batch_idx = 0,
         )
         pred = pred[0] # type: ignore
-        self.forward_times.append(time.time() - time1)
         
-        time1 = time.time() 
         for prop in prop_configs:
             ase_prop_name = prop.ase_calculator_property_name()
             assert ase_prop_name is not None, (
@@ -95,4 +85,3 @@ class MatterTuneCalculator(Calculator):
             value = prop.prepare_value_for_ase_calculator(value)
 
             self.results[ase_prop_name] = value
-        self.collect_times.append(time.time() - time1)
