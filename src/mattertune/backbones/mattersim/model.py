@@ -119,7 +119,7 @@ class MatterSimM3GNetBackboneModule(
 
         ## Load the pretrained model
         self.backbone = Potential.from_checkpoint(  # type: ignore[no-untyped-call]
-            device="cpu",
+            device="cuda",
             load_path=self.hparams.pretrained_model,
             model_name=self.hparams.model_type,
             load_training_state=False,
