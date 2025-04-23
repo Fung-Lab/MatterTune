@@ -14,6 +14,7 @@ dependencies = [
     "torchmetrics",
     "nshconfig[extra]",
     "nshconfig-extra[extra]",
+    "rich",
     "wandb",
     "nshutils",
 ]

@@ -61,7 +61,7 @@ git clone git@github.com:microsoft/mattersim.git
 cd mattersim
 ```
 
-Find the line 41 of the pyproject.toml in MatterSim, which is ```"pydantic==2.9.2",```. Change it to ```"pydantic>=2.9.2",```. After finishing this modification, install MatterSim by running:
+Find the line 41 of the pyproject.toml in MatterSim, which is ```"pydantic==2.9.2",```. Change it to ```"pydantic>=2.9.2",``` and ```python=3.9``` to ```python=3.10```. After finishing this modification, install MatterSim by running:
 
 ```bash
 mamba env create -f environment.yaml
