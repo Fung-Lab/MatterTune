@@ -36,9 +36,9 @@ def main(args_dict: dict):
             hparams.model.graph_computer = MC.JMPGraphComputerConfig.draft()
             hparams.model.graph_computer.pbc = True
             hparams.model.pretrained_model = "jmp-s"
-        elif args_dict["model_type"] == "orb-v2":
+        elif "orb" in args_dict["model_type"]:
             hparams.model = MC.ORBBackboneConfig.draft()
-            hparams.model.pretrained_model = "orb-v2"
+            hparams.model.pretrained_model = args_dict["model_type"]
         elif args_dict["model_type"] == "eqv2":
             hparams.model = MC.EqV2BackboneConfig.draft()
             hparams.model.checkpoint_path = Path(
@@ -106,6 +106,9 @@ def main(args_dict: dict):
         ## Add Normalization for Energy
         hparams.model.normalizers = {
             "energy": [
+                MC.PerAtomReferencingNormalizerConfig(
+                    per_atom_references=Path("./data/water_1000_eVAng-energy_reference.json")
+                ),
                 MC.PerAtomNormalizerConfig(),
             ]
         }
@@ -157,7 +160,7 @@ def main(args_dict: dict):
         return hparams
 
     mt_config = hparams()
-    # model, trainer = MatterTuner(mt_config).tune()
+    model, trainer = MatterTuner(mt_config).tune()
     
     
     ## Perform Evaluation
@@ -187,6 +190,7 @@ def main(args_dict: dict):
     import numpy as np
     import torch
     import wandb
+    from tqdm import tqdm
     
     wandb.init(project="MatterTune-Water-Finetune", name=f"Water-{args_dict['model_type']}-{args_dict['train_down_sample']}-refill_{args_dict['down_sample_refill']}", resume="allow")
     
@@ -198,7 +202,7 @@ def main(args_dict: dict):
     forces = []
     pred_energies_per_atom = []
     pred_forces = []
-    for atoms in val_atoms_list:
+    for atoms in tqdm(val_atoms_list):
         energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
         forces.extend(np.array(atoms.get_forces()).tolist())
         atoms.set_calculator(calc)

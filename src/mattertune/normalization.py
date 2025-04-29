@@ -53,6 +53,7 @@ class NormalizationContext:
 
 @runtime_checkable
 class NormalizerModule(Protocol):
+    only_for_target: bool
     def normalize(
         self,
         value: torch.Tensor,
@@ -265,8 +266,10 @@ class ComposeNormalizers(nn.Module):
         self.normalizers = nn.ModuleList(cast(list[nn.Module], normalizers))
 
     def normalize(
-        self, prediction: torch.Tensor, target: torch.Tensor, ctx: NormalizationContext) -> tuple[torch.Tensor, torch.Tensor]:
+        self, prediction: torch.Tensor, target: torch.Tensor, ctx: NormalizationContext
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         for normalizer in self.normalizers:
+            assert isinstance(normalizer, NormalizerModule), f"Normalizer {normalizer} is not an instance of NormalizerModule"
             if normalizer.only_for_target:
                 ## When only_for target, model's prediction is already normalized
                 target = normalizer.normalize(target, ctx)
@@ -280,9 +283,12 @@ class ComposeNormalizers(nn.Module):
         self, prediction: torch.Tensor, target: torch.Tensor, ctx: NormalizationContext
     ) -> tuple[torch.Tensor, torch.Tensor]:
         for normalizer in reversed(self.normalizers):
+            assert isinstance(normalizer, NormalizerModule), f"Normalizer {normalizer} is not an instance of NormalizerModule"
             if normalizer.only_for_target:
                 ## When only_for target, model's prediction is already normalized
                 ## So we need to denormalize the target
+                ## And since model's prediction is already normalized, we need to denormalize it
+                prediction = normalizer.denormalize(prediction, ctx)
                 target = normalizer.denormalize(target, ctx)
             else:
                 ## When not only_for_target, model's prediction is both normalized, where we need to denormalize both prediction and target
@@ -296,12 +302,14 @@ class ComposeNormalizers(nn.Module):
         ## NOTE: in denormalize, we should denormalize both prediction and target whether or not the normalizer is only for target
         ## This is because even if the normalizer is only for target, model's prediction is the normalized value, so we need to denormalize it
         for normalizer in reversed(self.normalizers):
+            assert isinstance(normalizer, NormalizerModule), f"Normalizer {normalizer} is not an instance of NormalizerModule"
             if normalizer.only_for_target:
-                ## When only_for target, model's prediction is already normalized
+                ## In predict step, if only_for_target, this means model's prediction is already normalized
                 ## So we need to denormalize the prediction
                 prediction = normalizer.denormalize(prediction, ctx)
             else:
-                ## When not only_for_target, model's prediction is not normalized, just pass
+                ## In predict step, if not only_for_target, this means model's prediction is not normalized
+                ## So we just pass
                 pass
         return prediction
 
