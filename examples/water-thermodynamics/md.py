@@ -53,6 +53,7 @@ def main(args_dict: dict):
         raise ValueError(
             "Invalid fine-tuning model, must be one of 'jmp', 'orb', 'm3gnet', or 'mattersim', 'eqv2'"
         )
+        
     calc = model.ase_calculator(
         device=f"cuda:{args_dict['device']}"
     )
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="/nethome/lkong88/MatterTune/examples/hidden/early_stop_mp/water-checkpoints/mattersim-1m-best-30-refill-reset_backbone.ckpt",
+        default="/nethome/lkong88/MatterTune/examples/water-thermodynamics/checkpoints/orb-v3-conservative-inf-omat-best-30-refill-conservative.ckpt",
     )
     parser.add_argument("--thermo_state", type=str, default="NPT")
     parser.add_argument("--init_struct", type=str, default="./data/H2O.xyz")

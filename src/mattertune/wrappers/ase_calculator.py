@@ -284,14 +284,19 @@ class MatterTunePartitionCalculator(Calculator):
                 if forces_config_i.conservative: # type: ignore
                     results["forces"][indices_map_i] += forces  # type: ignore
                 else:
-                    results["forces"][indices_map_i] = forces  # type: ignore
+                    root_node_indices_i = np.array(part_i_atoms.info["root_node_indices"])
+                    local_indices = np.arange(len(part_i_atoms))
+                    mask = np.isin(local_indices, root_node_indices_i)
+                    global_indices = indices_map_i[mask]
+                    assert np.allclose(results["forces"][global_indices], 0.0), "Forces should be zero"
+                    results["forces"][global_indices] = forces[mask]  # type: ignore
             
             if "stress" in properties:
                 if stress_config_i.conservative:  # type: ignore
                     results["stress"] += stress.reshape(3, 3)  # type: ignore
                 else:
                     raise NotImplementedError("Non-conservative stress calculation is not implemented for partitioned calculations.")
-
+                
         if "energy" in properties:
             results["energy"] = np.sum(results["energy"]).item()
         if "stress" in properties:
