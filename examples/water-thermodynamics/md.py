@@ -62,7 +62,7 @@ def main(args_dict: dict):
     atoms.calc = calc
 
     ## Setup directories and remove old trajectory file
-    os.makedirs("/net/csefiles/coc-fung-cluster/lingyu/water_md", exist_ok=True)
+    os.makedirs(args_dict["save_dir"], exist_ok=True)
 
     ## Initialize WandB
     import wandb
@@ -102,7 +102,7 @@ def main(args_dict: dict):
         avg_f = np.mean(np.linalg.norm(f, axis=1))
         write(
             os.path.join(
-                "/net/csefiles/coc-fung-cluster/lingyu/water_md",
+                args_dict["save_dir"],
                 f"water_{model_name}_{args_dict['thermo_state']}.xyz",
             ),
             dyn.atoms,
@@ -138,11 +138,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--thermo_state", type=str, default="NPT")
     parser.add_argument("--init_struct", type=str, default="./data/H2O.xyz")
-    parser.add_argument("--device", type=int, default=3)
+    parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--temperature", type=float, default=298)
     parser.add_argument("--timestep", type=float, default=0.5)
     parser.add_argument("--friction", type=float, default=0.02)
     parser.add_argument("--interval", type=int, default=2)
     parser.add_argument("--steps", type=int, default=400000)
+    # parser.add_argument("--save_dir", type=str, default="/net/csefiles/coc-fung-cluster/lingyu/water_md")
+    parser.add_argument("--save_dir", type=str, default="./md_traj")
     args_dict = vars(parser.parse_args())
     main(args_dict)

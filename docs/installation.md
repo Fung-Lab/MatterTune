@@ -7,6 +7,10 @@ The installation of MatterTune consists of three stages:
 3. Set up additional dependencies for external datasets and data sources
 
 ```{warning}
+MatterTune must be installed on environments with python>=3.10
+```
+
+```{warning}
 Since there are dependency conflicts between different backbone models, we strongly recommend creating separate virtual environments for each backbone model you plan to use.
 ```
 
@@ -14,7 +18,7 @@ Since there are dependency conflicts between different backbone models, we stron
 
 Below are the installation instructions for our currently supported backbone models using conda and pip.
 
-### M3GNet
+<!-- ### M3GNet
 
 ```bash
 conda create -n matgl-tune python=3.10 -y
@@ -27,30 +31,7 @@ pip install dglgo -f https://data.dgl.ai/wheels-test/repo.html
 
 ```{note}
 Manual installation of `torch` and `dgl` packages after `matgl` installation is required to enable GPU acceleration for training.
-```
-
-### JMP
-
-Please follow the installation instructions in the [jmp-backbone repository](https://github.com/nimashoghi/jmp-backbone/blob/lingyu-grad/README.md).
-
-### ORB
-
-ORB provides installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models). However, we spotted some bugs in their implementation, which may cause bugs in multi-GPU training. So in this installation guidance, we suggest users to install from our pull request using the following instruction:
-
-```bash
-pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"
-```
-
-After installing ORB, we suggest users to check whether the urls of the pretrained checkpoints are in newest version. In ```orb_models/forcefield/pretrained.py```, checkpoint urls are stored with the parameter named as ```weighted_path```, which has been frequently changed recently. One quick solution is copy the newest version [here](https://github.com/orbital-materials/orb-models/blob/main/orb_models/forcefield/pretrained.py) and overwrite your local version. 
-
-### EquiformerV2
-
-```bash
-conda create -n eqv2-tune python=3.10
-conda activate eqv2-tune
-pip install "git+https://github.com/FAIR-Chem/fairchem.git@omat24#subdirectory=packages/fairchem-core" --no-deps
-pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pymatgen>=2023.10.3" submitit tensorboard "torch==2.5.0" wandb torch_geometric h5py netcdf4 opt-einsum spglib
-```
+``` -->
 
 ### MatterSim
 
@@ -68,6 +49,23 @@ mamba env create -f environment.yaml
 mamba activate mattersim
 uv pip install -e .
 python setup.py build_ext --inplace
+```
+
+### JMP
+
+Please follow the installation instructions in the [jmp-backbone repository](https://github.com/nimashoghi/jmp-backbone/blob/lingyu-grad/README.md).
+
+### ORB
+
+Please follow the installation instructions in the [orb-models repository](https://github.com/orbital-materials/orb-models).
+
+### EquiformerV2
+
+```bash
+conda create -n eqv2-tune python=3.10
+conda activate eqv2-tune
+pip install "git+https://github.com/FAIR-Chem/fairchem.git@omat24#subdirectory=packages/fairchem-core" --no-deps
+pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson "pymatgen>=2023.10.3" submitit tensorboard "torch==2.5.0" wandb torch_geometric h5py netcdf4 opt-einsum spglib
 ```
 
 ## MatterTune Package Installation
