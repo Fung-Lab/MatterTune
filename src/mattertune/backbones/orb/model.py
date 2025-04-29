@@ -11,13 +11,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch._functorch import config as functorch_config
 from typing_extensions import assert_never, final, override
 
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
@@ -36,13 +37,12 @@ class ORBSystemConfig(C.Config):
     """The maximum number of neighbours each node can send messages to."""
 
     def _to_orb_system_config(self):
-        with optional_import_error_message("orb-models"):
+        with optional_import_error_message("orb_models"):
             from orb_models.forcefield.atomic_system import SystemConfig  # type: ignore[reportMissingImports] # noqa
 
         return SystemConfig(
             radius=self.radius,
             max_num_neighbors=self.max_num_neighbors,
-            use_timestep_0=True,
         )
 
 
@@ -54,7 +54,7 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
     pretrained_model: str
     """The name of the pretrained model to load."""
 
-    system: ORBSystemConfig = ORBSystemConfig(radius=10.0, max_num_neighbors=20)
+    system: ORBSystemConfig = ORBSystemConfig(radius=6.0, max_num_neighbors=120)
     """The system configuration, controlling how to featurize a system of atoms."""
 
     freeze_backbone: bool = False
@@ -71,14 +71,14 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
         if importlib.util.find_spec("orb_models") is None:
             raise ImportError(
                 "The orb_models module is not installed. Please install it by running"
-                ' pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"'
+                ' pip install "orb_models@git+https://github.com/nimashoghi/orb_models.git"'
             )
             # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect
             #   the `device` argument. We have a patch to fix this, and we have
             #   a PR open to fix this upstream. Until that is merged, users
             #   will need to install the patched version of `orb_models` from our fork:
-            #   `pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"`
-            #   PR: https://github.com/orbital-materials/orb-models/pull/35
+            #   `pip install "orb_models@git+https://github.com/nimashoghi/orb_models.git"`
+            #   PR: https://github.com/orbital-materials/orb_models/pull/35
             # FIXME: Remove this note once the PR is merged.
 
         # Make sure pynanoflann is available
@@ -103,16 +103,18 @@ class ORBBackboneModule(
         return False
 
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
-        from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
+        with optional_import_error_message("orb_models"):
+            from orb_models.forcefield.forcefield_heads import (
+                EnergyHeadPoolAfter,
+                ForceHead,
+                StressHead,
+                GraphHead,
+            )
 
-        assert isinstance(pretrained_model, GraphRegressor), (
-            f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
-        )
+        self.include_forces = False
+        self.include_stress = False
         match prop:
             case props.EnergyPropertyConfig():
-                with optional_import_error_message("orb-models"):
-                    from orb_models.forcefield.graph_regressor import EnergyHeadPoolAfter  # type: ignore[reportMissingImports] # noqa
-
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.graph_head
                 else:
@@ -120,46 +122,42 @@ class ORBBackboneModule(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
-                        target="energy",
-                        node_aggregation="mean",
-                        reference_energy_name="vasp-shifted",
-                        train_reference=True,
-                        predict_atom_avg=True,
+                        reference_energy="vasp-shifted",
                     )
 
-            case props.ForcesPropertyConfig(conservative=False):
-                with optional_import_error_message("orb-models"):
-                    from orb_models.forcefield.graph_regressor import NodeHead  # type: ignore[reportMissingImports] # noqa
+            case props.ForcesPropertyConfig():
+                self.include_forces = True
 
-                if not self.hparams.reset_output_heads:
-                    return pretrained_model.node_head
+                if prop.conservative:
+                    return None
                 else:
-                    return NodeHead(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target="forces",
-                        remove_mean=True,
-                    )
+                    if not self.hparams.reset_output_heads:
+                        return pretrained_model.node_head
+                    else:
+                        return ForceHead(
+                            latent_dim=256,
+                            num_mlp_layers=1,
+                            mlp_hidden_dim=256,
+                            remove_mean=False,
+                            remove_torque_for_nonpbc_systems=False,
+                        )
 
-            case props.StressesPropertyConfig(conservative=False):
-                with optional_import_error_message("orb-models"):
-                    from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
-
-                if not self.hparams.reset_output_heads:
-                    return pretrained_model.stress_head
+            case props.StressesPropertyConfig():
+                self.include_stress = True
+                if prop.conservative:
+                    return None
                 else:
-                    return GraphHead(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target="stress",
-                        compute_stress=True,
-                    )
+                    if not self.hparams.reset_output_heads:
+                        return pretrained_model.stress_head
+                    else:
+                        return StressHead(
+                            latent_dim=256,
+                            num_mlp_layers=1,
+                            mlp_hidden_dim=256,
+                        )
 
             case props.GraphPropertyConfig():
-                with optional_import_error_message("orb-models"):
-                    from orb_models.forcefield.graph_regressor import GraphHead  # type: ignore[reportMissingImports] # noqa
+                with optional_import_error_message("orb_models"):
                     from orb_models.forcefield.property_definitions import (  # type: ignore[reportMissingImports] # noqa
                         PropertyDefinition,
                     )
@@ -177,7 +175,6 @@ class ORBBackboneModule(
                             dim=1,
                             domain="real",
                         ),
-                        compute_stress=False,
                     )
             case _:
                 raise ValueError(
@@ -187,9 +184,10 @@ class ORBBackboneModule(
 
     @override
     def create_model(self):
-        with optional_import_error_message("orb-models"):
-            from orb_models.forcefield import pretrained  # type: ignore[reportMissingImports] # noqa
-            from orb_models.forcefield.graph_regressor import GraphRegressor  # type: ignore[reportMissingImports] # noqa
+        with optional_import_error_message("orb_models"):
+            from orb_models.forcefield import pretrained
+            from orb_models.forcefield.direct_regressor import DirectForcefieldRegressor
+            from orb_models.forcefield.conservative_regressor import ConservativeForcefieldRegressor
 
         # Get the pre-trained backbone
         # Load the pre-trained model from the ORB package
@@ -202,14 +200,18 @@ class ORBBackboneModule(
                 f"Unknown pretrained model: {self.hparams.pretrained_model}"
             )
         # We load on CPU here as we don't have a device yet.
-        pretrained_model = pretrained_model_fn(device="cpu")
+        pretrained_model = pretrained_model_fn(device="cpu", compile=False)
         # This should never be None, but type checker doesn't know that so we need to check.
         assert pretrained_model is not None, "The pretrained model is not available"
 
         # This should be a `GraphRegressor` object, so we need to extract the backbone.
-        assert isinstance(pretrained_model, GraphRegressor), (
+        assert isinstance(pretrained_model, DirectForcefieldRegressor) or isinstance(pretrained_model, ConservativeForcefieldRegressor), (
             f"Expected a GraphRegressor object, but got {type(pretrained_model)}"
         )
+        if isinstance(pretrained_model, DirectForcefieldRegressor):
+            self.conservative = False
+        else:
+            self.conservative = True
         backbone = pretrained_model.model
 
         # By default, ORB runs the `load_model_for_inference` function on the model,
@@ -230,9 +232,9 @@ class ORBBackboneModule(
         self.output_heads = nn.ModuleDict()
         for prop in self.hparams.properties:
             head = self._create_output_head(prop, pretrained_model)
-            assert head is not None, (
-                f"Find the head for the property {prop.name} is None"
-            )
+            # assert head is not None, (
+            #     f"Find the head for the property {prop.name} is None"
+            # )
             self.output_heads[prop.name] = head
 
     @override
@@ -240,29 +242,37 @@ class ORBBackboneModule(
         if not self.hparams.freeze_backbone:
             yield from self.backbone.named_parameters()
         for head in self.output_heads.values():
-            yield from head.named_parameters()
-
+            if head is not None:
+                yield from head.named_parameters()
+                
     @override
     @contextlib.contextmanager
     def model_forward_context(self, data, mode: str):
-        yield
+        with contextlib.ExitStack() as stack:
+            if self.conservative:
+                stack.enter_context(torch.enable_grad())
+                functorch_config.donated_buffer = False
+
+            vectors, stress_displacement, generator = (
+                data.compute_differentiable_edge_vectors()
+            )
+            assert stress_displacement is not None
+            assert generator is not None
+            data.system_features["stress_displacement"] = stress_displacement
+            data.system_features["generator"] = generator
+            data.edge_features["vectors"] = vectors
+            yield
+
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False, using_partition: bool = False):
-        
-        if mode == "predict":
-            self.eval()
+    def model_forward(self, batch, mode: str, using_partition: bool = False):
+        with optional_import_error_message("orb_models"):
+            from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
         
         # Run the backbone
-        if return_backbone_output:
-            batch, intermediate = self.backbone(batch, return_intermediate=True)
-        else:
-            batch = self.backbone(batch)
-        batch = cast("AtomGraphs", batch)
+        out = self.backbone(batch)
+        node_features = out["node_features"]
         
-        # merge the node and feature features
-        
-
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
         for name, head in self.output_heads.items():
@@ -274,41 +284,48 @@ class ORBBackboneModule(
                 f"Property {name} not found in properties. "
                 "This should not happen, please report this."
             )
-            if isinstance(prop, props.EnergyPropertyConfig) and self.hparams.using_partition:
-                batch = cast("AtomGraphs", head(batch, return_per_atom_energy=True))
-            else:
-                batch = cast("AtomGraphs", head(batch))
-            match prop_type := prop.property_type():
-                case "system":
-                    if isinstance(prop, props.StressesPropertyConfig):
-                        pred = batch.system_features.pop("stress_pred")
+            if head is not None:
+                res = head(node_features, batch)
+                if isinstance(res, torch.Tensor):
+                    predicted_properties[name] = res
+                elif isinstance(res, dict):
+                    if mode!="predict":
+                        predicted_properties[name] = res[name]
                     else:
-                        pred = batch.system_features.pop("graph_pred")
-                    if using_partition and isinstance(prop, props.EnergyPropertyConfig):
-                        energies_per_atom = batch.node_features.pop("energy_per_atom")
-                        predicted_properties["energies_per_atom"] = energies_per_atom
-                case "atom":
-                    pred = batch.node_features.pop("node_pred")
-                case _:
-                    assert_never(prop_type)
-            
+                        predicted_properties.update(res)
+                else:
+                    raise ValueError(
+                        f"Invalid output from head {head}: {res}"
+                    )
+            else:
+                assert isinstance(prop, props.ForcesPropertyConfig) or isinstance(prop, props.StressesPropertyConfig), (
+                    f"Conservative Property {name} is not a force or stress property."
+                )
+                assert "energy" in predicted_properties, ("Energy property is not found for conservative property prediction. Please put energy property before the conservative property in the config.")
+                if name in predicted_properties:
+                    pass
+                else:
+                    forces, stress, _ = compute_gradient_forces_and_stress(
+                        energy=predicted_properties["energy"],
+                        positions=batch.node_features["positions"],
+                        displacement=batch.system_features["stress_displacement"],
+                        cell=batch.system_features["cell"],
+                        training=self.training,
+                        compute_stress=self.include_stress,
+                        generator=batch.system_features["generator"],
+                    )
+                    if self.include_forces:
+                        predicted_properties["forces"] = forces
+                    if self.include_stress:
+                        predicted_properties["stresses"] = stress # type: ignore[reportUnboundType]
+        
+        if "stresses" in predicted_properties and predicted_properties["stress"].shape[1] == 6: # type: ignore[reportUnboundType]
             # Convert the stress tensor to the full 3x3 form
-            if isinstance(prop, props.StressesPropertyConfig):
-                pred = voigt_6_to_full_3x3_stress_torch(pred)
-
-            predicted_properties[name] = pred
-
-        pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
-        if return_backbone_output:
-            with optional_import_error_message("orb-models"):
-                from orb_models.forcefield.gns import _KEY  # type: ignore[reportMissingImports] # noqa
-
-            # pred_dict["backbone_output"] = batch.node_features.pop(_KEY)
-            pred_dict["backbone_output"] = intermediate # type: ignore[reportMissingImports] # noqa
+            predicted_properties["stresses"] = voigt_6_to_full_3x3_stress_torch(
+                predicted_properties["stresses"] # type: ignore[reportUnboundType]
+            )
             
-        if mode == "predict":
-            self.train()
-
+        pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
         return pred_dict
 
     @override
@@ -330,7 +347,7 @@ class ORBBackboneModule(
 
     @override
     def collate_fn(self, data_list):
-        with optional_import_error_message("orb-models"):
+        with optional_import_error_message("orb_models"):
             from orb_models.forcefield.base import batch_graphs  # type: ignore[reportMissingImports] # noqa
 
         return batch_graphs(data_list)
@@ -361,7 +378,7 @@ class ORBBackboneModule(
 
     @override
     def atoms_to_data(self, atoms, has_labels):
-        with optional_import_error_message("orb-models"):
+        with optional_import_error_message("orb_models"):
             from orb_models.forcefield import atomic_system  # type: ignore[reportMissingImports] # noqa
 
         # This is the dataset transform; we can't use GPU here.
@@ -369,14 +386,14 @@ class ORBBackboneModule(
         #   the `device` argument. We have a patch to fix this, and we have
         #   a PR open to fix this upstream. Until that is merged, users
         #   will need to install the patched version of `orb_models` from our fork:
-        #   `pip install "orb_models@git+https://github.com/nimashoghi/orb-models.git"`
-        #   PR: https://github.com/orbital-materials/orb-models/pull/35
+        #   `pip install "orb_models@git+https://github.com/nimashoghi/orb_models.git"`
+        #   PR: https://github.com/orbital-materials/orb_models/pull/35
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
             self.hparams.system._to_orb_system_config(),
             device=torch.device("cpu"),
         )
-
+        
         if has_labels:
             if atom_graphs.system_targets is None:
                 atom_graphs = atom_graphs._replace(system_targets={})

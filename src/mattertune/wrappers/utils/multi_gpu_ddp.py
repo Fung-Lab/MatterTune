@@ -141,8 +141,7 @@ def main(args_dict):
                     ## all should finally run dist.barrier()
                     dist.barrier()
     except Exception as e:
-        if is_rank_zero():
-            failure_signal(workspace, str(e))
+        failure_signal(workspace, str(e))
         dist.barrier()
         
 if __name__ == "__main__":

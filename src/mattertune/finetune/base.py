@@ -121,9 +121,6 @@ class ModelOutput(TypedDict):
     """Predicted properties. This dictionary should be exactly
     in the same shape/format  as the output of `batch_to_labels`."""
 
-    backbone_output: NotRequired[Any]
-    """Output of the backbone model. Only set if `return_backbone_output` is True."""
-
 
 TData = TypeVar("TData")
 TBatch = TypeVar("TBatch")
@@ -192,7 +189,6 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
-        return_backbone_output: bool = False,
         using_partition: bool = False,
     ) -> ModelOutput:
         """
@@ -200,7 +196,6 @@ class FinetuneModuleBase(
 
         Args:
             batch: Input batch.
-            return_backbone_output: Whether to return the output of the backbone model.
 
         Returns:
             Prediction of the model.
@@ -380,7 +375,6 @@ class FinetuneModuleBase(
                 "Please ensure that some parts of the model are trainable."
             )
             
-        self.predict_mode = "property"
         self.diabled_heads = []
         
     def set_disabled_heads(self, disabled_heads: list[str]):
@@ -495,7 +489,6 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
-        return_backbone_output: bool = False,
         ignore_gpu_batch_transform_error: bool | None = None,
         using_partition: bool = False,
     ) -> ModelOutput:
@@ -517,7 +510,7 @@ class FinetuneModuleBase(
 
             # Run the model
             model_output = self.model_forward(
-                batch, mode=mode, return_backbone_output=return_backbone_output, using_partition=using_partition
+                batch, mode=mode, using_partition=using_partition
             )
 
             model_output["predicted_properties"] = {
@@ -642,56 +635,42 @@ class FinetuneModuleBase(
 
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
-        if self.predict_mode == "property":
-            output: ModelOutput = self(
-                batch, mode="predict", ignore_gpu_batch_transform_error=False, using_partition=self.hparams.using_partition
-            )
-            predictions = output["predicted_properties"]
-            normalization_ctx = self.create_normalization_context_from_batch(batch)
-            if len(self.normalizers) > 0:
-                predictions = self.denormalize_predict(predictions, normalization_ctx)
-            ## split predictions into a list of dicts
-            num_atoms = normalization_ctx.num_atoms
-            pred_list = []
-            for i in range(len(num_atoms)):
-                pred_dict = {}
-                for key, value in predictions.items():
-                    value = value.detach().cpu()
-                    if key == "energies_per_atom":
-                        prop_type = "atom"
-                    else:
-                        assert (
-                            prop := next(
-                                (p for p in self.hparams.properties if p.name == key), None
-                            )
-                        ) is not None, (
-                            f"Property {key} not found in properties. "
-                            "This should not happen, please report this."
+        output: ModelOutput = self(
+            batch, mode="predict", ignore_gpu_batch_transform_error=False, using_partition=self.hparams.using_partition
+        )
+        predictions = output["predicted_properties"]
+        normalization_ctx = self.create_normalization_context_from_batch(batch)
+        if len(self.normalizers) > 0:
+            predictions = self.denormalize_predict(predictions, normalization_ctx)
+        ## split predictions into a list of dicts
+        num_atoms = normalization_ctx.num_atoms
+        pred_list = []
+        for i in range(len(num_atoms)):
+            pred_dict = {}
+            for key, value in predictions.items():
+                value = value.detach().cpu()
+                if key == "energies_per_atom":
+                    prop_type = "atom"
+                else:
+                    assert (
+                        prop := next(
+                            (p for p in self.hparams.properties if p.name == key), None
                         )
-                        prop_type = prop.property_type()
-                    match prop_type:
-                        case "atom":
-                            pred_dict[key] = value[torch.sum(num_atoms[:i]):torch.sum(num_atoms[:i])+num_atoms[i]]
-                        case "system":
-                            pred_dict[key] = value[i]
-                        case _:
-                            raise ValueError(f"Unknown property type: {prop_type}")
-                pred_list.append(pred_dict)
+                    ) is not None, (
+                        f"Property {key} not found in properties. "
+                        "This should not happen, please report this."
+                    )
+                    prop_type = prop.property_type()
+                match prop_type:
+                    case "atom":
+                        pred_dict[key] = value[torch.sum(num_atoms[:i]):torch.sum(num_atoms[:i])+num_atoms[i]]
+                    case "system":
+                        pred_dict[key] = value[i]
+                    case _:
+                        raise ValueError(f"Unknown property type: {prop_type}")
+            pred_list.append(pred_dict)
                 
-            return pred_list
-        elif self.predict_mode == "internal_feature":
-            output: ModelOutput = self(
-                batch,
-                mode="predict",
-                ignore_gpu_batch_transform_error=False,
-                return_backbone_output=True,
-            )
-            assert "backbone_output" in output
-            backbone_output = output["backbone_output"]
-            for key, value in backbone_output.items():
-                if isinstance(value, torch.Tensor):
-                    backbone_output[key] = value.detach().cpu()
-            return backbone_output
+        return pred_list
 
     def trainable_parameters(self) -> Iterable[tuple[str, nn.Parameter]]:
         return self.named_parameters()

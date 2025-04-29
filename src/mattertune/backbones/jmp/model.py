@@ -26,7 +26,7 @@ from ...finetune.base import (
 )
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 from .util import get_activation_cls
 from ...finetune.optimizer import PerParamHparamsDict
 
@@ -297,14 +297,9 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False, using_partition=False):
+    def model_forward(self, batch, mode: str, using_partition=False):
         # Run the backbone
-        if return_backbone_output:
-            backbone_output, intermediate = self.backbone(
-                batch, return_intermediate=True
-            )
-        else:
-            backbone_output = self.backbone(batch)
+        backbone_output = self.backbone(batch)
 
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
@@ -333,8 +328,6 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             head_input["predicted_props"][name] = output
 
         pred: ModelOutput = {"predicted_properties": predicted_properties}
-        if return_backbone_output:
-            pred["backbone_output"] = intermediate # type: ignore[assignment]
         return pred
 
     @override
@@ -423,15 +416,27 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
     
     @override
     def get_connectivity_from_data(self, data) -> torch.Tensor:
+        data = data.to("cuda:0")
         graph = self.graph_computer(data)
         edge_indices = graph["main_edge_index"].clone()
         return edge_indices
     
+    # @override
+    # def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
+    #     data = self.atoms_to_data(atoms, has_labels=False)
+    #     edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
+    #     return edge_indices
+    
     @override
     def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
-        data = self.atoms_to_data(atoms, has_labels=False)
-        edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
-        return edge_indices
+        edge_index = neighbor_list_and_relative_vec(
+            method = "vesin",
+            pos = np.array(atoms.get_positions()),
+            cell = np.array(atoms.get_cell(complete=True)),
+            r_max = self.hparams.graph_computer.cutoffs.main,
+            pbc = atoms.pbc,
+        )
+        return edge_index
 
     @override
     def create_normalization_context_from_batch(self, batch):
