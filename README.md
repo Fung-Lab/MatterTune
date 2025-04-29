@@ -95,6 +95,10 @@ print("Final energy:", atoms.get_potential_energy())
 print("Final forces:", atoms.get_forces())
 ```
 
+## FAQ
+
+We welcome anyone with questions or suggestions about the MatterTune project to open an issue in this repository’s Issues section. Before creating a new issue, please check the existing ones to see whether a solution has already been posted.
+
 ## License
 
 MatterTune's core framework is licensed under the MIT License. Note that each supported model backbone is subject to its own licensing terms - see our [license information page of the documentation](https://fung-lab.github.io/MatterTune/license.html) for more details.
