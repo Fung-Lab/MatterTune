@@ -194,7 +194,7 @@ class MatterSimM3GNetBackboneModule(
 
     @override
     def model_forward(
-        self, batch: Batch, mode: str, return_backbone_output: bool = False, using_partition: bool = False
+        self, batch: Batch, mode: str, using_partition: bool = False
     ):
         with optional_import_error_message("mattersim"):
             from mattersim.forcefield.potential import batch_to_dict
@@ -204,7 +204,6 @@ class MatterSimM3GNetBackboneModule(
             input,
             include_forces=self.calc_forces,
             include_stresses=self.calc_stress,
-            return_intermediate=return_backbone_output,
             root_indices_mask=getattr(batch, "root_indices_mask", None) if using_partition else None
         )
         output_pred = {}
@@ -216,8 +215,6 @@ class MatterSimM3GNetBackboneModule(
         if self.calc_stress:
             output_pred[self.stress_prop_name] = output.get("stresses") * GPa
         pred: ModelOutput = {"predicted_properties": output_pred}
-        if return_backbone_output:
-            pred["backbone_output"] = output["intermediate"]
         return pred
 
     @override
@@ -300,8 +297,7 @@ class MatterSimM3GNetBackboneModule(
             cell=np.array(atoms.get_cell()),
             r_max=twobody_cutoff,
             self_interaction=False,
-            strict_self_interaction=True,
-            pbc=True,
+            pbc=atoms.pbc,
         )
         return edge_indices
         

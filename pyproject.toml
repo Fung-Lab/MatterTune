@@ -19,6 +19,7 @@ dependencies = [
     "nshconfig-extra[extra]",
     "wandb",
     "nshutils",
+    "watchdog",
 ]
 
 [project.optional-dependencies]

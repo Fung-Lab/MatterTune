@@ -283,6 +283,8 @@ class ComposeNormalizers(nn.Module):
             if normalizer.only_for_target:
                 ## When only_for target, model's prediction is already normalized
                 ## So we need to denormalize the target
+                ## And since model's prediction is already normalized, we need to denormalize it
+                prediction = normalizer.denormalize(prediction, ctx)
                 target = normalizer.denormalize(target, ctx)
             else:
                 ## When not only_for_target, model's prediction is both normalized, where we need to denormalize both prediction and target
@@ -297,11 +299,12 @@ class ComposeNormalizers(nn.Module):
         ## This is because even if the normalizer is only for target, model's prediction is the normalized value, so we need to denormalize it
         for normalizer in reversed(self.normalizers):
             if normalizer.only_for_target:
-                ## When only_for target, model's prediction is already normalized
+                ## In predict step, if only_for_target, this means model's prediction is already normalized
                 ## So we need to denormalize the prediction
                 prediction = normalizer.denormalize(prediction, ctx)
             else:
-                ## When not only_for_target, model's prediction is not normalized, just pass
+                ## In predict step, if not only_for_target, this means model's prediction is not normalized
+                ## So we just pass
                 pass
         return prediction
 

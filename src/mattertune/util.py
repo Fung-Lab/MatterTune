@@ -94,8 +94,8 @@ def neighbor_list_and_relative_vec(
     cell: np.ndarray,
     r_max: float,
     self_interaction=False,
-    strict_self_interaction=True,
-    pbc: bool | tuple[bool, bool, bool] = True,
+    pbc: bool | tuple[bool, bool, bool] | np.ndarray = True,
+    k_neighbors: int | None = None,
 ):
     """
     Copied from Nequip Repo
@@ -104,9 +104,14 @@ def neighbor_list_and_relative_vec(
     """
     if isinstance(pbc, bool):
         pbc = (pbc, pbc, pbc)
+    elif isinstance (pbc, np.ndarray):
+        pbc = tuple(pbc)
     cell = ase.geometry.complete_cell(cell)
+    if k_neighbors is not None:
+        quantity = "ijd"
+    else:
+        quantity = "ij"
     if method == "vesin":
-        assert strict_self_interaction and not self_interaction
         # use same mixed pbc logic as
         # https://github.com/Luthaf/vesin/blob/main/python/vesin/src/vesin/_ase.py
         if pbc[0] and pbc[1] and pbc[2]:
@@ -118,31 +123,42 @@ def neighbor_list_and_relative_vec(
                 "different periodic boundary conditions on different axes are not supported by vesin neighborlist, use ASE or matscipy"
             )
 
-        first_idex, second_idex = vesin_nl(
+        results= vesin_nl(
             cutoff=float(r_max), full_list=True
-        ).compute(points=pos, box=cell, periodic=periodic, quantities="ij")
+        ).compute(points=pos, box=cell, periodic=periodic, quantities=quantity)
+        first_idex = results[0]
+        second_idex = results[1]
+        if k_neighbors is not None:
+            distances = results[2]
 
     elif method == "matscipy":
-        assert strict_self_interaction and not self_interaction
-        first_idex, second_idex, shifts = matscipy.neighbours.neighbour_list(
-            "ij",
+        results = matscipy.neighbours.neighbour_list(
+            quantity,
             pbc=pbc,
             cell=cell,
             positions=pos,
             cutoff=float(r_max),
         )
+        first_idex = results[0]
+        second_idex = results[1]
+        if k_neighbors is not None:
+            distances = results[2]
     elif method == "ase":
-        first_idex, second_idex, shifts = ase_nl.primitive_neighbor_list(
-            "ij",
+        results = ase_nl.primitive_neighbor_list(
+            quantity,
             pbc,
             cell,
             pos,
             cutoff=float(r_max),
-            self_interaction=strict_self_interaction,  # we want edges from atom to itself in different periodic images!
+            self_interaction=self_interaction,  # we want edges from atom to itself in different periodic images!
             use_scaled_positions=False,
         )
+        first_idex = results[0]
+        second_idex = results[1]
+        if k_neighbors is not None:
+            distances = results[2]
     elif method == "pymatgen":
-        first_idex, second_idex, shifts, _ = find_points_in_spheres(
+        first_idex, second_idex, shifts, distances = find_points_in_spheres(
             pos, pos, r=r_max, pbc=np.array(pbc, dtype=int), lattice=np.array(cell), tol=1e-8
         )
     else:
@@ -154,6 +170,22 @@ def neighbor_list_and_relative_vec(
         keep_edge = ~bad_edge
         first_idex = first_idex[keep_edge]
         second_idex = second_idex[keep_edge]
+        if k_neighbors is not None:
+            distances = distances[keep_edge]   # type: ignore
+        
+    # If k_neighbors is not None, we need to sort the edges by distance
+    if k_neighbors is not None:
+        perm = np.lexsort((distances, first_idex)) # type: ignore
+        fi_sorted  = first_idex[perm] 
+        uniq, counts = np.unique(fi_sorted, return_counts=True)
+        cumsum = np.cumsum(counts)
+        rank_sorted = np.arange(len(fi_sorted)) - np.repeat(cumsum - counts, counts)
+        keep_sorted = rank_sorted < k_neighbors
+        keep_mask = np.zeros_like(keep_sorted, dtype=bool)
+        keep_mask[perm] = keep_sorted
+        
+        first_idex = first_idex[keep_mask]
+        second_idex = second_idex[keep_mask]
 
     # Build output:
     edge_indices = np.vstack((first_idex, second_idex)).astype(np.int32)

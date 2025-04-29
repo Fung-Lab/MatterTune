@@ -73,9 +73,6 @@ class ModelOutput(TypedDict):
     """Predicted properties. This dictionary should be exactly
         in the same shape/format  as the output of `batch_to_labels`."""
 
-    backbone_output: NotRequired[Any]
-    """Output of the backbone model. Only set if `return_backbone_output` is True."""
-
 class FinetuneModuleBase(Generic[TData, TBatch]):
     @abstractmethod
     def atoms_to_data(self, atoms: Atoms, has_labels: bool) -> TData:

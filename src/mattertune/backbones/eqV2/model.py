@@ -303,7 +303,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         yield
 
     @override
-    def model_forward(self, batch, mode: str, return_backbone_output=False, using_partition: bool = False):
+    def model_forward(self, batch, mode: str, using_partition: bool = False):
         if using_partition:
             raise NotImplementedError("Partitioning is not supported for eqV2.")
         
@@ -345,8 +345,6 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
             predicted_properties[name] = pred
 
         pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
-        if return_backbone_output:
-            pred_dict["backbone_output"] = {"node_embedding": emb["node_embedding"].embedding}
             
         if mode == "predict":
             self.train()

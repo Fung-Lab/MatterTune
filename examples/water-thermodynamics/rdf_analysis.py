@@ -101,7 +101,7 @@ def main(args_dict: dict):
     rdf_ys = []
     rdf_xs = []
     if not args_dict["load"]:
-        for atoms in md_traj:
+        for atoms in tqdm(md_traj):
             rdf = rdf_compute(atoms, r_max, n_bins, elements)
             rdf_ys.append(rdf[0, 0])
             rdf_xs.append(rdf[0, 1])
@@ -142,7 +142,7 @@ def main(args_dict: dict):
     rdf_ys = []
     rdf_xs = []
     if not args_dict["load"]:
-        for atoms in md_traj:
+        for atoms in tqdm(md_traj):
             rdf = rdf_compute(atoms, r_max, n_bins, elements)
             rdf_ys.append(rdf[0, 0])
             rdf_xs.append(rdf[0, 1])

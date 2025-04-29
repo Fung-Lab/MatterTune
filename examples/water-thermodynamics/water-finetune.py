@@ -36,9 +36,9 @@ def main(args_dict: dict):
             hparams.model.graph_computer = MC.JMPGraphComputerConfig.draft()
             hparams.model.graph_computer.pbc = True
             hparams.model.pretrained_model = "jmp-s"
-        elif args_dict["model_type"] == "orb-v2":
+        elif "orb" in args_dict["model_type"]:
             hparams.model = MC.ORBBackboneConfig.draft()
-            hparams.model.pretrained_model = "orb-v2"
+            hparams.model.pretrained_model = args_dict["model_type"]
         elif args_dict["model_type"] == "eqv2":
             hparams.model = MC.EqV2BackboneConfig.draft()
             hparams.model.checkpoint_path = Path(
@@ -82,10 +82,9 @@ def main(args_dict: dict):
 
         # Add model properties
         hparams.model.properties = []
-        energy_coefficient = 1.0 / (192**2)
         conservative = args_dict["conservative"] or "mattersim" in args_dict["model_type"]
         energy = MC.EnergyPropertyConfig(
-            loss=MC.MSELossConfig(), loss_coefficient=energy_coefficient
+            loss=MC.MSELossConfig(), loss_coefficient=1.0
         )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
@@ -107,10 +106,9 @@ def main(args_dict: dict):
         hparams.model.normalizers = {
             "energy": [
                 MC.PerAtomReferencingNormalizerConfig(
-                    per_atom_references=Path(
-                        "./data/water_1000_eVAng-energy_reference.json"
-                    )
-                )
+                    per_atom_references=Path("./data/water_1000_eVAng-energy_reference.json")
+                ),
+                MC.PerAtomNormalizerConfig(),
             ]
         }
 
@@ -119,7 +117,7 @@ def main(args_dict: dict):
         hparams.trainer.max_epochs = args_dict["max_epochs"]
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
-        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True) if not "orb" in args_dict["model_type"] else DDPStrategy(static_graph=True, find_unused_parameters=True)
+        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True)
         hparams.trainer.gradient_clip_algorithm = "norm"
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "32"

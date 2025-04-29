@@ -307,12 +307,18 @@ class ParallizedInferenceDDP(ParallizedInferenceBase):
             # wait for the inference to finish or fail
             finish = os.path.join(self.tmp_dir, JOB_FINISH_SIGNAL)
             fail   = os.path.join(self.tmp_dir, JOB_FAILURE_SIGNAL)
+            t0 = time.time()
             while True:
+                ## check if the process is finished or failed
                 if os.path.exists(fail):
                     msg = open(fail).read()
                     raise RuntimeError(f"Remote inference failed: {msg}")
                 if os.path.exists(finish):
                     break
+                
+                if time.time() - t0 > 600:
+                    raise Warning(f"ParallizedInferenceDDP takes more than 10 minutes to finish, this normally indicates a deadlock.")
+                
                 time.sleep(0.02)
 
             # read output

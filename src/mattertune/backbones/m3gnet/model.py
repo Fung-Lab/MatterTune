@@ -221,7 +221,6 @@ class M3GNetBackboneModule(
         self,
         batch: MatGLBatch,
         mode: str,
-        return_backbone_output: bool = False,
     ):
         with optional_import_error_message("matgl"):
             import matgl  # type: ignore[reportMissingImports] # noqa
@@ -233,16 +232,10 @@ class M3GNetBackboneModule(
             batch.lattice,
             batch.strain,
         )
-        if return_backbone_output:
-            backbone_output = self.backbone(
-                g, state_attr, lg, return_all_layer_output=True
-            )
-            energy: torch.Tensor = torch.squeeze(backbone_output["final"])
-        else:
-            backbone_output = self.backbone(
-                g, state_attr, lg, return_all_layer_output=False
-            )
-            energy: torch.Tensor = backbone_output
+        backbone_output = self.backbone(
+            g, state_attr, lg, return_all_layer_output=False
+        )
+        energy: torch.Tensor = backbone_output
         output_pred: dict[str, torch.Tensor] = {self.energy_prop_name: energy}
         grad_vars = [g.ndata["pos"], strain] if self.calc_stress else [g.ndata["pos"]]
 
@@ -275,8 +268,6 @@ class M3GNetBackboneModule(
             output_pred[self.stress_prop_name] = stress.reshape(-1, 3, 3)
 
         pred: ModelOutput = {"predicted_properties": output_pred}
-        if return_backbone_output:
-            pred["backbone_output"] = backbone_output
         return pred
 
     @override
