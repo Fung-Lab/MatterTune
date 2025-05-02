@@ -18,6 +18,7 @@ dependencies = [
     "nshconfig[extra]",
     "nshconfig-extra[extra]",
     "wandb",
+    "tensorboardX",
     "nshutils",
     "watchdog",
 ]
