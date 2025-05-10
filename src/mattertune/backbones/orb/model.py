@@ -105,7 +105,7 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_heads import (
-                EnergyHeadPoolAfter,
+                EnergyHead,
                 ForceHead,
                 StressHead,
                 GraphHead,
@@ -268,7 +268,7 @@ class ORBBackboneModule(
 
 
     @override
-    def model_forward(self, batch, mode: str, using_partition: bool = False):
+    def model_forward(self, batch, mode: str):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
         
