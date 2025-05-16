@@ -138,8 +138,8 @@ class ORBBackboneModule(
                             latent_dim=256,
                             num_mlp_layers=1,
                             mlp_hidden_dim=256,
-                            remove_mean=False,
-                            remove_torque_for_nonpbc_systems=False,
+                            remove_mean=True,
+                            remove_torque_for_nonpbc_systems=True,
                         )
 
             case props.StressesPropertyConfig():

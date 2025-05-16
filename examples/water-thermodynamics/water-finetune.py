@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 import rich
+import os
 
 import nshutils as nu
 from lightning.pytorch.strategies import DDPStrategy
@@ -134,6 +135,8 @@ def main(args_dict: dict):
             ckpt_name += "-refill"
         if args_dict["conservative"]:
             ckpt_name += "-conservative"
+        if os.path.exists(f"./checkpoints/{ckpt_name}.ckpt"):
+            os.remove(f"./checkpoints/{ckpt_name}.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_mae",
             dirpath="./checkpoints",

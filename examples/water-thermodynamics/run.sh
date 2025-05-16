@@ -41,14 +41,22 @@
 # Source the conda.sh script to enable 'conda' command
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
-conda activate orbv3-tune
-batch_size=4
-python water-finetune.py \
-    --model_type "orb-v3-conservative-inf-omat" \
-    --batch_size $batch_size \
-    --lr 1e-4 \
-    --devices 0 1 2 5 \
-    --conservative 
+# conda activate orbv3-tune
+# batch_size=4
+# python water-finetune.py \
+#     --model_type "orb-v3-conservative-inf-omat" \
+#     --batch_size $batch_size \
+#     --lr 1e-4 \
+#     --devices 0 1 2 3 \
+#     --conservative 
+
+# conda activate orbv3-tune
+# batch_size=6
+# python water-finetune.py \
+#     --model_type "orb-v2" \
+#     --batch_size $batch_size \
+#     --lr 1e-4 \
+#     --devices 0 1 2 3 
 
 
 conda activate mattersim-tune
@@ -57,5 +65,5 @@ python water-finetune.py \
     --model_type "mattersim-1m" \
     --batch_size 16 \
     --lr 1e-4 \
-    --devices 0 1 2 5 \
+    --devices 2 \
     --conservative 
