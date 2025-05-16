@@ -101,7 +101,7 @@ def main(args_dict: dict):
     rdf_ys = []
     rdf_xs = []
     if not args_dict["load"]:
-        for atoms in md_traj:
+        for atoms in tqdm(md_traj):
             rdf = rdf_compute(atoms, r_max, n_bins, elements)
             rdf_ys.append(rdf[0, 0])
             rdf_xs.append(rdf[0, 1])
@@ -142,7 +142,7 @@ def main(args_dict: dict):
     rdf_ys = []
     rdf_xs = []
     if not args_dict["load"]:
-        for atoms in md_traj:
+        for atoms in tqdm(md_traj):
             rdf = rdf_compute(atoms, r_max, n_bins, elements)
             rdf_ys.append(rdf[0, 0])
             rdf_xs.append(rdf[0, 1])
@@ -187,6 +187,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--md_traj",
         type=str,
+        default="/net/csefiles/coc-fung-cluster/lingyu/water_md/water_orb-v2-best-30-refill_NPT.xyz"
     )
     parser.add_argument("--n_frames", type=int, default=150000)
     parser.add_argument("--r_max", type=float, default=6.0)

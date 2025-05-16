@@ -95,6 +95,12 @@ def main(args_dict: dict):
         raise ValueError("Invalid thermo_state, must be one of 'NVT' or 'NPT'")
 
     # Attach trajectory writing
+    if os.path.exists(
+        os.path.join(args_dict["save_dir"], f"water_{model_name}_{args_dict['thermo_state']}.xyz")
+    ):
+        os.remove(
+            os.path.join(args_dict["save_dir"], f"water_{model_name}_{args_dict['thermo_state']}.xyz")
+        )
     def log_func():
         temp = dyn.atoms.get_temperature()
         e = dyn.atoms.get_potential_energy()
@@ -134,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="./checkpoints/MatterSim-v1.0.0-1M-bestTrue0.9.ckpt",
+        default="./checkpoints/orb-v2-best-30-refill.ckpt",
     )
     parser.add_argument("--thermo_state", type=str, default="NPT")
     parser.add_argument("--init_struct", type=str, default="./data/H2O.xyz")
@@ -144,7 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("--friction", type=float, default=0.02)
     parser.add_argument("--interval", type=int, default=2)
     parser.add_argument("--steps", type=int, default=400000)
-    # parser.add_argument("--save_dir", type=str, default="/net/csefiles/coc-fung-cluster/lingyu/water_md")
-    parser.add_argument("--save_dir", type=str, default="./md_traj")
+    parser.add_argument("--save_dir", type=str, default="/net/csefiles/coc-fung-cluster/lingyu/water_md")
+    # parser.add_argument("--save_dir", type=str, default="./md_traj")
     args_dict = vars(parser.parse_args())
     main(args_dict)
