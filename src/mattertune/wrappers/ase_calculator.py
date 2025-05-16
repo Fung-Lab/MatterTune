@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING
 
+import numpy as np
 import torch
 from ase import Atoms
 from ase.calculators.calculator import Calculator
@@ -62,7 +63,12 @@ class MatterTuneCalculator(Calculator):
         
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
-        data = self.model.atoms_to_data(self.atoms, has_labels=False)
+        normalized_atoms = copy.deepcopy(self.atoms)
+        scaled_pos = normalized_atoms.get_scaled_positions()
+        scaled_pos = np.mod(scaled_pos, 1.0)
+        normalized_atoms.set_scaled_positions(scaled_pos)
+        
+        data = self.model.atoms_to_data(normalized_atoms, has_labels=False)
         batch = self.model.collate_fn([data])
         batch = batch.to(self.model.device)
         
