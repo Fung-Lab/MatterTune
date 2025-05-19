@@ -35,12 +35,28 @@ gOO_orbv3_data = np.load("./results/orbv3_con_omat-refill-g_OO(r).npz")
 gOO_orbv3_r_values = gOO_orbv3_data["rdf_x"]
 gOO_orbv3_g_values = gOO_orbv3_data["rdf_y"]
 
+# colors = [
+#     "#EA8379",  # MatterSim-V1-1M
+#     "#7DAEE0",  # JMP-S
+#     "#B395BD",  # ORB-V2
+#     "#B395BD",  # ORB-V3
+#     "#1B7C3D",  # EqV2-31M
+# ]
+
+colors = [
+    "#1072bd",  # MatterSim-V1-1M
+    "#77ae43",  # JMP-S
+    "#edb021",  # ORB-V2
+    "#d7592c",  # ORB-V3
+    "#7f318d",  # EqV2-31M
+]
+
 plt.scatter(gOO_benchmark_r_values, gOO_benchmark_g_values, label="Experiment", color="black", marker="o", s=10)
-plt.plot(gOO_mattersim_r_values, gOO_mattersim_g_values, label="MatterSim-V1-1M (30 samples)", color="#EA8379", linewidth=2)
-plt.plot(gOO_jmp_r_values, gOO_jmp_g_values, label="JMP-S (30 samples)", color="#7DAEE0", linestyle="dashed", linewidth=2)
-# plt.plot(gOO_orb_r_values, gOO_orb_g_values, label="ORB-V2 (30 samples)", color="#B395BD", linestyle=":", linewidth=2)
-plt.plot(gOO_orbv3_r_values, gOO_orbv3_g_values, label="ORB-V3 (30 samples)", color="#B395BD", linestyle=":", linewidth=2)
-plt.plot(gOO_eqv2_r_values, gOO_eqv2_g_values, label="EqV2-31M (30 samples)", color="#1B7C3D", linestyle="-.", linewidth=2)
+plt.plot(gOO_mattersim_r_values, gOO_mattersim_g_values, label="MatterSim-V1-1M (30 samples)", color=colors[0], linewidth=2)
+plt.plot(gOO_jmp_r_values, gOO_jmp_g_values, label="JMP-S (30 samples)", color=colors[1], linestyle="dashed", linewidth=2)
+plt.plot(gOO_orb_r_values, gOO_orb_g_values, label="ORB-V2 (30 samples)", color=colors[2], linestyle=":", linewidth=2)
+plt.plot(gOO_orbv3_r_values, gOO_orbv3_g_values, label="ORB-V3-omat-conserv (30 samples)", color=colors[3], linestyle=":", linewidth=2)
+plt.plot(gOO_eqv2_r_values, gOO_eqv2_g_values, label="EqV2-31M (30 samples)", color=colors[4], linestyle="-.", linewidth=2)
 # plt.plot(gOO_mattersim_r_values, gOO_mattersim_mpx2_g_values, label="MatterSim-V1-1M-MPX2 (30 samples)", color="#7DAEE0", linestyle="dotted", linewidth=2)
 
 plt.xlabel(r"$r$ ($\AA$)")
