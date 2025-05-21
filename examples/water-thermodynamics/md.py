@@ -4,7 +4,6 @@ import copy
 import logging
 import os
 
-import nshutils as nu
 import ase.units as units
 import numpy as np
 from ase import Atoms
@@ -20,10 +19,10 @@ from mattertune.backbones import (
     MatterSimM3GNetBackboneModule,
     ORBBackboneModule,
     EqV2BackboneModule,
+    MACEBackboneModule,
 )
 
 logging.basicConfig(level=logging.ERROR)
-nu.pretty()
 
 
 def main(args_dict: dict):
@@ -47,6 +46,10 @@ def main(args_dict: dict):
         )
     elif "eqv2" in args_dict["ckpt_path"]:
         model = EqV2BackboneModule.load_from_checkpoint(
+            checkpoint_path=args_dict["ckpt_path"], map_location="cpu"
+        )
+    elif "mace" in args_dict["ckpt_path"]:
+        model = MACEBackboneModule.load_from_checkpoint(
             checkpoint_path=args_dict["ckpt_path"], map_location="cpu"
         )
     else:
@@ -140,7 +143,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="./checkpoints/orb-v2-best-30-refill.ckpt",
+        default="./checkpoints/mace-medium-best-30-refill-conservative.ckpt",
     )
     parser.add_argument("--thermo_state", type=str, default="NPT")
     parser.add_argument("--init_struct", type=str, default="./data/H2O.xyz")

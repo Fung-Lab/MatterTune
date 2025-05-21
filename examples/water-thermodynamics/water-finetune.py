@@ -5,7 +5,6 @@ from pathlib import Path
 import rich
 import os
 
-import nshutils as nu
 from lightning.pytorch.strategies import DDPStrategy
 
 import mattertune.configs as MC
@@ -17,11 +16,10 @@ from mattertune.backbones import (
     JMPBackboneModule,
     ORBBackboneModule,
     EqV2BackboneModule,
+    MACEBackboneModule,
 )
 
 logging.basicConfig(level=logging.ERROR)
-nu.pretty()
-
 
 
 def main(args_dict: dict):
@@ -48,6 +46,9 @@ def main(args_dict: dict):
             hparams.model.atoms_to_graph = MC.FAIRChemAtomsToGraphSystemConfig.draft()
             hparams.model.atoms_to_graph.radius = 8.0
             hparams.model.atoms_to_graph.max_num_neighbors = 20
+        elif "mace" in args_dict["model_type"]:
+            hparams.model = MC.MACEBackboneConfig.draft()
+            hparams.model.pretrained_model = args_dict["model_type"]
         else:
             raise ValueError(
                 "Invalid model type, please choose from ['mattersim-1m', 'jmp-s', 'orb-v2']"
@@ -84,7 +85,7 @@ def main(args_dict: dict):
         # Add model properties
         hparams.model.properties = []
         energy_coefficient = 1.0 
-        conservative = args_dict["conservative"] or "mattersim" in args_dict["model_type"]
+        conservative = args_dict["conservative"]
         energy = MC.EnergyPropertyConfig(
             loss=MC.MSELossConfig(), loss_coefficient=energy_coefficient
         )
@@ -183,6 +184,8 @@ def main(args_dict: dict):
         ft_model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
     elif "eqv2" in args_dict["model_type"]:
         ft_model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
+    elif "mace" in args_dict["model_type"]:
+        ft_model = MACEBackboneModule.load_from_checkpoint(ckpt_path)
     else:
         raise ValueError(
             "Invalid model type, please choose from ['mattersim-1m', 'jmp-s', 'orb-v2', 'eqv2']"
