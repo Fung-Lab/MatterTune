@@ -187,7 +187,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--md_traj",
         type=str,
-        default="/net/csefiles/coc-fung-cluster/lingyu/water_md/water_orb-v2-best-30-refill_NPT.xyz"
+        default="/net/csefiles/coc-fung-cluster/lingyu/water_md/water_mace-medium-best-30-refill-conservative_NPT.xyz"
     )
     parser.add_argument("--n_frames", type=int, default=150000)
     parser.add_argument("--r_max", type=float, default=6.0)

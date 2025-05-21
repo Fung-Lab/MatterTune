@@ -297,20 +297,5 @@ class MatterSimM3GNetBackboneModule(
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
 
     @override
-    def optimizer_step(
-        self,
-        epoch: int,
-        batch_idx: int,
-        optimizer,
-        optimizer_closure=None,
-    ):
-        super().optimizer_step(
-            epoch,
-            batch_idx,
-            optimizer,
-            optimizer_closure,
-        )
-
-    @override
     def apply_callable_to_backbone(self, fn):
         return fn(self.backbone)
