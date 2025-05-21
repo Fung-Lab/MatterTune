@@ -15,6 +15,7 @@ Seamlessly work with multiple state-of-the-art pre-trained models including:
 - M3GNet
 - ORB
 - MatterSim
+- MACE
 
 ### Flexible Property Predictions
 Support for various molecular and materials properties:

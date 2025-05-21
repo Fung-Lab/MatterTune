@@ -51,6 +51,23 @@ uv pip install -e .
 python setup.py build_ext --inplace
 ```
 
+### MACE
+
+MACE can be directly installed with pip:
+
+```bash
+pip install --upgrade pip
+pip install mace-torch
+```
+
+or it can be installed from source code:
+
+```bash
+git clone https://github.com/ACEsuit/mace.git
+pip install ./mace
+```
+
+
 ### JMP
 
 Please follow the installation instructions in the [jmp-backbone repository](https://github.com/nimashoghi/jmp-backbone/blob/lingyu-grad/README.md).
