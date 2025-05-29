@@ -108,7 +108,7 @@ class ORBBackboneModule(
                 EnergyHeadPoolAfter,
                 ForceHead,
                 StressHead,
-                GraphHead,
+                GraphHeadPoolAfter,
             )
 
         self.include_forces = False
@@ -166,7 +166,7 @@ class ORBBackboneModule(
                         "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
                     )
                 else:
-                    return GraphHead(
+                    return GraphHeadPoolAfter(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -175,6 +175,7 @@ class ORBBackboneModule(
                             dim=1,
                             domain="real",
                         ),
+                        node_aggregation=prop.reduction, # type: ignore[reportUnboundType] # noqa
                     )
             case _:
                 raise ValueError(
