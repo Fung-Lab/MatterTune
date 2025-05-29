@@ -101,20 +101,11 @@ class MatterTunePropertyPredictor:
             self.lightning_module, dataloader, return_predictions=True
         )
         assert predictions is not None, "Predictions should not be None. Report a bug."
-        predictions = cast(list[dict[str, torch.Tensor]], predictions)
-
+        predictions = cast(list[list[dict[str, torch.Tensor]]], predictions)
+        
         all_predictions = []
         for batch_preds in predictions:
-            if batch_size > 1:
-                first_tensor = next(iter(batch_preds.values()))
-                batch_size = len(first_tensor)
-                for idx in range(batch_size):
-                    pred_dict = {}
-                    for key, value in batch_preds.items():
-                        pred_dict[key] = torch.tensor(value[idx])
-                    all_predictions.append(pred_dict)
-            else:
-                all_predictions.append(batch_preds)
+            all_predictions.extend(batch_preds)
         assert len(all_predictions) == len(
             atoms_list
         ), "Mismatch in predictions length."
