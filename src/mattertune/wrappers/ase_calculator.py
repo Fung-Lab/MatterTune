@@ -71,13 +71,17 @@ class MatterTuneCalculator(Calculator):
             "This should have been set by the parent class. "
             "Please report this as a bug."
         )
+        scaled_positions = np.array(self.atoms.get_scaled_positions())
+        scaled_positions = np.mod(scaled_positions, 1.0)
+        input_atoms = copy.deepcopy(self.atoms)
+        input_atoms.set_scaled_positions(scaled_positions)
         
         diabled_properties = list(set(self.implemented_properties) - set(properties))
         self.model.set_disabled_heads(diabled_properties)
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
         time1 = time.time()
-        data = self.model.atoms_to_data(self.atoms, has_labels=False)
+        data = self.model.atoms_to_data(input_atoms, has_labels=False)
         batch = self.model.collate_fn([data])
         batch = batch.to(self.model.device)
         self.partition_times.append(time.time() - time1)
@@ -217,20 +221,17 @@ class MatterTunePartitionCalculator(Calculator):
             "Please report this as a bug."
         )
         # normalize scaled_positions to [0, 1]
-        atoms_copy = copy.deepcopy(self.atoms)
-        scaled_positions = np.array(atoms_copy.get_scaled_positions())
+        input_atoms = copy.deepcopy(self.atoms)
+        scaled_positions = np.array(input_atoms.get_scaled_positions())
         scaled_positions = np.mod(scaled_positions, 1.0)
-        atoms_copy.set_scaled_positions(scaled_positions)
-        # scaled_positions = self.atoms.get_scaled_positions()
-        # scaled_positions = np.mod(scaled_positions, 1.0)
-        # self.atoms.set_scaled_positions(scaled_positions)
+        input_atoms.set_scaled_positions(scaled_positions)
         
         time1 = time.time()
-        edge_indices = self.model.get_connectivity_from_atoms(atoms_copy)
+        edge_indices = self.model.get_connectivity_from_atoms(input_atoms)
         self.conn_times.append(time.time() - time1)
         time1 = time.time()
         partitioned_atoms_list = grid_partition_atoms(
-            atoms=atoms_copy,
+            atoms=input_atoms,
             edge_indices=edge_indices.astype(np.int32),
             granularity=self.granularity,
             mp_steps=self.mp_steps
@@ -247,7 +248,7 @@ class MatterTunePartitionCalculator(Calculator):
         
         ## find the absolute path to mattertune.wrappers.multi_gpu_inference.py
         time1 = time.time()
-        n_atoms = len(atoms_copy)
+        n_atoms = len(input_atoms)
         results = {}
         conservative = False
         if "energy" in properties:
