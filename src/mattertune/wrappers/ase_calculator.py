@@ -270,7 +270,7 @@ class MatterTunePartitionCalculator(Calculator):
             if "forces" in properties:
                 forces = part_i_pred["forces"].detach().to(torch.float32).cpu().numpy()
             if "stress" in properties:
-                stress = part_i_pred["stress"].detach().to(torch.float32).cpu().numpy()
+                stress = part_i_pred["stresses"].detach().to(torch.float32).cpu().numpy()
             
             indices_map_i = np.array(part_i_atoms.info["indices_map"])
             
