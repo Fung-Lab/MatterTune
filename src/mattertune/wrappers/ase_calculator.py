@@ -64,12 +64,12 @@ class MatterTuneCalculator(Calculator):
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
         normalized_atoms = copy.deepcopy(self.atoms)
-        scaled_pos = normalized_atoms.get_scaled_positions()
-        scaled_pos = np.mod(scaled_pos, 1.0)
-        normalized_atoms.set_scaled_positions(scaled_pos)
+        # scaled_pos = normalized_atoms.get_scaled_positions()
+        # scaled_pos = np.mod(scaled_pos, 1.0)
+        # normalized_atoms.set_scaled_positions(scaled_pos)
         
-        data = self.model.atoms_to_data(normalized_atoms, has_labels=False)
-        batch = self.model.collate_fn([data])
+        batch = self.model.atoms_to_data(normalized_atoms, has_labels=False)
+        batch = self.model.collate_fn([batch])
         batch = batch.to(self.model.device)
         
         pred = self.model.predict_step(
@@ -86,7 +86,7 @@ class MatterTuneCalculator(Calculator):
                 "Please report this as a bug."
             )
 
-            value = pred[prop.name].detach().to(torch.float32).cpu().numpy() # type: ignore
+            value = pred[prop.name].detach().cpu().numpy() # type: ignore
             value = value.astype(prop._numpy_dtype())
             value = prop.prepare_value_for_ase_calculator(value)
 

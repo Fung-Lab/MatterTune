@@ -18,7 +18,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
@@ -105,10 +105,10 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_heads import (
-                EnergyHead,
+                EnergyHeadPoolAfter,
                 ForceHead,
                 StressHead,
-                GraphHead,
+                GraphHeadPoolAfter,
             )
 
         self.include_forces = False
@@ -138,8 +138,8 @@ class ORBBackboneModule(
                             latent_dim=256,
                             num_mlp_layers=1,
                             mlp_hidden_dim=256,
-                            remove_mean=True,
-                            remove_torque_for_nonpbc_systems=True,
+                            remove_mean=False,
+                            remove_torque_for_nonpbc_systems=False,
                         )
 
             case props.StressesPropertyConfig():
@@ -166,7 +166,7 @@ class ORBBackboneModule(
                         "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
                     )
                 else:
-                    return GraphHead(
+                    return GraphHeadPoolAfter(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -175,6 +175,7 @@ class ORBBackboneModule(
                             dim=1,
                             domain="real",
                         ),
+                        node_aggregation=prop.reduction, # type: ignore[reportUnboundType] # noqa
                     )
             case _:
                 raise ValueError(
@@ -200,10 +201,7 @@ class ORBBackboneModule(
                 f"Unknown pretrained model: {self.hparams.pretrained_model}"
             )
         # We load on CPU here as we don't have a device yet.
-        try:
-            pretrained_model = pretrained_model_fn(device="cpu", compile=False) # type: ignore[reportUnknownArgumentType]
-        except Exception as e:
-            pretrained_model = pretrained_model_fn(device="cpu")
+        pretrained_model = pretrained_model_fn(device="cpu", compile=False)
         # This should never be None, but type checker doesn't know that so we need to check.
         assert pretrained_model is not None, "The pretrained model is not available"
 
@@ -225,6 +223,7 @@ class ORBBackboneModule(
 
         backbone = backbone.train()
         self.backbone = backbone
+        self.system_config = pretrained_model.system_config
 
         log.info(
             f'Loaded the ORB pre-trained model "{self.hparams.pretrained_model}". The model '
@@ -238,7 +237,7 @@ class ORBBackboneModule(
             # assert head is not None, (
             #     f"Find the head for the property {prop.name} is None"
             # )
-            self.output_heads[prop.name] = head # type: ignore[reportUnboundType]
+            self.output_heads[prop.name] = head
 
     @override
     def trainable_parameters(self):
@@ -268,7 +267,7 @@ class ORBBackboneModule(
 
 
     @override
-    def model_forward(self, batch, mode: str):
+    def model_forward(self, batch, mode: str, using_partition: bool = False):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
         
@@ -393,8 +392,8 @@ class ORBBackboneModule(
         #   PR: https://github.com/orbital-materials/orb_models/pull/35
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
-            self.hparams.system._to_orb_system_config(),
-            device=torch.device("cpu"),
+            system_config=self.system_config,
+            device=self.device,
         )
         
         if has_labels:
@@ -443,6 +442,18 @@ class ORBBackboneModule(
         atom_graphs.system_features["norm_composition"] = composition
 
         return atom_graphs
+    
+    @override
+    def get_connectivity_from_data(self, data: AtomGraphs) -> torch.Tensor:
+        senders = data.senders.clone()
+        receivers = data.receivers.clone()
+        return torch.stack([senders, receivers], dim=0)
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
+        data = self.atoms_to_data(atoms, has_labels=False)
+        edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
+        return edge_indices
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -452,3 +463,15 @@ class ORBBackboneModule(
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is None:
+            pass
+        else:
+            self.backbone.num_message_passing_steps = min(
+                message_passing_steps, self.backbone.num_message_passing_steps
+            )
