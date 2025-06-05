@@ -320,7 +320,7 @@ class ORBBackboneModule(
                     if self.include_stress:
                         predicted_properties["stresses"] = stress # type: ignore[reportUnboundType]
         
-        if "stresses" in predicted_properties and predicted_properties["stress"].shape[1] == 6: # type: ignore[reportUnboundType]
+        if "stresses" in predicted_properties and predicted_properties["stresses"].shape[1] == 6: # type: ignore[reportUnboundType]
             # Convert the stress tensor to the full 3x3 form
             predicted_properties["stresses"] = voigt_6_to_full_3x3_stress_torch(
                 predicted_properties["stresses"] # type: ignore[reportUnboundType]
