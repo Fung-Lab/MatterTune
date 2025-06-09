@@ -114,7 +114,7 @@ class MatterTunePropertyPredictor:
                         pred_dict[key] = torch.tensor(value[idx])
                     all_predictions.append(pred_dict)
             else:
-                all_predictions.append(batch_preds)
+                all_predictions.append(batch_preds[0])
         assert len(all_predictions) == len(
             atoms_list
         ), "Mismatch in predictions length."
