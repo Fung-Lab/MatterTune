@@ -25,27 +25,26 @@ import mattertune.configs as MC
 # Define the configuration for model, data, and training
 config = mt.configs.MatterTunerConfig(
     # Configure the model: using JMP backbone with energy prediction
-    model=MC.JMPBackboneConfig(
-        pretrained_model = "jmp-s",  # Select pretrained model type
-        graph_computer = MC.JMPGraphComputerConfig(pbc=True)
+    model=MC.MACEBackboneConfig(
+        pretrained_model = "mace-medium",  # Select pretrained model type
         properties = [
             MC.EnergyPropertyConfig(  # Configure energy prediction
                 loss=MC.MAELossConfig(),  # Using MAE loss
-                loss_coefficient=1.0  # Weight for this property's loss
             ),
             MC.ForcesPropertyConfig(
-                loss=MC.MSELossConfig(), 
-                conservative=False, 
-                loss_coefficient=1.0
+                loss=MC.MAELossConfig(), 
+                conservative=True,
+            ),
+            MC.StressesPropertyConfig(
+                loss=MC.MAELossConfig(),
+                conservative=True
             )
         ],
         optimizer = MC.AdamWConfig(lr=8.0e-5)
     ),
     # Configure the data: loading from XYZ file with automatic train/val split
     data=MC.AutoSplitDataModuleConfig(
-        dataset=MC.XYZDatasetConfig(
-            src=Path("YOUR_XYZFILE_PATH")  # Path to your XYZ data
-        ),
+        dataset=MC.XYZDatasetConfig(src=Path("YOUR_XYZFILE_PATH")  # Path to your XYZ data),
         train_split=0.8,  # Use 80% of data for training
         batch_size=32  # Process 32 structures per batch
     ),
@@ -65,7 +64,7 @@ tuner = mt.MatterTune(config)
 model, trainer = tuner.tune()
 
 # Save the fine-tuned model
-trainer.save_checkpoint("finetuned_model.ckpt")
+trainer.save_checkpoint("mace_ft.ckpt")
 
 # Phase 2: Using the fine-tuned model
 # ----------------------------------
@@ -74,7 +73,7 @@ from ase.optimize import BFGS
 from ase import Atoms
 
 # Load the fine-tuned model
-model = mt.backbones.JMPBackboneModule.load_from_checkpoint("finetuned_model.ckpt")
+model = mt.backbones.MACEBackboneModule.load_from_checkpoint("finetuned_model.ckpt")
 
 # Create an ASE calculator from the model
 calculator = model.ase_calculator()
