@@ -111,8 +111,6 @@ class ORBBackboneModule(
                 GraphHeadPoolAfter,
             )
 
-        self.include_forces = False
-        self.include_stress = False
         match prop:
             case props.EnergyPropertyConfig():
                 if not self.hparams.reset_output_heads:
@@ -231,6 +229,8 @@ class ORBBackboneModule(
 
         # Create the output heads
         self.output_heads = nn.ModuleDict()
+        self.include_forces = False
+        self.include_stress = False
         for prop in self.hparams.properties:
             head = self._create_output_head(prop, pretrained_model)
             # assert head is not None, (

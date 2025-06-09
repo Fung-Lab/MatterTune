@@ -16,6 +16,8 @@ from .mattersim import MatterSimBackboneConfig as MatterSimBackboneConfig
 from .mattersim import MatterSimM3GNetBackboneModule as MatterSimM3GNetBackboneModule
 from .orb import ORBBackboneConfig as ORBBackboneConfig
 from .orb import ORBBackboneModule as ORBBackboneModule
+from .mace_foundation import MACEBackboneConfig as MACEBackboneConfig
+from .mace_foundation import MACEBackboneModule as MACEBackboneModule
 
 ModelConfig = TypeAliasType(
     "ModelConfig",
