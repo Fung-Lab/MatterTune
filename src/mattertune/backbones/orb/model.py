@@ -18,7 +18,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message, neighbor_list_and_relative_vec
+from ...util import optional_import_error_message
 from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
