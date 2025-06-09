@@ -59,11 +59,20 @@ source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 #     --devices 0 1 2 3 
 
 
-conda activate mattersim-tune
+# conda activate mattersim-tune
+# batch_size=16
+# python water-finetune.py \
+#     --model_type "mattersim-1m" \
+#     --batch_size 16 \
+#     --lr 1e-4 \
+#     --devices 2 \
+#     --conservative 
+
+conda activate mace-tune
 batch_size=16
 python water-finetune.py \
-    --model_type "mattersim-1m" \
+    --model_type "mace-small" \
     --batch_size 16 \
     --lr 1e-4 \
-    --devices 2 \
+    --devices 0 \
     --conservative 

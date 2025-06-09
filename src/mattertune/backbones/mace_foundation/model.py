@@ -171,8 +171,8 @@ class MACEBackboneModule(
     ):
         output = self.backbone(
             batch.to_dict(),
-            compute_force=True,
-            compute_stress=True,
+            compute_force=self.calc_forces,
+            compute_stress=self.calc_stress,
             training=mode == "train",
         )
         output_pred = {}
@@ -180,7 +180,7 @@ class MACEBackboneModule(
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output.get("forces")
         if self.calc_stress:
-            output_pred[self.stress_prop_name] = output.get("stresses")
+            output_pred[self.stress_prop_name] = output.get("stress")
         pred: ModelOutput = {"predicted_properties": output_pred}
         return pred
 
