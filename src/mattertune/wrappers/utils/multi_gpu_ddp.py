@@ -20,6 +20,7 @@ from mattertune.backbones import (
     MatterSimM3GNetBackboneModule,
     ORBBackboneModule,
     EqV2BackboneModule,
+    MACEBackboneModule,
 )
 from mattertune.finetune.base import FinetuneModuleBase
 from mattertune.callbacks.multi_gpu_writer import CustomWriter
@@ -61,6 +62,8 @@ def main(args_dict):
         model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
     elif "eqv2" in ckpt_path:
         model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
+    elif "mace" in ckpt_path:
+        model = MACEBackboneModule.load_from_checkpoint(ckpt_path)
     else:
         raise ValueError(f"Unsupported model type, please include jmp, mattersim, orb or eqv2 in the ckpt_path: {ckpt_path}")
     model.hparams.using_partition = args_dict["using_partition"]
@@ -161,6 +164,10 @@ if __name__ == "__main__":
     args_dict = vars(args)
     args_dict["properties"] = args_dict["properties"].split(",")
     args_dict["devices"] = list(map(int, args_dict["devices"].split(",")))
-    main(args_dict)
-                
+    
+    try:
+        main(args_dict)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        failure_signal(args_dict["workspace"], str(e))        
              

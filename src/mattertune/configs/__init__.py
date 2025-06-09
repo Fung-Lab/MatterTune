@@ -31,6 +31,7 @@ from mattertune.recipes import LoRARecipeConfig as LoRARecipeConfig
 from mattertune.recipes.lora import LoraConfig as LoraConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones.m3gnet import M3GNetGraphComputerConfig as M3GNetGraphComputerConfig
+from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.finetune.loss import MAELossConfig as MAELossConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
@@ -100,6 +101,7 @@ from mattertune.recipes.lora import LoraConfig as LoraConfig
 from mattertune.finetune.loss import LossConfig as LossConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones.m3gnet import M3GNetGraphComputerConfig as M3GNetGraphComputerConfig
+from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.finetune.loss import MAELossConfig as MAELossConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
@@ -191,6 +193,7 @@ __all__ = [
     "LossConfig",
     "M3GNetBackboneConfig",
     "M3GNetGraphComputerConfig",
+    "MACEBackboneConfig",
     "MAELossConfig",
     "MPDatasetConfig",
     "MPTrajDatasetConfig",

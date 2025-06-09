@@ -6,6 +6,7 @@ import copy
 import tempfile
 import subprocess
 import shutil
+import weakref
 
 from abc import ABC, abstractmethod
 from ase import Atoms
@@ -129,11 +130,13 @@ class SingleGPUInferenceHandler(FileSystemEventHandler):
     
     
 class ParallizedInferenceBase(ABC):
+    name: str
     @abstractmethod
     def run_inference(
         self,
         atoms_list: list[Atoms],
-    ) -> list[dict[str, torch.Tensor]]: ...
+    ) -> list[dict[str, torch.Tensor]]:
+        weakref.finalize(self, ParallizedInferenceBase.exit, self)
     
     @abstractmethod
     def exit(self): ...
@@ -143,6 +146,8 @@ class ParallizedInferenceMultiWatcher(ParallizedInferenceBase):
     """
     This class is used to run the inference in parallel.
     """
+    name = "ParallizedInferenceMultiWatcher"
+    
     def __init__(
         self,
         *,
@@ -155,6 +160,7 @@ class ParallizedInferenceMultiWatcher(ParallizedInferenceBase):
         properties: list[str] | None = None,
         struct_format: str = "npz",
     ):
+        super().__init__()
         if tmp_dir is not None and not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir, exist_ok=True)
         self.tmp_dir = tempfile.mkdtemp(dir=tmp_dir)
@@ -260,8 +266,10 @@ class ParallizedInferenceDDP(ParallizedInferenceBase):
         input_filename: str = "input.npz",
         output_filename: str = "output.pt",
     ):
-        if tmp_dir is not None and not os.path.exists(tmp_dir):
+        super().__init__()
+        if tmp_dir is not None:
             os.makedirs(tmp_dir, exist_ok=True)
+            os.system(f"rm -rf {tmp_dir}/*")
         self.tmp_dir = tempfile.mkdtemp(dir=tmp_dir)
         os.system(f"rm -rf {self.tmp_dir}/*")
         # print(f"Temporary directory: {self.tmp_dir}")
@@ -290,7 +298,6 @@ class ParallizedInferenceDDP(ParallizedInferenceBase):
             self.cmd.append(str(num_workers))
         if using_partition: self.cmd.append("--using_partition")
         if inference_mode:  self.cmd.append("--inference_mode")
-        
         self.proc = subprocess.Popen(self.cmd, env=cuda_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     @override
@@ -340,3 +347,4 @@ class ParallizedInferenceDDP(ParallizedInferenceBase):
         exit_signal(self.tmp_dir)
         self.proc.wait(timeout=10)
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        
