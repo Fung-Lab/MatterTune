@@ -65,13 +65,15 @@ def main(args_dict):
     elif "mace" in ckpt_path:
         model = MACEBackboneModule.load_from_checkpoint(ckpt_path)
     else:
-        raise ValueError(f"Unsupported model type, please include jmp, mattersim, orb or eqv2 in the ckpt_path: {ckpt_path}")
+        raise ValueError(
+            f"Unsupported model type, please include jmp, mattersim, orb or eqv2 in the ckpt_path: {ckpt_path}"
+        )
     model.hparams.using_partition = args_dict["using_partition"]
+
     properties = args_dict["properties"]
     implemented_properties: list[str] = []
     _ase_prop_to_config: dict = {}
     for prop in model.hparams.properties:
-        # Ignore properties not marked as ASE calculator properties.
         if (ase_prop_name := prop.ase_calculator_property_name()) is None:
             continue
         implemented_properties.append(ase_prop_name)
@@ -95,6 +97,7 @@ def main(args_dict):
     writer_callback = CustomWriter(write_interval="epoch")
     lightning_trainer_kwargs["callbacks"] = [writer_callback]
     trainer = _create_trainer(lightning_trainer_kwargs, model)
+
     total_cores = multiprocessing.cpu_count()
     num_devices = len(args_dict["devices"])
     
@@ -112,46 +115,42 @@ def main(args_dict):
         failure_signal(workspace, "output filename must end with .pt")
     for sig in ("finish.signal","failure.signal"):
         path = os.path.join(workspace, sig)
-        if os.path.exists(path): os.remove(path)
-    
-    try:
-        while True:
-            if os.path.exists(os.path.join(workspace, EXIT_SIGNAL)):
-                ## receive exit signal, exit this script
-                break
-            
-            if os.path.exists(os.path.join(workspace, JOB_NEW_INPUT_SIGNAL)):
-                try:
-                    ## find new input for inference
-                    atoms_list = load_from_npz(os.path.join(workspace, input_filename))
-                    num_workers = min(len(atoms_list) // num_devices, total_cores // num_devices) if args_dict["num_workers"] is None else args_dict["num_workers"]
-                    dataloader = _atoms_list_to_dataloader(
-                        atoms_list, model, batch_size=args_dict["batch_size"], num_workers=num_workers
-                    )
-                    with open(os.devnull, "w") as fnull:
-                        with redirect_stdout(fnull):
-                            trainer.predict(model=model, dataloaders=dataloader)
-                    dist.barrier()
-                    if is_rank_zero():
-                        predictions = writer_callback.gather_all_predictions()
-                        writer_callback.cleanup()
-                        predictions = cast(list[dict[str, torch.Tensor]], predictions)
-                        torch.save(predictions, os.path.join(workspace, output_filename))
-                        os.remove(os.path.join(workspace, JOB_NEW_INPUT_SIGNAL))
-                        os.remove(os.path.join(workspace, input_filename))
-                        job_finish_signal(workspace)
-                except Exception as e:
-                    if is_rank_zero():
-                        print(f"Error occurred: {e}")
-                        failure_signal(workspace, str(e))
-                finally:
-                    ## all should finally run dist.barrier()
-                    dist.barrier()
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        failure_signal(workspace, str(e))
-        dist.barrier()
+        if os.path.exists(path): 
+            os.remove(path)
+
+    while True:
+        # 退出信号
+        if os.path.exists(os.path.join(workspace, EXIT_SIGNAL)):
+            break
         
+        # 新输入信号
+        if os.path.exists(os.path.join(workspace, JOB_NEW_INPUT_SIGNAL)):
+            # 读取输入
+            atoms_list = load_from_npz(os.path.join(workspace, input_filename))
+            num_workers = (
+                min(len(atoms_list) // num_devices, total_cores // num_devices)
+                if args_dict["num_workers"] is None
+                else args_dict["num_workers"]
+            )
+            dataloader = _atoms_list_to_dataloader(
+                atoms_list, model, batch_size=args_dict["batch_size"], num_workers=num_workers
+            )
+            # 预测
+            # with open(os.devnull, "w") as fnull:
+            #     with redirect_stdout(fnull):
+            trainer.predict(model=model, dataloaders=dataloader)
+            dist.barrier()
+            if is_rank_zero():
+                predictions = writer_callback.gather_all_predictions()
+                writer_callback.cleanup()
+                predictions = cast(list[dict[str, torch.Tensor]], predictions)
+                torch.save(predictions, os.path.join(workspace, output_filename))
+                os.remove(os.path.join(workspace, JOB_NEW_INPUT_SIGNAL))
+                os.remove(os.path.join(workspace, input_filename))
+                job_finish_signal(workspace)
+            # 保证所有 rank 都走到这里
+            dist.barrier()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-GPU DDP Inference Wrapper")
     parser.add_argument("--ckpt_path", type=str, required=True, help="Path to the checkpoint file")
@@ -169,6 +168,5 @@ if __name__ == "__main__":
     args_dict = vars(args)
     args_dict["properties"] = args_dict["properties"].split(",")
     args_dict["devices"] = list(map(int, args_dict["devices"].split(",")))
-    
-    main(args_dict) 
-             
+
+    main(args_dict)
