@@ -440,6 +440,11 @@ class ORBBackboneModule(
         # ^ (1, 120)
         atom_graphs.system_features["norm_composition"] = composition
 
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            root_node_indices = atoms.info["root_node_indices"]
+            root_indices_mask = [1 if i in root_node_indices else 0 for i in range(len(atoms))]
+            atom_graphs.node_features["root_indices_mask"] = torch.tensor(root_indices_mask, dtype=torch.long)
+        
         return atom_graphs
     
     @override
@@ -474,3 +479,5 @@ class ORBBackboneModule(
             self.backbone.num_message_passing_steps = min(
                 message_passing_steps, self.backbone.num_message_passing_steps
             )
+
+
