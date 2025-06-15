@@ -2,37 +2,21 @@
 # Source the conda.sh script to enable 'conda' command
 source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 
-models=(
-    # "mattersim-1m"
-    # "orb-v2"
-    "jmp-s"
-    # "eqv2"
-)
+conda activate mace-tune
+batch_size=12
+python water-finetune.py \
+    --model_type "mace-medium" \
+    --batch_size $batch_size \
+    --lr 1e-4 \
+    --devices 0 1 2 3 \
+    --conservative \
+    --train_down_sample 30 \
+    --down_sample_refill
 
-batch_size=16
-
-for model in "${models[@]}"; do
-    if [ $model == "mattersim-1m" ]; then
-        conda activate mattersim-tune
-        batch_size=16
-    elif [ $model == "orb-v2" ]; then
-        conda activate orb-tune
-        batch_size=8
-    elif [ $model == "jmp-s" ]; then
-        conda activate jmp-tune
-        batch_size=1
-    elif [ $model == "eqv2" ]; then
-        conda activate eqv2-tune
-        batch_size=4
-    fi
-    python water-finetune.py --down_sample_refill \
-        --model_type $model \
-        --train_down_sample 30  \
-        --batch_size $batch_size \
-        --conservative
-    python water-finetune.py \
-        --model_type $model \
-        --train_down_sample 900 \
-        --batch_size $batch_size \
-        --conservative
-done
+python water-finetune.py \
+    --model_type "mace-medium" \
+    --batch_size $batch_size \
+    --lr 1e-4 \
+    --devices 0 1 2 3 \
+    --conservative \
+    --train_down_sample 900 
