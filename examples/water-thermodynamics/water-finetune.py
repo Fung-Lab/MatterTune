@@ -19,8 +19,6 @@ from mattertune.backbones import (
 )
 
 logging.basicConfig(level=logging.ERROR)
-nu.pretty()
-
 
 
 def main(args_dict: dict):
