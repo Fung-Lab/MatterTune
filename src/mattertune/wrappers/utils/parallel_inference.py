@@ -265,6 +265,7 @@ class ParallizedInferenceDDP(ParallizedInferenceBase):
         tmp_dir: str | None = None,
         input_filename: str = "input.npz",
         output_filename: str = "output.pt",
+        
     ):
         super().__init__()
         if tmp_dir is not None:
@@ -339,12 +340,13 @@ class ParallizedInferenceDDP(ParallizedInferenceBase):
 
             return results
         except Exception as e:
+            print(f"Error in ParallizedInferenceDDP: {e}")
             self.exit()
             raise e
 
     @override
     def exit(self):
         exit_signal(self.tmp_dir)
-        self.proc.wait(timeout=10)
+        self.proc.wait(timeout=60)
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
         
