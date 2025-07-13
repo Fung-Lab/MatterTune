@@ -105,10 +105,10 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_heads import (
-                EnergyHeadPoolAfter,
+                EnergyHead,
                 ForceHead,
                 StressHead,
-                GraphHeadPoolAfter,
+                GraphHead,
             )
 
         self.include_forces = False
@@ -118,7 +118,7 @@ class ORBBackboneModule(
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.graph_head
                 else:
-                    return EnergyHeadPoolAfter(
+                    return EnergyHead(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -166,7 +166,7 @@ class ORBBackboneModule(
                         "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
                     )
                 else:
-                    return GraphHeadPoolAfter(
+                    return GraphHead(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -267,7 +267,7 @@ class ORBBackboneModule(
 
 
     @override
-    def model_forward(self, batch, mode: str, using_partition: bool = False):
+    def model_forward(self, batch, mode: str):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
         
@@ -442,18 +442,6 @@ class ORBBackboneModule(
         atom_graphs.system_features["norm_composition"] = composition
 
         return atom_graphs
-    
-    @override
-    def get_connectivity_from_data(self, data: AtomGraphs) -> torch.Tensor:
-        senders = data.senders.clone()
-        receivers = data.receivers.clone()
-        return torch.stack([senders, receivers], dim=0)
-    
-    @override
-    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
-        data = self.atoms_to_data(atoms, has_labels=False)
-        edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
-        return edge_indices
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -463,15 +451,3 @@ class ORBBackboneModule(
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
-    
-    @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
-        """
-        Apply message passing for early stopping.
-        """
-        if message_passing_steps is None:
-            pass
-        else:
-            self.backbone.num_message_passing_steps = min(
-                message_passing_steps, self.backbone.num_message_passing_steps
-            )
