@@ -190,7 +190,6 @@ class MatterTunePartitionCalculator(Calculator):
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
         
-        self.conn_times = []
         self.partition_times = []
         self.forward_times = []
         self.collect_times = []
@@ -228,8 +227,6 @@ class MatterTunePartitionCalculator(Calculator):
         
         time1 = time.time()
         edge_indices = self.model.get_connectivity_from_atoms(input_atoms)
-        self.conn_times.append(time.time() - time1)
-        time1 = time.time()
         partitioned_atoms_list = grid_partition_atoms(
             atoms=input_atoms,
             edge_indices=edge_indices.astype(np.int32),
