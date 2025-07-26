@@ -455,8 +455,22 @@ class ORBBackboneModule(
     
     @override
     def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
-        data = self.atoms_to_data(atoms, has_labels=False)
-        edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
+        with optional_import_error_message("orb_models"):
+            from orb_models.forcefield import featurization_utilities as feat_util
+        
+        system_config = self.hparams.system._to_orb_system_config()
+        positions = torch.from_numpy(atoms.positions)
+        cell = torch.from_numpy(atoms.cell.array)
+        pbc = torch.from_numpy(atoms.pbc)
+        edge_indices, _, _ = feat_util.compute_pbc_radius_graph(
+            positions=positions,
+            cell=cell,
+            pbc=pbc,
+            radius=system_config.radius,
+            max_number_neighbors=system_config.max_num_neighbors,
+            device=torch.device("cpu"),
+        )
+        edge_indices = edge_indices.cpu().numpy()
         return edge_indices
 
     @override

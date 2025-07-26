@@ -352,6 +352,7 @@ class FinetuneModuleBase(
 
         # Create the backbone model and output heads
         self.create_model()
+        
         self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
         
         if self.hparams.reset_backbone:
