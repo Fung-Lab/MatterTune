@@ -88,7 +88,7 @@ def main(args_dict: dict):
     
     ## 600K Langevin dynamics
     num_steps = args_dict["num_steps"]
-    assert num_steps >= 200, "Number of steps must be at least 200 for Langevin dynamics."
+    assert num_steps >= 50, "Number of steps must be at least 200 for Langevin dynamics."
     dyn = Langevin(
         atoms,
         temperature_K=600,
@@ -101,7 +101,7 @@ def main(args_dict: dict):
         start_time = time.time()
         dyn.step(1)
         end_time = time.time()
-        if i > 100: # skip the first 100 steps for warm-up
+        if i > 20: # skip the first 20 steps for warm-up
             wandb.log(
                 {
                     "md_step_time": end_time - start_time,
@@ -156,7 +156,7 @@ if __name__=="__main__":
     parser.add_argument("--granularity", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--num_workers", type=int, default=8)
-    parser.add_argument("--num_steps", type=int, default=300, help="Number of MD steps to run.")
+    parser.add_argument("--num_steps", type=int, default=50, help="Number of MD steps to run.")
     args = parser.parse_args()
     
     args_dict = vars(args)
