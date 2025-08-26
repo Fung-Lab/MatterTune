@@ -74,7 +74,19 @@ def main(args_dict: dict):
     else:
         raise ValueError(f"Invalid strategy: {args_dict['strategy']}. Must be 'single' or 'ddp'.")
     
-    atoms:Atoms = read(args_dict["input_structure"]) # type: ignore
+    atoms:Atoms = read("./li3po4_quench_192.xyz") # type: ignore
+    expected_size = args_dict["expected_size"]
+    k = 2
+    while True:
+        k_atoms = atoms * (k, k, k)
+        kminus1_atoms = atoms * (k-1, k-1, k-1)
+        kplus1_atoms = atoms * (k+1, k+1, k+1)
+        if abs(len(k_atoms) - expected_size) < abs(len(kminus1_atoms) - expected_size) and abs(len(k_atoms) - expected_size) < abs(len(kplus1_atoms) - expected_size):
+            break
+        k += 1
+        if k > 10000:
+            raise ValueError("Cannot find a suitable supercell size.")
+    atoms = k_atoms
     system = f"Li3PO4-{len(atoms)}-{model_name}"
     atoms.pbc = True
     atoms.calc = calc
@@ -88,7 +100,7 @@ def main(args_dict: dict):
     
     ## 600K Langevin dynamics
     num_steps = args_dict["num_steps"]
-    assert num_steps >= 50, "Number of steps must be at least 200 for Langevin dynamics."
+    # assert num_steps >= 50, "Number of steps must be at least 200 for Langevin dynamics."
     dyn = Langevin(
         atoms,
         temperature_K=600,
@@ -135,10 +147,7 @@ if __name__=="__main__":
         "--ckpt_path", type=str, required=True, help="Path to the checkpoint file."
     )
     parser.add_argument(
-        "--input_structure",
-        type=str,
-        required=True,
-        help="Path to the input structure file.",
+        "--expected_size", type=int, default=1000, help="Expected number of atoms in the input structure."
     )
     parser.add_argument(
         "--strategy",
