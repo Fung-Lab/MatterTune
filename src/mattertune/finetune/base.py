@@ -343,7 +343,7 @@ class FinetuneModuleBase(
             )
             
     def apply_reset_backbone(self):
-        for name, param in self.backbone.named_parameters():
+        for name, param in self.backbone.named_parameters(): # type: ignore
             if param.dim() > 1:
                 print(f"Resetting {name}")
                 nn.init.xavier_uniform_(param)
