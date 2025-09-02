@@ -73,7 +73,7 @@ def main(args_dict: dict):
 
         ## Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
-        hparams.trainer.max_epochs = 50
+        hparams.trainer.max_epochs = 20
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
         hparams.trainer.strategy = DDPStrategy()
@@ -96,7 +96,6 @@ def main(args_dict: dict):
             filename=ckpt_name,
             save_top_k=1,
             mode="min",
-            every_n_epochs=10,
         )
 
         # Configure Logger
