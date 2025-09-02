@@ -6,11 +6,13 @@ source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 conda activate mattersim-tune
 batch_size=24
 python mof_train.py \
+    --batch_size $batch_size \
     --model_type "mattersim-1m" \
     --devices 0 1 2 3 4 5 6 7 \
     --conservative
 
 python mof_train.py \
+    --batch_size $batch_size \
     --model_type "mattersim-5m" \
     --devices 0 1 2 3 4 5 6 7 \
     --conservative
@@ -18,13 +20,15 @@ python mof_train.py \
 conda activate mace-tune
 batch_size=24
 python mof_train.py \
+    --batch_size $batch_size \
     --model_type "mace-medium-omat-0" \
     --devices 0 1 2 3 4 5 6 7 \
     --conservative
 
 conda activate jmp-tune
-batch_size=8
+batch_size=2
 python mof_train.py \
+    --batch_size $batch_size \
     --model_type "jmp-s" \
     --devices 0 1 2 3 4 5 6 7 \
     --conservative

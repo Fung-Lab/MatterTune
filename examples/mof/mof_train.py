@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 import rich
 import os
+import torch
 
 from lightning.pytorch.strategies import DDPStrategy
 
@@ -59,6 +60,7 @@ def main(args_dict: dict):
             )
         hparams.model.ignore_gpu_batch_transform_error = True
         hparams.model.freeze_backbone = False
+        hparams.model.reset_backbone = False
         hparams.model.reset_output_heads = True
         hparams.model.optimizer = MC.AdamWConfig(
             lr=8.0e-5,
@@ -102,9 +104,9 @@ def main(args_dict: dict):
         ## Data Hyperparameters
         hparams.data = MC.ManualSplitDataModuleConfig.draft()
         hparams.data.train = MC.XYZDatasetConfig.draft()
-        hparams.data.train.src = "/nethome/lkong88/mof-foundational/databases/mof_train.xyz"
+        hparams.data.train.src = "/nethome/lkong88/mof-foundational/databases/mof_train_filtered.xyz"
         hparams.data.validation = MC.XYZDatasetConfig.draft()
-        hparams.data.validation.src = "/nethome/lkong88/mof-foundational/databases/mof_val.xyz"
+        hparams.data.validation.src = "/nethome/lkong88/mof-foundational/databases/mof_val_filtered.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Add Normalization for Energy
@@ -195,27 +197,53 @@ def main(args_dict: dict):
     import torch
     import wandb
     from tqdm import tqdm
+    import matplotlib.pyplot as plt
     
     wandb.init(project="MatterTune-MOF-Finetune", name=f"MOF-{args_dict['model_type']}", resume="allow")
-    
-    val_atoms_list:list[Atoms] = read("/nethome/lkong88/mof-foundational/databases/mof_val.xyz", ":") # type: ignore
+    torch.cuda.empty_cache()
+    val_atoms_list:list[Atoms] = read("/nethome/lkong88/mof-foundational/databases/mof_val_filtered.xyz", ":") # type: ignore
     calc = ft_model.ase_calculator(
         device = f"cuda:{args_dict['devices'][0]}"
     )
+    energies = []
     energies_per_atom = []
     forces = []
+    pred_energies = []
     pred_energies_per_atom = []
     pred_forces = []
     for atoms in tqdm(val_atoms_list):
+        energies.append(atoms.get_potential_energy())
         energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
         forces.extend(np.array(atoms.get_forces()).tolist())
         atoms.set_calculator(calc)
         pred_energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
         pred_forces.extend(np.array(atoms.get_forces()).tolist())
+        pred_energies.append(atoms.get_potential_energy())
         
     e_mae = torch.nn.L1Loss()(torch.tensor(energies_per_atom), torch.tensor(pred_energies_per_atom))
     f_mae = torch.nn.L1Loss()(torch.tensor(forces), torch.tensor(pred_forces))
     
+    ## draw scatter plot of energy and forces
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    plt.scatter(energies, pred_energies, alpha=0.5)
+    plt.xlabel("DFT Energy (eV)")
+    plt.ylabel("Predicted Energy (eV)")
+    plt.title("Energy Scatter Plot")
+    plt.plot([min(energies), max(energies)], [min(energies), max(energies)], color='red', linestyle='--')
+    plt.subplot(1, 2, 2)
+    forces = np.array(forces).reshape(-1)
+    pred_forces = np.array(pred_forces).reshape(-1)
+    plt.scatter(forces, pred_forces, alpha=0.5)
+    plt.xlabel("DFT Forces (eV/Ang)")
+    plt.ylabel("Predicted Forces (eV/Ang)")
+    plt.title("Forces Scatter Plot")
+    plt.plot([min(forces), max(forces)], [min(forces), max(forces)], color='red', linestyle='--')
+    plt.tight_layout()
+    plt.savefig(f"./checkpoints/{args_dict['model_type']}_scatter.png", dpi=300)
+    wandb.log({"Energy Scatter": wandb.Image(plt)})
+    plt.close()
+        
     rich.print(f"Energy MAE: {e_mae} eV/atom")
     rich.print(f"Forces MAE: {f_mae} eV/Ang")
     
@@ -229,10 +257,10 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="mattersim-1m")
     parser.add_argument("--conservative", action="store_true")
     parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=8e-5)
+    # parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--max_epochs", type=int, default=1000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
-    parser.add_argument("--lr_scheduler", type=str, default="steplr")
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5, 6, 7])
+    parser.add_argument("--lr_scheduler", type=str, default="rlp")
     parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()
     args_dict = vars(args)
