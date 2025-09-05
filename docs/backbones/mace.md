@@ -24,4 +24,4 @@ MACE adopts an equivariant neural-network paradigm and delivers energy-conservin
 
 ## License
 
-The MatterSim backbone is available under MIT License
+The MACE backbone is available under MIT License

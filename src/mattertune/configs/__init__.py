@@ -17,7 +17,7 @@ from mattertune.main import EarlyStoppingConfig as EarlyStoppingConfig
 from mattertune.finetune.properties import EnergyPropertyConfig as EnergyPropertyConfig
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.finetune.lr_scheduler import ExponentialConfig as ExponentialConfig
-from mattertune.backbones.eqV2.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
+from mattertune.backbones.uma.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
 from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 from mattertune.finetune.properties import ForcesPropertyConfig as ForcesPropertyConfig
 from mattertune.finetune.properties import GraphPropertyConfig as GraphPropertyConfig
@@ -31,7 +31,7 @@ from mattertune.recipes import LoRARecipeConfig as LoRARecipeConfig
 from mattertune.recipes.lora import LoraConfig as LoraConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones.m3gnet import M3GNetGraphComputerConfig as M3GNetGraphComputerConfig
-from mattertune.backbones.mace_foundation.model import MACEBackboneConfig as MACEBackboneConfig
+from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.finetune.loss import MAELossConfig as MAELossConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
@@ -63,6 +63,7 @@ from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
+from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
@@ -85,7 +86,7 @@ from mattertune.main import EarlyStoppingConfig as EarlyStoppingConfig
 from mattertune.finetune.properties import EnergyPropertyConfig as EnergyPropertyConfig
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
 from mattertune.finetune.lr_scheduler import ExponentialConfig as ExponentialConfig
-from mattertune.backbones.eqV2.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
+from mattertune.backbones.uma.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
 from mattertune.registry import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 from mattertune.finetune.properties import ForcesPropertyConfig as ForcesPropertyConfig
 from mattertune.finetune.properties import GraphPropertyConfig as GraphPropertyConfig
@@ -101,7 +102,7 @@ from mattertune.recipes.lora import LoraConfig as LoraConfig
 from mattertune.finetune.loss import LossConfig as LossConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones.m3gnet import M3GNetGraphComputerConfig as M3GNetGraphComputerConfig
-from mattertune.backbones.mace_foundation.model import MACEBackboneConfig as MACEBackboneConfig
+from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.finetune.loss import MAELossConfig as MAELossConfig
 from mattertune.data import MPDatasetConfig as MPDatasetConfig
 from mattertune.data.mptraj import MPTrajDatasetConfig as MPTrajDatasetConfig
@@ -139,6 +140,7 @@ from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
+from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
@@ -231,6 +233,7 @@ __all__ = [
     "StressesPropertyConfig",
     "TensorBoardLoggerConfig",
     "TrainerConfig",
+    "UMABackboneConfig",
     "WandbLoggerConfig",
     "XYZDatasetConfig",
     "backbone_registry",

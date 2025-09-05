@@ -31,7 +31,7 @@ class FAIRChemAtomsToGraphSystemConfig(C.Config):
 
     radius: float
     """The radius for edge construction."""
-    max_num_neighbors: int
+    max_num_neighbors: int | None = None
     """The maximum number of neighbours each node can send messages to."""
 
 

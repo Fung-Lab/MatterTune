@@ -33,6 +33,30 @@ pip install dglgo -f https://data.dgl.ai/wheels-test/repo.html
 Manual installation of `torch` and `dgl` packages after `matgl` installation is required to enable GPU acceleration for training.
 ``` -->
 
+### UMA (Universal Models for Atoms)
+
+To use the UMA series models, please first make sure you have obtained Hugging Face access at https://huggingface.co/facebook/UMA in order to access their checkpoints and created a Huggingface token at https://huggingface.co/settings/tokens/ with this permission:
+- Permissions: Read access to contents of all public gated repos you can access
+
+Then, add the token as an environment variable
+
+```bash 
+# pip install huggingface_hub
+huggingface-cli login
+```
+
+It may be enough to use ```pip install fairchem-core``` to install UMA. This gets you the latest version on PyPi (https://pypi.org/project/fairchem-core/)
+
+Or you can install from source code in edit mode:
+
+```bash
+git clone git@github.com:facebookresearch/fairchem.git
+pip install -e fairchem/packages/fairchem-core
+# or 
+# pip install -e fairchem/packages/fairchem-core[dev] 
+# for development
+```
+
 ### MatterSim
 
 We strongly recommand to install MatterSim from source code
