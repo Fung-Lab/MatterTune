@@ -284,11 +284,13 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
-    def _merge_MOLE_model(self, atoms: Atoms):
+    def merge_MOLE_model(self, atoms: Atoms):
         with optional_import_error_message("fairchem-core"):
             from fairchem.core.models.uma.escn_moe import eSCNMDMoeBackbone
         assert isinstance(self.backbone, eSCNMDMoeBackbone), "Merging MOLE models is only supported for eSCNMDMoeBackbone." # type: ignore[reportGeneralTypeIssues]
         data = self.atoms_to_data(atoms, has_labels=False)
-        new_backbone = self.backbone.merge_MOLE_model(data) # type: ignore[reportGeneralTypeIssues]
-        self.backbone = new_backbone.float()
+        batch = self.collate_fn([data])
+        batch = batch.to(self.device) # type: ignore[reportGeneralTypeIssues]
+        new_backbone = self.backbone.merge_MOLE_model(batch) # type: ignore[reportGeneralTypeIssues]
+        self.backbone = new_backbone.float().to(self.device) # type: ignore[reportGeneralTypeIssues]
         
