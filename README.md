@@ -8,7 +8,7 @@ MatterTune is a flexible and powerful machine learning library designed specific
 
 ## Features
 
-- Pre-trained model support: **JMP**, **EquiformerV2**, **MatterSim**, **ORB**, **MACE**, and more to be added.
+- Pre-trained model support: **UMA**, **JMP**, **EquiformerV2**, **MatterSim**, **ORB**, **MACE**, and more to be added.
 - Multiple property predictions: energy, forces, stress, and custom properties.
 - Various supported dataset formats: XYZ, ASE databases, Materials Project, Matbench, and more.
 - Comprehensive training features with automated data splitting and logging.

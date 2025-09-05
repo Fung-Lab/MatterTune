@@ -2,34 +2,36 @@ __codegen__ = True
 
 from mattertune.backbones.jmp.model import CutoffsConfig as CutoffsConfig
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
-from mattertune.backbones.eqV2.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
+from mattertune.backbones.uma.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
 from mattertune.backbones import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones.jmp.model import JMPGraphComputerConfig as JMPGraphComputerConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones.m3gnet import M3GNetGraphComputerConfig as M3GNetGraphComputerConfig
-from mattertune.backbones.mace_foundation.model import MACEBackboneConfig as MACEBackboneConfig
+from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneConfig
 from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
+from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
 
 from mattertune.backbones.jmp.model import CutoffsConfig as CutoffsConfig
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
-from mattertune.backbones.eqV2.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
+from mattertune.backbones.uma.model import FAIRChemAtomsToGraphSystemConfig as FAIRChemAtomsToGraphSystemConfig
 from mattertune.backbones import FinetuneModuleBaseConfig as FinetuneModuleBaseConfig
 from mattertune.backbones import JMPBackboneConfig as JMPBackboneConfig
 from mattertune.backbones.jmp.model import JMPGraphComputerConfig as JMPGraphComputerConfig
 from mattertune.backbones import M3GNetBackboneConfig as M3GNetBackboneConfig
 from mattertune.backbones.m3gnet import M3GNetGraphComputerConfig as M3GNetGraphComputerConfig
-from mattertune.backbones.mace_foundation.model import MACEBackboneConfig as MACEBackboneConfig
+from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneConfig
 from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
 from mattertune.backbones import ModelConfig as ModelConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
+from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
 
 from mattertune.backbones import backbone_registry as backbone_registry
 
@@ -39,6 +41,7 @@ from . import m3gnet as m3gnet
 from . import mace_foundation as mace_foundation
 from . import mattersim as mattersim
 from . import orb as orb
+from . import uma as uma
 
 __all__ = [
     "CutoffsConfig",
@@ -56,6 +59,7 @@ __all__ = [
     "ModelConfig",
     "ORBBackboneConfig",
     "ORBSystemConfig",
+    "UMABackboneConfig",
     "backbone_registry",
     "eqV2",
     "jmp",
@@ -63,4 +67,5 @@ __all__ = [
     "mace_foundation",
     "mattersim",
     "orb",
+    "uma",
 ]
