@@ -18,6 +18,8 @@ from .orb import ORBBackboneConfig as ORBBackboneConfig
 from .orb import ORBBackboneModule as ORBBackboneModule
 from .mace_foundation import MACEBackboneConfig as MACEBackboneConfig
 from .mace_foundation import MACEBackboneModule as MACEBackboneModule
+from .uma import UMABackboneConfig as UMABackboneConfig
+from .uma import UMABackboneModule as UMABackboneModule
 
 ModelConfig = TypeAliasType(
     "ModelConfig",

@@ -18,6 +18,7 @@ from mattertune.backbones import (
     ORBBackboneModule,
     EqV2BackboneModule,
     MACEBackboneModule,
+    UMABackboneModule,
 )
 
 logging.basicConfig(level=logging.ERROR)
@@ -54,6 +55,10 @@ def main(args_dict: dict):
         elif "mace" in args_dict["model_type"]:
             hparams.model = MC.MACEBackboneConfig.draft()
             hparams.model.pretrained_model = args_dict["model_type"]
+        elif "uma" in args_dict["model_type"]:
+            hparams.model = MC.UMABackboneConfig.draft()
+            hparams.model.model_name = args_dict["model_type"]
+            hparams.model.task_name = "odac"
         else:
             raise ValueError(
                 "Invalid model type, please choose from ['mattersim-1m', 'jmp-s', 'orb-v2']"
@@ -70,22 +75,13 @@ def main(args_dict: dict):
             weight_decay=0.1,
             per_parameter_hparams=get_jmp_s_lr_decay(args_dict["lr"]) if "jmp" in args_dict["model_type"] else None,
         )
-        if args_dict["lr_scheduler"] == "steplr":
-            hparams.model.lr_scheduler = MC.StepLRConfig(
-                step_size=10, gamma=0.9
-            )
-        elif args_dict["lr_scheduler"] == "rlp":
-            hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
-                mode="min",
-                monitor=f"val/forces_mae",
-                factor=0.8,
-                patience=5,
-                min_lr=1e-8,
-            )
-        else:
-            raise ValueError(
-                "Invalid lr_scheduler, please choose from ['steplr', 'rlp']"
-            )
+        hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
+            mode="min",
+            monitor=f"val/forces_mae",
+            factor=0.8,
+            patience=5,
+            min_lr=1e-8,
+        )
         hparams.trainer.ema = MC.EMAConfig(decay=args_dict["ema_decay"])
 
         # Add model properties
@@ -165,8 +161,8 @@ def main(args_dict: dict):
         hparams = hparams.finalize(strict=False)
         return hparams
 
-    mt_config = hparams()
-    model, trainer = MatterTuner(mt_config).tune()
+    # mt_config = hparams()
+    # model, trainer = MatterTuner(mt_config).tune()
     
     
     ## Perform Evaluation
@@ -186,6 +182,8 @@ def main(args_dict: dict):
         ft_model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
     elif "mace" in args_dict["model_type"]:
         ft_model = MACEBackboneModule.load_from_checkpoint(ckpt_path)
+    elif "uma" in args_dict["model_type"]:
+        ft_model = UMABackboneModule.load_from_checkpoint(ckpt_path)
     else:
         raise ValueError(
             "Invalid model type, please choose from ['mattersim-1m', 'jmp-s', 'orb-v2', 'eqv2']"
