@@ -91,3 +91,88 @@ class MatterTuneCalculator(Calculator):
             value = prop.prepare_value_for_ase_calculator(value)
 
             self.results[ase_prop_name] = value
+            
+from tqdm import tqdm
+import torch.distributed as dist
+
+
+def quick_efs_evaluation(
+    model: FinetuneModuleBase,
+    atoms_list: list[Atoms],
+    include_forces: bool = True,
+    include_stresses: bool = True,
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
+    metrics: list[str] = ["mae", "rmse"],
+):
+    
+    calc = model.ase_calculator(device=device)
+    
+    energies = []
+    energies_per_atom = []
+    if include_forces:
+        forces = []
+    if include_stresses:
+        stresses = []
+    pred_energies = []
+    pred_energies_per_atom = []
+    if include_forces:
+        pred_forces = []
+    if include_stresses:
+        pred_stresses = []
+    for atoms in tqdm(atoms_list):
+        energies.append(atoms.get_potential_energy())
+        energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
+        if include_forces:
+            forces.extend(np.array(atoms.get_forces()).tolist())
+        if include_stresses:
+            stresses.append(np.array(atoms.get_stress(voigt=False)).tolist())
+        atoms.set_calculator(calc)
+        pred_energies.append(atoms.get_potential_energy())
+        pred_energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
+        if include_forces:
+            pred_forces.extend(np.array(atoms.get_forces()).tolist())
+        if include_stresses:
+            pred_stresses.append(np.array(atoms.get_stress(voigt=False)).tolist())
+    
+    results = {}
+    for metric in metrics:
+        results[metric] = {}
+        match metric.lower():
+            case "mae":
+                e_mae = torch.nn.L1Loss()(torch.tensor(energies_per_atom), torch.tensor(pred_energies_per_atom))
+                results[metric]["e_mae"] = e_mae.item()
+                if include_forces:
+                    f_mae = torch.nn.L1Loss()(torch.tensor(forces), torch.tensor(pred_forces))
+                    results[metric]["f_mae"] = f_mae.item()
+                if include_stresses:
+                    s_mae = torch.nn.L1Loss()(torch.tensor(stresses), torch.tensor(pred_stresses))
+                    results[metric]["s_mae"] = s_mae.item()
+            case "rmse":
+                e_rmse = torch.sqrt(torch.nn.MSELoss()(torch.tensor(energies_per_atom), torch.tensor(pred_energies_per_atom)))
+                results[metric]["e_rmse"] = e_rmse.item()
+                if include_forces:
+                    f_rmse = torch.sqrt(torch.nn.MSELoss()(torch.tensor(forces), torch.tensor(pred_forces)))
+                    results[metric]["f_rmse"] = f_rmse.item()
+                if include_stresses:
+                    s_rmse = torch.sqrt(torch.nn.MSELoss()(torch.tensor(stresses), torch.tensor(pred_stresses)))
+                    results[metric]["s_rmse"] = s_rmse.item()
+            case "mse":
+                e_mse = torch.nn.MSELoss()(torch.tensor(energies_per_atom), torch.tensor(pred_energies_per_atom))
+                results[metric]["e_mse"] = e_mse.item()
+                if include_forces:
+                    f_mse = torch.nn.MSELoss()(torch.tensor(forces), torch.tensor(pred_forces))
+                    results[metric]["f_mse"] = f_mse.item()
+                if include_stresses:
+                    s_mse = torch.nn.MSELoss()(torch.tensor(stresses), torch.tensor(pred_stresses))
+                    results[metric]["s_mse"] = s_mse.item()
+            case _:
+                Warning(f"Metric '{metric}' not recognized. Skipping.")
+
+    outputs = {
+        "energies": energies,
+        "energies_per_atom": energies_per_atom,
+        "pred_energies": pred_energies,
+        "pred_energies_per_atom": pred_energies_per_atom,
+    }
+    
+    return results, outputs
