@@ -240,6 +240,8 @@ class MatterSimM3GNetBackboneModule(
 
     @override
     def atoms_to_data(self, atoms, has_labels):
+        import copy
+        
         labels = {}
         for prop in self.hparams.properties:
             if has_labels:
@@ -256,7 +258,7 @@ class MatterSimM3GNetBackboneModule(
         energy = labels.get(self.energy_prop_name, None)
         forces = labels.get(self.forces_prop_name, None)
         stress = labels.get(self.stress_prop_name, None)
-        graph = self.graph_convertor.convert(atoms)
+        graph = self.graph_convertor.convert(copy.deepcopy(atoms)) # avoid in-place modification for safety
         graph.atomic_numbers = torch.tensor(
             atoms.get_atomic_numbers(), dtype=torch.long
         )

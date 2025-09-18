@@ -5,6 +5,7 @@ from pathlib import Path
 import rich
 import os
 import torch
+import torch.distributed as dist
 
 from lightning.pytorch.strategies import DDPStrategy
 
@@ -100,9 +101,9 @@ def main(args_dict: dict):
         ## Data Hyperparameters
         hparams.data = MC.ManualSplitDataModuleConfig.draft()
         hparams.data.train = MC.XYZDatasetConfig.draft()
-        hparams.data.train.src = "/nethome/lkong88/mof-foundational/databases/mof_train_filtered.xyz"
+        hparams.data.train.src = "/nethome/lkong88/mof-foundational/databases/mof_train.xyz"
         hparams.data.validation = MC.XYZDatasetConfig.draft()
-        hparams.data.validation.src = "/nethome/lkong88/mof-foundational/databases/mof_val_filtered.xyz"
+        hparams.data.validation.src = "/nethome/lkong88/mof-foundational/databases/mof_val.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
 
         ## Add Normalization for Energy
@@ -189,63 +190,55 @@ def main(args_dict: dict):
             "Invalid model type, please choose from ['mattersim-1m', 'jmp-s', 'orb-v2', 'eqv2']"
         )
     
-    from ase.io import read
-    from ase import Atoms
-    import numpy as np
-    import torch
     import wandb
-    from tqdm import tqdm
-    import matplotlib.pyplot as plt
+    from ase import Atoms
+    from ase.io import read
+    from mattertune.wrappers.ase_calculator import quick_efs_evaluation
+    from mattertune.util import is_main_process
     
-    wandb.init(project="MatterTune-MOF-Finetune", name=f"MOF-{args_dict['model_type']}", resume="allow")
-    torch.cuda.empty_cache()
-    val_atoms_list:list[Atoms] = read("/nethome/lkong88/mof-foundational/databases/mof_val_filtered.xyz", ":") # type: ignore
-    calc = ft_model.ase_calculator(
-        device = f"cuda:{args_dict['devices'][0]}"
-    )
-    energies = []
-    energies_per_atom = []
-    forces = []
-    pred_energies = []
-    pred_energies_per_atom = []
-    pred_forces = []
-    for atoms in tqdm(val_atoms_list):
-        energies.append(atoms.get_potential_energy())
-        energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
-        forces.extend(np.array(atoms.get_forces()).tolist())
-        atoms.set_calculator(calc)
-        pred_energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
-        pred_forces.extend(np.array(atoms.get_forces()).tolist())
-        pred_energies.append(atoms.get_potential_energy())
+    if is_main_process():
+        wandb.init(project="MatterTune-MOF-Finetune", name=f"MOF-{args_dict['model_type']}", resume="allow")
+        torch.cuda.empty_cache()
         
-    e_mae = torch.nn.L1Loss()(torch.tensor(energies_per_atom), torch.tensor(pred_energies_per_atom))
-    f_mae = torch.nn.L1Loss()(torch.tensor(forces), torch.tensor(pred_forces))
-    
-    ## draw scatter plot of energy and forces
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.scatter(energies, pred_energies, alpha=0.5)
-    plt.xlabel("DFT Energy (eV)")
-    plt.ylabel("Predicted Energy (eV)")
-    plt.title("Energy Scatter Plot")
-    plt.plot([min(energies), max(energies)], [min(energies), max(energies)], color='red', linestyle='--')
-    plt.subplot(1, 2, 2)
-    forces = np.array(forces).reshape(-1)
-    pred_forces = np.array(pred_forces).reshape(-1)
-    plt.scatter(forces, pred_forces, alpha=0.5)
-    plt.xlabel("DFT Forces (eV/Ang)")
-    plt.ylabel("Predicted Forces (eV/Ang)")
-    plt.title("Forces Scatter Plot")
-    plt.plot([min(forces), max(forces)], [min(forces), max(forces)], color='red', linestyle='--')
-    plt.tight_layout()
-    plt.savefig(f"./checkpoints/{args_dict['model_type']}_scatter.png", dpi=300)
-    wandb.log({"Energy Scatter": wandb.Image(plt)})
-    plt.close()
+        val_atoms_list: list[Atoms] = read("/nethome/lkong88/mof-foundational/databases/mof_val.xyz", index=":") # type: ignore
+
+        results,_ = quick_efs_evaluation(
+            model=ft_model,
+            atoms_list=val_atoms_list,
+            include_forces=True,
+            include_stresses=False,
+            device=f"cuda:{args_dict['devices'][0]}",
+            metrics=["mae", "rmse"],
+        )
+        rich.print("Validation Set Results")
+        rich.print(results)
         
-    rich.print(f"Energy MAE: {e_mae} eV/atom")
-    rich.print(f"Forces MAE: {f_mae} eV/Ang")
+        val_perturbation_atoms_list: list[Atoms] = read("/nethome/lkong88/mof-foundational/databases/mof_val_perturbations.xyz", index=":") # type: ignore
+        results,_ = quick_efs_evaluation(
+            model=ft_model,
+            atoms_list=val_perturbation_atoms_list,
+            include_forces=True,
+            include_stresses=False,
+            device=f"cuda:{args_dict['devices'][0]}",
+            metrics=["mae", "rmse"],
+        )
+        rich.print("Validation with Perturbations Set Results")
+        rich.print(results)
+        
+        val_solvation_atoms_list: list[Atoms] = read("/nethome/lkong88/mof-foundational/databases/mof_val_solvation.xyz", index=":") # type: ignore
+        results,_ = quick_efs_evaluation(
+            model=ft_model,
+            atoms_list=val_solvation_atoms_list,
+            include_forces=True,
+            include_stresses=False,
+            device=f"cuda:{args_dict['devices'][0]}",
+            metrics=["mae", "rmse"],
+        )
+        rich.print("Validation with Solvation Set Results")
+        rich.print(results)
+        
+        wandb.finish()
     
-    wandb.finish()
     
 
 if __name__ == "__main__":
