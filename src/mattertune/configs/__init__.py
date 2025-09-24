@@ -63,7 +63,7 @@ from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
@@ -140,7 +140,7 @@ from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 

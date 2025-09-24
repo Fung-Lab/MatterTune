@@ -162,6 +162,13 @@ class FinetuneModuleBase(
         ...
 
     @abstractmethod
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        ...
+    
+    @abstractmethod
     def model_forward_context(
         self, data: TBatch, mode: str
     ) -> contextlib.AbstractContextManager:
@@ -185,10 +192,27 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
-        using_partition: bool = False,
     ) -> ModelOutput:
         """
         Forward pass of the model.
+
+        Args:
+            batch: Input batch.
+
+        Returns:
+            Prediction of the model.
+        """
+        ...
+        
+    @abstractmethod
+    def model_forward_partition(
+        self,
+        batch: TBatch,
+        mode: str,
+        using_partition: bool = False,
+    ) -> ModelOutput:
+        """
+        Forward pass of the model under partitioning.
 
         Args:
             batch: Input batch.
@@ -352,7 +376,7 @@ class FinetuneModuleBase(
         self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
         
         if self.hparams.reset_backbone:
-            for name, param in self.backbone.named_parameters():
+            for name, param in self.backbone.named_parameters(): # type: ignore
                 if param.dim() > 1:
                     print(f"Resetting {name}")
                     nn.init.xavier_uniform_(param)
@@ -506,9 +530,12 @@ class FinetuneModuleBase(
                 batch = self.gpu_batch_transform(batch)
 
             # Run the model
-            model_output = self.model_forward(
-                batch, mode=mode, using_partition=using_partition
-            )
+            if using_partition:
+                model_output = self.model_forward_partition(
+                    batch, mode=mode, using_partition=using_partition
+                )
+            else:
+                model_output = self.model_forward(batch, mode=mode)
 
             model_output["predicted_properties"] = {
                 prop_name: prop_value.contiguous()
