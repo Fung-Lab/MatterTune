@@ -8,14 +8,17 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 import nshconfig as C
 import torch
 import torch.nn.functional as F
+from ase import Atoms
 from ase.units import GPa
+import numpy as np
+from pymatgen.optimization.neighbors import find_points_in_spheres
 from typing_extensions import final, override
 
 from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 
 if TYPE_CHECKING:
     from torch_geometric.data import Batch, Data  # type: ignore[reportMissingImports] # noqa
@@ -188,7 +191,7 @@ class MatterSimM3GNetBackboneModule(
 
     @override
     def model_forward(
-        self, batch: Batch, mode: str
+        self, batch: Batch, mode: str, using_partition: bool = False
     ):
         with optional_import_error_message("mattersim"):
             from mattersim.forcefield.potential import batch_to_dict
@@ -198,9 +201,12 @@ class MatterSimM3GNetBackboneModule(
             input,
             include_forces=self.calc_forces,
             include_stresses=self.calc_stress,
+            root_indices_mask=getattr(batch, "root_indices_mask", None) if using_partition else None
         )
         output_pred = {}
         output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))
+        if using_partition:
+            output_pred["energies_per_atom"] = output["total_energy_i"].reshape(-1)
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output.get("forces")
         if self.calc_stress:
@@ -255,17 +261,46 @@ class MatterSimM3GNetBackboneModule(
                 labels[prop.name] = torch.from_numpy(value)
             else:
                 labels[prop.name] = None
+                
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            root_node_indices = atoms.info["root_node_indices"]
+            root_indices_mask = [1 if i in root_node_indices else 0 for i in range(len(atoms))]
+                
         energy = labels.get(self.energy_prop_name, None)
         forces = labels.get(self.forces_prop_name, None)
         stress = labels.get(self.stress_prop_name, None)
-        graph = self.graph_convertor.convert(copy.deepcopy(atoms)) # avoid in-place modification for safety
+        graph = self.graph_convertor.convert(copy.deepcopy(atoms))
         graph.atomic_numbers = torch.tensor(
             atoms.get_atomic_numbers(), dtype=torch.long
         )
         setattr(graph, self.energy_prop_name, energy)
         setattr(graph, self.forces_prop_name, forces)
         setattr(graph, self.stress_prop_name, stress)
+        
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            setattr(graph, "root_indices_mask", torch.tensor(root_indices_mask, dtype=torch.long)) # type: ignore[assignment]
+        
         return graph
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        edge_indices = data.edge_index.clone() # type: ignore[no-untyped-call]
+        return edge_indices
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
+        twobody_cutoff = self.graph_convertor.twobody_cutoff
+        edge_indices = neighbor_list_and_relative_vec(
+            "vesin",
+            pos=np.array(atoms.get_positions()),
+            cell=np.array(atoms.get_cell()),
+            r_max=twobody_cutoff,
+            self_interaction=False,
+            pbc=atoms.pbc,
+        )
+        return edge_indices
+        
+        
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -297,6 +332,21 @@ class MatterSimM3GNetBackboneModule(
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
+
+    @override
+    def optimizer_step(
+        self,
+        epoch: int,
+        batch_idx: int,
+        optimizer,
+        optimizer_closure=None,
+    ):
+        super().optimizer_step(
+            epoch,
+            batch_idx,
+            optimizer,
+            optimizer_closure,
+        )
 
     @override
     def apply_callable_to_backbone(self, fn):

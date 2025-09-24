@@ -84,10 +84,9 @@ def main(args_dict: dict):
 
         # Add model properties
         hparams.model.properties = []
-        energy_coefficient = 1.0 
         conservative = args_dict["conservative"]
         energy = MC.EnergyPropertyConfig(
-            loss=MC.MSELossConfig(), loss_coefficient=energy_coefficient
+            loss=MC.MSELossConfig(), loss_coefficient=1.0
         )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
@@ -120,7 +119,7 @@ def main(args_dict: dict):
         hparams.trainer.max_epochs = args_dict["max_epochs"]
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
-        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True) if not "orb" in args_dict["model_type"] else DDPStrategy(static_graph=True, find_unused_parameters=True)
+        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True)
         hparams.trainer.gradient_clip_algorithm = "norm"
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "32"

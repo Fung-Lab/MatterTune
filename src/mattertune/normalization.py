@@ -301,6 +301,8 @@ class ComposeNormalizers(nn.Module):
     ) -> torch.Tensor:
         ## NOTE: in denormalize, we should denormalize both prediction and target whether or not the normalizer is only for target
         ## This is because even if the normalizer is only for target, model's prediction is the normalized value, so we need to denormalize it
+        ## NOTE: in denormalize, we should denormalize both prediction and target whether or not the normalizer is only for target
+        ## This is because even if the normalizer is only for target, model's prediction is the normalized value, so we need to denormalize it
         for normalizer in reversed(self.normalizers):
             assert isinstance(normalizer, NormalizerModule), f"Normalizer {normalizer} is not an instance of NormalizerModule"
             if normalizer.only_for_target:

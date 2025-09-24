@@ -56,6 +56,7 @@ def main(args_dict: dict):
         raise ValueError(
             "Invalid fine-tuning model, must be one of 'jmp', 'orb', 'm3gnet', or 'mattersim', 'eqv2'"
         )
+        
     calc = model.ase_calculator(
         device=f"cuda:{args_dict['device']}"
     )
