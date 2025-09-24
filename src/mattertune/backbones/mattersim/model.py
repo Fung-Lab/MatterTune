@@ -246,12 +246,6 @@ class MatterSimM3GNetBackboneModule(
         for prop in self.hparams.properties:
             if has_labels:
                 value = prop._from_ase_atoms_to_torch(atoms).float().numpy()
-                # For stress, we should make sure it is (3, 3), not the flattened (6,)
-                #   that ASE returns.
-                if isinstance(prop, props.StressesPropertyConfig):
-                    from ase.constraints import voigt_6_to_full_3x3_stress
-
-                    value = voigt_6_to_full_3x3_stress(value)
                 labels[prop.name] = torch.from_numpy(value)
             else:
                 labels[prop.name] = None

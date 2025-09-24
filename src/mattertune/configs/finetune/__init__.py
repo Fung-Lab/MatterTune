@@ -19,6 +19,7 @@ from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfig
 from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigBase
 from mattertune.finetune.base import ReduceOnPlateauConfig as ReduceOnPlateauConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
+from mattertune.finetune.properties import ShapeConfig as ShapeConfig
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 
@@ -45,6 +46,7 @@ from mattertune.finetune.base import PropertyConfig as PropertyConfig
 from mattertune.finetune.properties import PropertyConfigBase as PropertyConfigBase
 from mattertune.finetune.base import ReduceOnPlateauConfig as ReduceOnPlateauConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
+from mattertune.finetune.properties import ShapeConfig as ShapeConfig
 from mattertune.finetune.lr_scheduler import SingleLRSchedulerConfig as SingleLRSchedulerConfig
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
@@ -80,6 +82,7 @@ __all__ = [
     "PropertyConfigBase",
     "ReduceOnPlateauConfig",
     "SGDConfig",
+    "ShapeConfig",
     "SingleLRSchedulerConfig",
     "StepLRConfig",
     "StressesPropertyConfig",

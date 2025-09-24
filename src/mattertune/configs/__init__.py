@@ -4,6 +4,9 @@ from mattertune.finetune.optimizer import AdamConfig as AdamConfig
 from mattertune.finetune.optimizer import AdamWConfig as AdamWConfig
 from mattertune.data.atoms_list import AtomsListDatasetConfig as AtomsListDatasetConfig
 from mattertune.data.datamodule import AutoSplitDataModuleConfig as AutoSplitDataModuleConfig
+from mattertune.students import CACECutoffFnConfig as CACECutoffFnConfig
+from mattertune.students import CACERBFConfig as CACERBFConfig
+from mattertune.students import CACEStudentModelConfig as CACEStudentModelConfig
 from mattertune.main import CSVLoggerConfig as CSVLoggerConfig
 from mattertune.finetune.lr_scheduler import ConstantLRConfig as ConstantLRConfig
 from mattertune.finetune.lr_scheduler import CosineAnnealingLRConfig as CosineAnnealingLRConfig
@@ -59,11 +62,13 @@ from mattertune.normalization import RMSNormalizerConfig as RMSNormalizerConfig
 from mattertune.recipes import RecipeConfigBase as RecipeConfigBase
 from mattertune.finetune.base import ReduceOnPlateauConfig as ReduceOnPlateauConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
+from mattertune.finetune.properties import ShapeConfig as ShapeConfig
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
+from mattertune.registry import StudentModuleBaseConfig as StudentModuleBaseConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
@@ -71,6 +76,9 @@ from mattertune.finetune.optimizer import AdamConfig as AdamConfig
 from mattertune.finetune.optimizer import AdamWConfig as AdamWConfig
 from mattertune.data.atoms_list import AtomsListDatasetConfig as AtomsListDatasetConfig
 from mattertune.data.datamodule import AutoSplitDataModuleConfig as AutoSplitDataModuleConfig
+from mattertune.students import CACECutoffFnConfig as CACECutoffFnConfig
+from mattertune.students import CACERBFConfig as CACERBFConfig
+from mattertune.students import CACEStudentModelConfig as CACEStudentModelConfig
 from mattertune.main import CSVLoggerConfig as CSVLoggerConfig
 from mattertune.finetune.lr_scheduler import ConstantLRConfig as ConstantLRConfig
 from mattertune.finetune.lr_scheduler import CosineAnnealingLRConfig as CosineAnnealingLRConfig
@@ -135,18 +143,21 @@ from mattertune.main import RecipeConfig as RecipeConfig
 from mattertune.recipes import RecipeConfigBase as RecipeConfigBase
 from mattertune.finetune.base import ReduceOnPlateauConfig as ReduceOnPlateauConfig
 from mattertune.finetune.optimizer import SGDConfig as SGDConfig
+from mattertune.finetune.properties import ShapeConfig as ShapeConfig
 from mattertune.finetune.lr_scheduler import SingleLRSchedulerConfig as SingleLRSchedulerConfig
 from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
+from mattertune.registry import StudentModuleBaseConfig as StudentModuleBaseConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
 from mattertune import backbone_registry as backbone_registry
 from mattertune import data_registry as data_registry
 from mattertune.recipes import recipe_registry as recipe_registry
+from mattertune.registry import student_registry as student_registry
 
 from . import backbones as backbones
 from . import callbacks as callbacks
@@ -157,6 +168,7 @@ from . import main as main
 from . import normalization as normalization
 from . import recipes as recipes
 from . import registry as registry
+from . import students as students
 from . import wrappers as wrappers
 
 __all__ = [
@@ -164,6 +176,9 @@ __all__ = [
     "AdamWConfig",
     "AtomsListDatasetConfig",
     "AutoSplitDataModuleConfig",
+    "CACECutoffFnConfig",
+    "CACERBFConfig",
+    "CACEStudentModelConfig",
     "CSVLoggerConfig",
     "ConstantLRConfig",
     "CosineAnnealingLRConfig",
@@ -228,9 +243,11 @@ __all__ = [
     "RecipeConfigBase",
     "ReduceOnPlateauConfig",
     "SGDConfig",
+    "ShapeConfig",
     "SingleLRSchedulerConfig",
     "StepLRConfig",
     "StressesPropertyConfig",
+    "StudentModuleBaseConfig",
     "TensorBoardLoggerConfig",
     "TrainerConfig",
     "UMABackboneConfig",
@@ -248,5 +265,7 @@ __all__ = [
     "recipe_registry",
     "recipes",
     "registry",
+    "student_registry",
+    "students",
     "wrappers",
 ]

@@ -388,14 +388,6 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             #   - anything else you want to predict
             for prop in self.hparams.properties:
                 value = prop._from_ase_atoms_to_torch(atoms)
-                # For stress, we should make sure it is (3, 3), not the flattened (6,)
-                #   that ASE returns.
-                if isinstance(prop, props.StressesPropertyConfig):
-                    from ase.constraints import voigt_6_to_full_3x3_stress
-
-                    value = voigt_6_to_full_3x3_stress(value.float().numpy())
-                    value = torch.from_numpy(value).float().reshape(1, 3, 3)
-
                 data_dict[prop.name] = value
 
         return Data.from_dict(data_dict)

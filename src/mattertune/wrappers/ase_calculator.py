@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..finetune.properties import PropertyConfig
     from .property_predictor import MatterTunePropertyPredictor
     from ..finetune.base import FinetuneModuleBase
+    from ..students.base import StudentModuleBase
 
 
 class MatterTuneCalculator(Calculator):
@@ -21,7 +22,7 @@ class MatterTuneCalculator(Calculator):
     """
     
     @override
-    def __init__(self, model: FinetuneModuleBase, device: torch.device):
+    def __init__(self, model: FinetuneModuleBase | StudentModuleBase, device: torch.device):
         super().__init__()
 
         self.model = model.to(device)

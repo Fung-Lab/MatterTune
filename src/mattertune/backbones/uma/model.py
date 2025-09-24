@@ -77,7 +77,7 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
 
     @override
     def requires_disabled_inference_mode(self):
-        return False
+        return True
     
     @override
     def create_model(self):
