@@ -369,13 +369,6 @@ class M3GNetBackboneModule(
         if has_labels:
             for prop in self.hparams.properties:
                 value = prop._from_ase_atoms_to_torch(atoms)
-                # For stress, we should make sure it is (3, 3), not the flattened (6,)
-                #   that ASE returns.
-                if isinstance(prop, props.StressesPropertyConfig):
-                    from ase.constraints import voigt_6_to_full_3x3_stress
-
-                    value = voigt_6_to_full_3x3_stress(value.float().numpy())
-                    value = torch.from_numpy(value).float().reshape(1, 3, 3)
                 labels[prop.name] = value
         return MatGLData(graph, line_graph, state_attr, lattice, labels)
 

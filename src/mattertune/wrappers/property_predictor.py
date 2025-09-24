@@ -15,6 +15,7 @@ from ..finetune.properties import PropertyConfig
 
 if TYPE_CHECKING:
     from ..finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig
+    from ..students.base import StudentModuleBase, StudentModuleBaseConfig
 
 
 log = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ class MatterTunePropertyPredictor:
 
     def __init__(
         self,
-        lightning_module: FinetuneModuleBase[Any, Any, FinetuneModuleBaseConfig],
+        lightning_module: FinetuneModuleBase[Any, Any, FinetuneModuleBaseConfig] | StudentModuleBase[Any, Any, StudentModuleBaseConfig],
         lightning_trainer_kwargs: dict[str, Any] | None = None,
     ):
         self.lightning_module = lightning_module
@@ -124,7 +125,7 @@ class MatterTunePropertyPredictor:
 
 def _resolve_properties(
     properties: Sequence[str | PropertyConfig] | None,
-    hparams: FinetuneModuleBaseConfig,
+    hparams: FinetuneModuleBaseConfig | StudentModuleBaseConfig,
 ):
     # If `None`, return all properties.
     if properties is None:
@@ -152,7 +153,7 @@ def _resolve_properties(
 
 def _create_trainer(
     trainer_kwargs: dict[str, Any],
-    lightning_module: FinetuneModuleBase,
+    lightning_module: FinetuneModuleBase | StudentModuleBase
 ):
     # Resolve the full trainer kwargs
     trainer_kwargs_resolved: dict[str, Any] = {"barebones": True}
@@ -183,7 +184,7 @@ def _create_trainer(
 
 def _atoms_list_to_dataloader(
     atoms_list: list[ase.Atoms],
-    lightning_module: FinetuneModuleBase,
+    lightning_module: FinetuneModuleBase | StudentModuleBase,
     batch_size: int = 1,
 ):
     class AtomsDataset(Dataset):

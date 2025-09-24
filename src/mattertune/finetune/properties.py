@@ -30,8 +30,33 @@ ASECalculatorPropertyName = TypeAliasType(
         "charges",
         "magmom",
         "magmoms",
+        "hessian",
     ],
 )
+
+ShapeDim = TypeAliasType("ShapeDim", int | Literal["num_atoms"])
+# A shape is a (possibly empty) tuple of dims; () means scalar
+ShapeTuple = TypeAliasType("ShapeTuple", tuple[ShapeDim, ...])
+
+
+class ShapeConfig(C.Config):
+    dims: ShapeTuple | Literal["scalar"]
+    
+    def resolve(
+        self,
+        num_atoms: int
+    ):
+        if self.dims == "scalar":
+            return (1,)
+        else:
+            resolved = []
+            for dim in self.dims:
+                if dim == "num_atoms":
+                    resolved.append(num_atoms)
+                else:
+                    assert isinstance(dim, int)
+                    resolved.append(dim)
+            return tuple(resolved)
 
 
 class PropertyConfigBase(C.Config, ABC):
@@ -50,6 +75,9 @@ class PropertyConfigBase(C.Config, ABC):
 
     loss_coefficient: float = 1.0
     """The coefficient to apply to this property's loss function when training the model."""
+    
+    shape: ShapeConfig
+    """The shape of the property values."""
 
     @abstractmethod
     def from_ase_atoms(self, atoms: Atoms) -> int | float | np.ndarray | torch.Tensor:
@@ -80,7 +108,10 @@ class PropertyConfigBase(C.Config, ABC):
     def _from_ase_atoms_to_torch(self, atoms: Atoms) -> torch.Tensor:
         """Internal helper to convert the property value from an ASE Atoms object to a torch tensor."""
         value = self.from_ase_atoms(atoms)
-        return torch.tensor(value, dtype=self._torch_dtype())
+        value = torch.tensor(value, dtype=self._torch_dtype())
+        if isinstance(self, StressesPropertyConfig):
+            value = value.reshape(1, 3, 3)
+        return value
 
     @abstractmethod
     def ase_calculator_property_name(self) -> ASECalculatorPropertyName | None:
@@ -126,6 +157,8 @@ class GraphPropertyConfig(PropertyConfigBase):
     This is optimal for properties like the `last phdos peak` of Matbench's phonons dataset.
     """
 
+    shape: ShapeConfig = ShapeConfig(dims="scalar")
+    
     @override
     def from_ase_atoms(self, atoms):
         return atoms.info[self.name]
@@ -149,6 +182,8 @@ class EnergyPropertyConfig(PropertyConfigBase):
 
     dtype: DType = "float"
     """The type of the property values."""
+    
+    shape: ShapeConfig = ShapeConfig(dims="scalar")
 
     @override
     def from_ase_atoms(self, atoms):
@@ -189,6 +224,8 @@ class ForcesPropertyConfig(PropertyConfigBase):
     negative gradient of the energy with respect to the atomic positions, whereas
     non-conservative forces may be computed by other means.
     """
+    
+    shape: ShapeConfig = ShapeConfig(dims=("num_atoms", 3))
 
     @override
     def from_ase_atoms(self, atoms):
@@ -220,9 +257,11 @@ class StressesPropertyConfig(PropertyConfigBase):
     specifies whether the stresses should be computed in a conservative manner.
     """
 
+    shape: ShapeConfig = ShapeConfig(dims=(3, 3))
+    
     @override
     def from_ase_atoms(self, atoms):
-        return atoms.get_stress()
+        return atoms.get_stress(voigt=False)
 
     @override
     def ase_calculator_property_name(self):

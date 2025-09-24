@@ -12,6 +12,7 @@ from .data_util import IterableDatasetWrapper, MapDatasetWrapper
 
 if TYPE_CHECKING:
     from .base import FinetuneModuleBase, TBatch, TData, TFinetuneModuleConfig
+    from ..students.base import StudentModuleBase, StudentModuleBaseConfig
 
 
 class DataLoaderKwargs(TypedDict, total=False):
@@ -64,7 +65,7 @@ def create_dataloader(
     dataset: Dataset[ase.Atoms],
     has_labels: bool,
     *,
-    lightning_module: FinetuneModuleBase[TData, TBatch, TFinetuneModuleConfig],
+    lightning_module: FinetuneModuleBase[TData, TBatch, TFinetuneModuleConfig] | StudentModuleBase[TData, TBatch, StudentModuleBaseConfig],
     **kwargs: Unpack[DataLoaderKwargs],
 ):
     def map_fn(ase_data: ase.Atoms):
