@@ -14,7 +14,7 @@ from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as Matt
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 
 from mattertune.backbones.jmp.model import CutoffsConfig as CutoffsConfig
 from mattertune.backbones import EqV2BackboneConfig as EqV2BackboneConfig
@@ -31,7 +31,7 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.backbones import ModelConfig as ModelConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 
 from mattertune.backbones import backbone_registry as backbone_registry
 

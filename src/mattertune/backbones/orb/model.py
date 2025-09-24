@@ -266,7 +266,71 @@ class ORBBackboneModule(
 
 
     @override
-    def model_forward(self, batch, mode: str, using_partition: bool = False):
+    def model_forward(self, batch, mode: str):
+        with optional_import_error_message("orb_models"):
+            from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
+        
+        # Run the backbone
+        out = self.backbone(batch)
+        node_features = out["node_features"]
+        
+        # Feed the backbone output to the output heads
+        predicted_properties: dict[str, torch.Tensor] = {}
+        for name, head in self.output_heads.items():
+            assert (
+                prop := next(
+                    (p for p in self.hparams.properties if p.name == name), None
+                )
+            ) is not None, (
+                f"Property {name} not found in properties. "
+                "This should not happen, please report this."
+            )
+            if head is not None:
+                res = head(node_features, batch)
+                if isinstance(res, torch.Tensor):
+                    predicted_properties[name] = res
+                elif isinstance(res, dict):
+                    if mode!="predict":
+                        predicted_properties[name] = res[name]
+                    else:
+                        predicted_properties.update(res)
+                else:
+                    raise ValueError(
+                        f"Invalid output from head {head}: {res}"
+                    )
+            else:
+                assert isinstance(prop, props.ForcesPropertyConfig) or isinstance(prop, props.StressesPropertyConfig), (
+                    f"Conservative Property {name} is not a force or stress property."
+                )
+                assert "energy" in predicted_properties, ("Energy property is not found for conservative property prediction. Please put energy property before the conservative property in the config.")
+                if name in predicted_properties:
+                    pass
+                else:
+                    forces, stress, _ = compute_gradient_forces_and_stress(
+                        energy=predicted_properties["energy"],
+                        positions=batch.node_features["positions"],
+                        displacement=batch.system_features["stress_displacement"],
+                        cell=batch.system_features["cell"],
+                        training=self.training,
+                        compute_stress=self.include_stress,
+                        generator=batch.system_features["generator"],
+                    )
+                    if self.include_forces:
+                        predicted_properties["forces"] = forces
+                    if self.include_stress:
+                        predicted_properties["stresses"] = stress # type: ignore[reportUnboundType]
+        
+        if "stresses" in predicted_properties and predicted_properties["stress"].shape[1] == 6: # type: ignore[reportUnboundType]
+            # Convert the stress tensor to the full 3x3 form
+            predicted_properties["stresses"] = voigt_6_to_full_3x3_stress_torch(
+                predicted_properties["stresses"] # type: ignore[reportUnboundType]
+            )
+            
+        pred_dict: ModelOutput = {"predicted_properties": predicted_properties}
+        return pred_dict
+    
+    @override
+    def model_forward_partition(self, batch, mode: str, using_partition: bool = False):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
         

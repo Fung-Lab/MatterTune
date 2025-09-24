@@ -191,6 +191,28 @@ class MatterSimM3GNetBackboneModule(
 
     @override
     def model_forward(
+        self, batch: Batch, mode: str
+    ):
+        with optional_import_error_message("mattersim"):
+            from mattersim.forcefield.potential import batch_to_dict
+
+        input = batch_to_dict(batch)
+        output = self.backbone(
+            input,
+            include_forces=self.calc_forces,
+            include_stresses=self.calc_stress,
+        )
+        output_pred = {}
+        output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))
+        if self.calc_forces:
+            output_pred[self.forces_prop_name] = output.get("forces")
+        if self.calc_stress:
+            output_pred[self.stress_prop_name] = output.get("stresses") * GPa
+        pred: ModelOutput = {"predicted_properties": output_pred}
+        return pred
+
+    @override
+    def model_forward_partition(
         self, batch: Batch, mode: str, using_partition: bool = False
     ):
         with optional_import_error_message("mattersim"):
@@ -213,7 +235,7 @@ class MatterSimM3GNetBackboneModule(
             output_pred[self.stress_prop_name] = output.get("stresses") * GPa
         pred: ModelOutput = {"predicted_properties": output_pred}
         return pred
-
+    
     @override
     def pretrained_backbone_parameters(self):
         return self.backbone.parameters()
@@ -351,3 +373,13 @@ class MatterSimM3GNetBackboneModule(
     @override
     def apply_callable_to_backbone(self, fn):
         return fn(self.backbone)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is None:
+            pass
+        else:
+            self.backbone.model.num_blocks = min(self.backbone.model.num_blocks, message_passing_steps)

@@ -294,7 +294,29 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
             yield
 
     @override
-    def model_forward(self, batch, mode: str, using_partition=False):
+    def model_forward(self, batch, mode: str):
+        # Run the backbone
+        backbone_output = self.backbone(batch)
+
+        # Feed the backbone output to the output heads
+        predicted_properties: dict[str, torch.Tensor] = {}
+
+        head_input: dict[str, Any] = {
+            "data": batch,
+            "backbone_output": backbone_output,
+            "predicted_props": predicted_properties,
+        }
+        for name, head in self.output_heads.items():
+            output = head(head_input)
+            if torch.isnan(output).any() or torch.isinf(output).any():
+                raise _SkipBatchError("NaN or inf detected in the output")
+            head_input["predicted_props"][name] = output
+
+        pred: ModelOutput = {"predicted_properties": predicted_properties}
+        return pred
+    
+    @override
+    def model_forward_partition(self, batch, mode: str, using_partition=False):
         # Run the backbone
         backbone_output = self.backbone(batch)
 
