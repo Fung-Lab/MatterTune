@@ -5,6 +5,8 @@ import importlib.util
 import logging
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from ase import Atoms
+import numpy as np
 import torch
 import torch.nn.functional as F
 from typing_extensions import final, override
@@ -29,6 +31,7 @@ class MACEBackboneConfig(FinetuneModuleBaseConfig):
     pretrained_model: str
     """
     The name of the pretrained model to load, 
+    refered to https://github.com/ACEsuit/mace-foundations
     please pass the name of the model in the following format: mace-<model_name>.
     supported <model_name> are: [
         "small",
@@ -167,16 +170,19 @@ class MACEBackboneModule(
 
     @override
     def model_forward(
-        self, batch: Batch, mode: str
+        self, batch: Batch, mode: str, using_partition: bool = False
     ):
         output = self.backbone(
             batch.to_dict(),
             compute_force=self.calc_forces,
             compute_stress=self.calc_stress,
             training=mode == "train",
+            root_indices_mask=getattr(batch, "root_indices_mask", None) if using_partition else None
         )
         output_pred = {}
         output_pred[self.energy_prop_name] = output.get("energy", torch.zeros(1))
+        if using_partition:
+            output_pred["energies_per_atom"] = output.get("node_energy")
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output.get("forces")
         if self.calc_stress:
@@ -238,7 +244,22 @@ class MACEBackboneModule(
                     value = torch.from_numpy(value).float().reshape(1, 3, 3)
 
                 setattr(data, prop.name, value)
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            root_node_indices = atoms.info["root_node_indices"]
+            root_indices_mask = [1 if i in root_node_indices else 0 for i in range(len(atoms))]
+            setattr(data, "root_indices_mask", torch.tensor(root_indices_mask, dtype=torch.long)) # type: ignore[assignment]
         return data
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        edge_indices: torch.Tensor = data.edge_index # type: ignore [2, n_edges]
+        return edge_indices
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
+        data = self.atoms_to_data(atoms, has_labels=False)
+        return self.get_connectivity_from_data(data).numpy()
+        
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -274,3 +295,14 @@ class MACEBackboneModule(
     @override
     def apply_callable_to_backbone(self, fn):
         return fn(self.backbone)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is not None:
+            self.backbone.num_interactions = torch.tensor(min(self.backbone.num_interactions.item(), message_passing_steps)) # type: ignore
+            print(
+                f"Setting MACE message passing steps to {self.backbone.num_interactions.item()}"
+            )

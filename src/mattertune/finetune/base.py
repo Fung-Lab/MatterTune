@@ -8,6 +8,7 @@ from typing import Any, Generic, Literal
 
 import ase
 import nshconfig as C
+import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch import LightningModule
@@ -36,9 +37,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     reset_output_heads: bool = True
     """Whether to reset the output heads of the model when creating the model."""
-    
-    use_pretrained_normalizers: bool = False
-    """Whether to use the pretrained normalizers."""
 
     properties: Sequence[PropertyConfig]
     """Properties to predict."""
@@ -63,6 +61,12 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
 
     The normalizers are applied in the order they are defined in the list.
     """
+    
+    early_stop_message_passing: int | None = None
+    """Number of message passing steps for early stopping. If None, no early stopping is applied."""
+    
+    using_partition: bool = False
+    """Whether to be using partitioning in the model."""
 
     @classmethod
     @abstractmethod
@@ -91,14 +95,6 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
                 raise ValueError(
                     f"Key '{key}' in 'normalizers' is not a valid property name."
                 )
-        # if set custom normalizers, then use them, set use_pretrained_normalizers to False
-        if len(self.normalizers) > 0:
-            self.use_pretrained_normalizers = False
-        # else if use pretrained normalizers, then reset_output_heads should be True
-        if self.use_pretrained_normalizers and self.reset_output_heads:
-            log.warning("use_pretrained_normalizers is True, reset_output_heads should be False")
-            log.warning("find reset_output_heads is True, set use_pretrained_normalizers to False")
-            self.use_pretrained_normalizers = False
 
 
 class _SkipBatchError(Exception):
@@ -127,6 +123,7 @@ class ModelOutput(TypedDict):
     predicted_properties: dict[str, torch.Tensor]
     """Predicted properties. This dictionary should be exactly
     in the same shape/format  as the output of `batch_to_labels`."""
+
 
 TData = TypeVar("TData")
 TBatch = TypeVar("TBatch")
@@ -188,6 +185,7 @@ class FinetuneModuleBase(
         self,
         batch: TBatch,
         mode: str,
+        using_partition: bool = False,
     ) -> ModelOutput:
         """
         Forward pass of the model.
@@ -280,6 +278,30 @@ class FinetuneModuleBase(
             has_labels: Whether the atoms object contains labels.
         """
         ...
+        
+    @abstractmethod
+    def get_connectivity_from_data(self, data: TData) -> torch.Tensor:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Tensor of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        ...
+        
+    @abstractmethod
+    def get_connectivity_from_atoms(self, atoms: ase.Atoms) -> np.ndarray:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Array of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        ...
 
     @abstractmethod
     def create_normalization_context_from_batch(
@@ -326,8 +348,16 @@ class FinetuneModuleBase(
 
         # Create the backbone model and output heads
         self.create_model()
+        
+        self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
+        
         if self.hparams.reset_backbone:
-            self.apply_reset_backbone()
+            for name, param in self.backbone.named_parameters():
+                if param.dim() > 1:
+                    print(f"Resetting {name}")
+                    nn.init.xavier_uniform_(param)
+                else:
+                    nn.init.zeros_(param)
 
         # Create metrics
         self.create_metrics()
@@ -342,13 +372,10 @@ class FinetuneModuleBase(
                 "Please ensure that some parts of the model are trainable."
             )
             
-    def apply_reset_backbone(self):
-        for name, param in self.backbone.named_parameters():
-            if param.dim() > 1:
-                print(f"Resetting {name}")
-                nn.init.xavier_uniform_(param)
-            else:
-                nn.init.zeros_(param)
+        self.diabled_heads = []
+        
+    def set_disabled_heads(self, disabled_heads: list[str]):
+        self.disabled_heads = disabled_heads
 
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
@@ -454,13 +481,13 @@ class FinetuneModuleBase(
             denormalized_predictions[key] = pred
         return denormalized_predictions
 
-
     @override
     def forward(
         self,
         batch: TBatch,
         mode: str,
         ignore_gpu_batch_transform_error: bool | None = None,
+        using_partition: bool = False,
     ) -> ModelOutput:
         if ignore_gpu_batch_transform_error is None:
             ignore_gpu_batch_transform_error = (
@@ -480,7 +507,7 @@ class FinetuneModuleBase(
 
             # Run the model
             model_output = self.model_forward(
-                batch, mode=mode
+                batch, mode=mode, using_partition=using_partition
             )
 
             model_output["predicted_properties"] = {
@@ -565,7 +592,8 @@ class FinetuneModuleBase(
             log=log,
             log_prefix=f"{mode}/",
         )
-
+        
+        # NOTE: After computing the loss, we denormalize the predictions.
         if len(self.normalizers) > 0:
             predictions, labels = self.denormalize(predictions, labels, normalization_ctx) # type: ignore
 
@@ -580,6 +608,7 @@ class FinetuneModuleBase(
                 on_epoch=True,
                 sync_dist=True,
             )
+
         return output, loss
 
     @override
@@ -601,14 +630,15 @@ class FinetuneModuleBase(
         _ = self._common_step(batch, "test", self.test_metrics)
 
     @override
-    def predict_step(self, batch: TBatch, batch_idx: int) -> list[dict[str, torch.Tensor]]:
+    def predict_step(self, batch: TBatch, batch_idx: int):
         output: ModelOutput = self(
-            batch, mode="predict", ignore_gpu_batch_transform_error=False
+            batch, mode="predict", ignore_gpu_batch_transform_error=False, using_partition=self.hparams.using_partition
         )
         predictions = output["predicted_properties"]
         normalization_ctx = self.create_normalization_context_from_batch(batch)
         if len(self.normalizers) > 0:
             predictions = self.denormalize_predict(predictions, normalization_ctx)
+        ## split predictions into a list of dicts
         num_atoms = normalization_ctx.num_atoms
         pred_list = []
         for i in range(len(num_atoms)):
@@ -635,6 +665,7 @@ class FinetuneModuleBase(
                     case _:
                         raise ValueError(f"Unknown property type: {prop_type}")
             pred_list.append(pred_dict)
+                
         return pred_list
 
     def trainable_parameters(self) -> Iterable[tuple[str, nn.Parameter]]:
@@ -726,36 +757,9 @@ class FinetuneModuleBase(
 
     def ase_calculator(
         self, 
-        device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
+        # lightning_trainer_kwargs: dict[str, Any] | None = None,
+        device: str = "cpu",
     ):
-        """Returns an ASE calculator wrapper for the interatomic potential.
-
-        This method creates an ASE (Atomic Simulation Environment) calculator that can be used
-        to compute energies and forces using the trained interatomic potential model.
-
-        The calculator integrates with ASE's standard interfaces for molecular dynamics
-        and structure optimization.
-
-        Parameters
-        ----------
-        device : str, optional
-
-        Returns
-        -------
-        MatterTuneCalculator
-            An ASE calculator wrapper around the trained potential that can be used
-            for energy and force calculations via ASE's interfaces.
-
-        Examples
-        --------
-        >>> model = MyModel()
-        >>> calc = model.ase_calculator()
-        >>> atoms = ase.Atoms("H2O", positions=[[0, 0, 0], [0, 0, 1], [0, 1, 0]], cell=[10, 10, 10], pbc=True)
-        >>> atoms.calc = calc
-        >>> energy = atoms.get_potential_energy()
-        >>> forces = atoms.get_forces()
-        """
-        
         from ..wrappers.ase_calculator import MatterTuneCalculator
-
+        
         return MatterTuneCalculator(self, device=torch.device(device))

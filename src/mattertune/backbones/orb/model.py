@@ -18,7 +18,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
@@ -105,20 +105,18 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_heads import (
-                EnergyHead,
+                EnergyHeadPoolAfter,
                 ForceHead,
                 StressHead,
-                GraphHead,
+                GraphHeadPoolAfter,
             )
 
-        self.include_forces = False
-        self.include_stress = False
         match prop:
             case props.EnergyPropertyConfig():
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.graph_head
                 else:
-                    return EnergyHead(
+                    return EnergyHeadPoolAfter(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -166,7 +164,7 @@ class ORBBackboneModule(
                         "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
                     )
                 else:
-                    return GraphHead(
+                    return GraphHeadPoolAfter(
                         latent_dim=256,
                         num_mlp_layers=1,
                         mlp_hidden_dim=256,
@@ -223,7 +221,6 @@ class ORBBackboneModule(
 
         backbone = backbone.train()
         self.backbone = backbone
-        self.system_config = pretrained_model.system_config
 
         log.info(
             f'Loaded the ORB pre-trained model "{self.hparams.pretrained_model}". The model '
@@ -232,6 +229,8 @@ class ORBBackboneModule(
 
         # Create the output heads
         self.output_heads = nn.ModuleDict()
+        self.include_forces = False
+        self.include_stress = False
         for prop in self.hparams.properties:
             head = self._create_output_head(prop, pretrained_model)
             # assert head is not None, (
@@ -267,7 +266,7 @@ class ORBBackboneModule(
 
 
     @override
-    def model_forward(self, batch, mode: str):
+    def model_forward(self, batch, mode: str, using_partition: bool = False):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
         
@@ -321,7 +320,7 @@ class ORBBackboneModule(
                     if self.include_stress:
                         predicted_properties["stresses"] = stress # type: ignore[reportUnboundType]
         
-        if "stresses" in predicted_properties and predicted_properties["stress"].shape[1] == 6: # type: ignore[reportUnboundType]
+        if "stresses" in predicted_properties and predicted_properties["stresses"].shape[1] == 6: # type: ignore[reportUnboundType]
             # Convert the stress tensor to the full 3x3 form
             predicted_properties["stresses"] = voigt_6_to_full_3x3_stress_torch(
                 predicted_properties["stresses"] # type: ignore[reportUnboundType]
@@ -441,7 +440,38 @@ class ORBBackboneModule(
         # ^ (1, 120)
         atom_graphs.system_features["norm_composition"] = composition
 
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            root_node_indices = atoms.info["root_node_indices"]
+            root_indices_mask = [1 if i in root_node_indices else 0 for i in range(len(atoms))]
+            atom_graphs.node_features["root_indices_mask"] = torch.tensor(root_indices_mask, dtype=torch.long)
+        
         return atom_graphs
+    
+    @override
+    def get_connectivity_from_data(self, data: AtomGraphs) -> torch.Tensor:
+        senders = data.senders.clone()
+        receivers = data.receivers.clone()
+        return torch.stack([senders, receivers], dim=0)
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
+        with optional_import_error_message("orb_models"):
+            from orb_models.forcefield import featurization_utilities as feat_util
+        
+        system_config = self.hparams.system._to_orb_system_config()
+        positions = torch.from_numpy(atoms.positions)
+        cell = torch.from_numpy(atoms.cell.array)
+        pbc = torch.from_numpy(atoms.pbc)
+        edge_indices, _, _ = feat_util.compute_pbc_radius_graph(
+            positions=positions,
+            cell=cell,
+            pbc=pbc,
+            radius=system_config.radius,
+            max_number_neighbors=system_config.max_num_neighbors,
+            device=torch.device("cpu"),
+        )
+        edge_indices = edge_indices.cpu().numpy()
+        return edge_indices
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -451,3 +481,17 @@ class ORBBackboneModule(
             raise ValueError("No composition found in the batch.")
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
+    
+    @override
+    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is None:
+            pass
+        else:
+            self.backbone.num_message_passing_steps = min(
+                message_passing_steps, self.backbone.num_message_passing_steps
+            )
+
+

@@ -8,6 +8,9 @@ requires-python = ">=3.10"
 dependencies = [
     "torch",
     "ase",
+    "pymatgen",
+    "vesin",
+    "matscipy",
     "scikit-learn",
     "lightning",
     "numpy",
@@ -16,14 +19,21 @@ dependencies = [
     "nshconfig-extra[extra]",
     "rich",
     "wandb",
+    "tensorboardX",
     "nshutils",
+    "watchdog",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "pre-commit", "ruff"]
 
 [build-system]
-requires = ["setuptools >= 61.0"]
+requires = [
+    "setuptools >= 61.0",
+    "wheel",
+    "Cython",
+    "numpy"
+]
 build-backend = "setuptools.build_meta"
 
 [tool.pyright]

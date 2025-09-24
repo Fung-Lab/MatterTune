@@ -4,7 +4,6 @@ import copy
 import time
 import os
 
-import numpy as np
 import torch
 import torch.distributed as dist
 import numpy as np
@@ -19,7 +18,6 @@ import tempfile
 from ..finetune.properties import PropertyConfig, ForcesPropertyConfig, StressesPropertyConfig
 from ..finetune.base import FinetuneModuleBase
 from .utils.graph_partition import grid_partition, BFS_extension
-from .utils.parallel_inference import ParallizedInferenceBase
 from ..util import write_to_npz, load_from_npz
 
 class MatterTuneCalculator(Calculator):
@@ -44,7 +42,7 @@ class MatterTuneCalculator(Calculator):
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
         
-        self.partition_times = []
+        self.prepare_times = []
         self.forward_times = []
         self.collect_times = []
 
@@ -72,21 +70,18 @@ class MatterTuneCalculator(Calculator):
             "This should have been set by the parent class. "
             "Please report this as a bug."
         )
-        scaled_positions = np.array(self.atoms.get_scaled_positions())
-        scaled_positions = np.mod(scaled_positions, 1.0)
-        input_atoms = copy.deepcopy(self.atoms)
-        input_atoms.set_scaled_positions(scaled_positions)
         
         diabled_properties = list(set(self.implemented_properties) - set(properties))
         self.model.set_disabled_heads(diabled_properties)
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
         time1 = time.time()
-        data = self.model.atoms_to_data(input_atoms, has_labels=False)
+        data = self.model.atoms_to_data(self.atoms, has_labels=False)
         batch = self.model.collate_fn([data])
         batch = batch.to(self.model.device)
-        self.partition_times.append(time.time() - time1)
+        self.prepare_times.append(time.time() - time1)
         
+        time1 = time.time()
         pred = self.model.predict_step(
             batch = batch,
             batch_idx = 0,
@@ -103,7 +98,7 @@ class MatterTuneCalculator(Calculator):
                 "Please report this as a bug."
             )
 
-            value = pred[prop.name].detach().cpu().numpy() # type: ignore
+            value = pred[prop.name].detach().to(torch.float32).cpu().numpy() # type: ignore
             value = value.astype(prop._numpy_dtype())
             value = prop.prepare_value_for_ase_calculator(value)
 
@@ -117,14 +112,13 @@ def _collect_partitioned_atoms(
     extended_partitions: list[list[int]],
 ) -> list[Atoms]:
     partitioned_atoms = []
-    scaled_positions = np.mod(np.array(atoms.get_scaled_positions()), 1.0)
     for i, ext_part in enumerate(extended_partitions):
-        sp_i = scaled_positions[ext_part]
+        positions = np.array(atoms.get_positions())[ext_part]
         atomic_numbers = np.array(atoms.get_atomic_numbers())[ext_part]
         cell = np.array(atoms.get_cell())
         part_atoms = Atoms(
             symbols=atomic_numbers,
-            scaled_positions=sp_i,
+            positions=positions,
             cell=cell,
             pbc=atoms.pbc,
         )
@@ -146,7 +140,7 @@ def grid_partition_atoms(
     Partition atoms based on the provided source and destination indices.
     """
     num_nodes = len(atoms)
-    scaled_positions = np.mod(atoms.get_scaled_positions(), 1.0)
+    scaled_positions = atoms.get_scaled_positions()
     partitions = grid_partition(num_nodes, scaled_positions, granularity)
     partitions = [part for part in partitions if len(part) > 0] # filter out empty partitions
     extended_partitions = BFS_extension(num_nodes, edge_indices, partitions, mp_steps)
@@ -170,15 +164,32 @@ class MatterTunePartitionCalculator(Calculator):
         self, 
         *,
         model: FinetuneModuleBase,
-        inferencer: ParallizedInferenceBase,
+        model_type: str,
+        ckpt_path: str,
+        devices: list[int],
         mp_steps: int,
         granularity: int,
+        batch_size: int = 1,
+        num_workers: int = 0,
+        tmp_dir: str | None = None,
+        show_inference_log: bool = True,
     ):
         super().__init__()
         self.model = model
-        self.inferencer = inferencer
+        self.model_type = model_type
+        self.ckpt_path = ckpt_path
+        self.devices = devices
+        if tmp_dir is not None and not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir, exist_ok=True)
+        self.tmp_dir = tempfile.mkdtemp(dir=tmp_dir)
+        os.makedirs(self.tmp_dir, exist_ok=True)
+        self.tmp_input_path = os.path.join(self.tmp_dir, "input.npz")
+        self.tmp_output_path = os.path.join(self.tmp_dir, "output.pt")
         self.mp_steps = mp_steps
         self.granularity = granularity
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.show_inference_log = show_inference_log
 
         self.implemented_properties: list[str] = []
         self._ase_prop_to_config: dict[str, PropertyConfig] = {}
@@ -190,7 +201,7 @@ class MatterTunePartitionCalculator(Calculator):
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
         
-        self.partition_times = []
+        self.prepare_times = []
         self.forward_times = []
         self.collect_times = []
         self.partition_sizes = []
@@ -206,7 +217,7 @@ class MatterTunePartitionCalculator(Calculator):
             properties = copy.deepcopy(self.implemented_properties)
 
         # Call the parent class to set `self.atoms`.
-        Calculator.calculate(self, atoms, properties=properties, system_changes=system_changes)
+        Calculator.calculate(self, atoms)
 
         # Make sure `self.atoms` is set.
         assert self.atoms is not None, (
@@ -219,33 +230,23 @@ class MatterTunePartitionCalculator(Calculator):
             "This should have been set by the parent class. "
             "Please report this as a bug."
         )
-        # normalize scaled_positions to [0, 1]
-        input_atoms = copy.deepcopy(self.atoms)
-        scaled_positions = np.array(input_atoms.get_scaled_positions())
-        scaled_positions = np.mod(scaled_positions, 1.0)
-        input_atoms.set_scaled_positions(scaled_positions)
         
         time1 = time.time()
-        edge_indices = self.model.get_connectivity_from_atoms(input_atoms)
+        edge_indices = self.model.get_connectivity_from_atoms(self.atoms)
         partitioned_atoms_list = grid_partition_atoms(
-            atoms=input_atoms,
+            atoms=self.atoms,
             edge_indices=edge_indices.astype(np.int32),
             granularity=self.granularity,
             mp_steps=self.mp_steps
         )
         avg_part_size = np.mean([len(part) for part in partitioned_atoms_list])
         self.partition_sizes.append(avg_part_size)
-        self.partition_times.append(time.time() - time1)
-        
-        time1 = time.time()
-        predictions = self.inferencer.run_inference(
-            partitioned_atoms_list
-        )
-        self.forward_times.append(time.time() - time1)
+        write_to_npz(partitioned_atoms_list, self.tmp_input_path)
+        self.prepare_times.append(time.time() - time1)
         
         ## find the absolute path to mattertune.wrappers.multi_gpu_inference.py
         time1 = time.time()
-        n_atoms = len(input_atoms)
+        n_atoms = len(self.atoms)
         results = {}
         conservative = False
         if "energy" in properties:
@@ -257,7 +258,48 @@ class MatterTunePartitionCalculator(Calculator):
         if "stress" in properties:
             results["stress"] = np.zeros((3, 3), dtype=np.float32)
             stress_config_i = self._ase_prop_to_config["stress"]
-
+            conservative = conservative or stress_config_i.conservative # type: ignore
+        scripts_path = os.path.dirname(os.path.abspath(__file__))
+        scripts_path = os.path.join(scripts_path, "utils", "multi_gpu_inference.py")
+        if not self.show_inference_log:
+            suffix = " > /dev/null 2>&1"
+        else:
+            suffix = ""
+        # print(f"python {scripts_path} \
+        #           --model_type {self.model_type} \
+        #           --ckpt_path {self.ckpt_path} \
+        #           --input_structs {self.tmp_input_path} \
+        #           --output_file {self.tmp_output_path} \
+        #           --devices {' '.join(map(str, self.devices))} \
+        #           --batch_size {self.batch_size} \
+        #           --num_workers {self.num_workers} \
+        #           --properties {','.join(properties)} \
+        #           --conservative {conservative} \
+        #           --using_partition")
+        # exit()
+        os.system(f"python {scripts_path} \
+                  --model_type {self.model_type} \
+                  --ckpt_path {self.ckpt_path} \
+                  --input_structs {self.tmp_input_path} \
+                  --output_file {self.tmp_output_path} \
+                  --devices {' '.join(map(str, self.devices))} \
+                  --batch_size {self.batch_size} \
+                  --num_workers {self.num_workers} \
+                  --properties {','.join(properties)} \
+                  --conservative {conservative} \
+                  --using_partition {suffix}")
+        
+        if not os.path.exists(self.tmp_output_path):
+            raise RuntimeError(f"Output file {self.tmp_output_path} was not created. Please check for errors.")
+        predictions = torch.load(self.tmp_output_path)  # Load the predictions from the temporary file.
+        
+        
+        predictions = cast(list[dict[str, torch.Tensor]], predictions)
+        os.system(f"rm -rf {self.tmp_input_path}")  # Clean up the temporary input file.
+        os.system(f"rm -rf {self.tmp_output_path}")
+        self.forward_times.append(time.time() - time1)
+        
+        time1 = time.time()
         for i, part_i_atoms in enumerate(partitioned_atoms_list):
             part_i_pred = predictions[i]
             
@@ -267,7 +309,7 @@ class MatterTunePartitionCalculator(Calculator):
             if "forces" in properties:
                 forces = part_i_pred["forces"].detach().to(torch.float32).cpu().numpy()
             if "stress" in properties:
-                stress = part_i_pred["stresses"].detach().to(torch.float32).cpu().numpy()
+                stress = part_i_pred["stress"].detach().to(torch.float32).cpu().numpy()
             
             indices_map_i = np.array(part_i_atoms.info["indices_map"])
             
@@ -282,19 +324,14 @@ class MatterTunePartitionCalculator(Calculator):
                 if forces_config_i.conservative: # type: ignore
                     results["forces"][indices_map_i] += forces  # type: ignore
                 else:
-                    root_node_indices_i = np.array(part_i_atoms.info["root_node_indices"])
-                    local_indices = np.arange(len(part_i_atoms))
-                    mask = np.isin(local_indices, root_node_indices_i)
-                    global_indices = indices_map_i[mask]
-                    assert np.allclose(results["forces"][global_indices], 0.0), "Forces should be zero"
-                    results["forces"][global_indices] = forces[mask]  # type: ignore
+                    results["forces"][indices_map_i] = forces  # type: ignore
             
             if "stress" in properties:
                 if stress_config_i.conservative:  # type: ignore
                     results["stress"] += stress.reshape(3, 3)  # type: ignore
                 else:
                     raise NotImplementedError("Non-conservative stress calculation is not implemented for partitioned calculations.")
-                
+
         if "energy" in properties:
             results["energy"] = np.sum(results["energy"]).item()
         if "stress" in properties:
