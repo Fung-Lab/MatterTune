@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import copy
-import time
-import os
 
 import numpy as np
 import torch
@@ -81,20 +79,16 @@ class MatterTuneCalculator(Calculator):
         self.model.set_disabled_heads(diabled_properties)
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
-        time1 = time.time()
         data = self.model.atoms_to_data(input_atoms, has_labels=False)
         batch = self.model.collate_fn([data])
         batch = batch.to(self.model.device)
-        self.partition_times.append(time.time() - time1)
         
         pred = self.model.predict_step(
             batch = batch,
             batch_idx = 0,
         )
         pred = pred[0] # type: ignore
-        self.forward_times.append(time.time() - time1)
-        
-        time1 = time.time() 
+
         for prop in prop_configs:
             ase_prop_name = prop.ase_calculator_property_name()
             assert ase_prop_name is not None, (
@@ -108,7 +102,6 @@ class MatterTuneCalculator(Calculator):
             value = prop.prepare_value_for_ase_calculator(value)
 
             self.results[ase_prop_name] = value
-        self.collect_times.append(time.time() - time1)
 
 
 def _collect_partitioned_atoms(
@@ -190,10 +183,6 @@ class MatterTunePartitionCalculator(Calculator):
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
         
-        self.partition_times = []
-        self.forward_times = []
-        self.collect_times = []
-        self.partition_sizes = []
 
     @override
     def calculate(
@@ -225,7 +214,6 @@ class MatterTunePartitionCalculator(Calculator):
         scaled_positions = np.mod(scaled_positions, 1.0)
         input_atoms.set_scaled_positions(scaled_positions)
         
-        time1 = time.time()
         edge_indices = self.model.get_connectivity_from_atoms(input_atoms)
         partitioned_atoms_list = grid_partition_atoms(
             atoms=input_atoms,
@@ -233,18 +221,12 @@ class MatterTunePartitionCalculator(Calculator):
             granularity=self.granularity,
             mp_steps=self.mp_steps
         )
-        avg_part_size = np.mean([len(part) for part in partitioned_atoms_list])
-        self.partition_sizes.append(avg_part_size)
-        self.partition_times.append(time.time() - time1)
         
-        time1 = time.time()
         predictions = self.inferencer.run_inference(
             partitioned_atoms_list
         )
-        self.forward_times.append(time.time() - time1)
         
         ## find the absolute path to mattertune.wrappers.multi_gpu_inference.py
-        time1 = time.time()
         n_atoms = len(input_atoms)
         results = {}
         conservative = False
@@ -301,6 +283,5 @@ class MatterTunePartitionCalculator(Calculator):
             results["stress"] = full_3x3_to_voigt_6_stress(results["stress"])
 
         self.results.update(results)
-        self.collect_times.append(time.time() - time1)
                     
                 

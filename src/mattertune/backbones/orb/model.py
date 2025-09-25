@@ -222,6 +222,8 @@ class ORBBackboneModule(
         backbone = backbone.train()
         self.backbone = backbone
 
+        self.system_config = self.hparams.system._to_orb_system_config()
+        
         log.info(
             f'Loaded the ORB pre-trained model "{self.hparams.pretrained_model}". The model '
             f"has {sum(p.numel() for p in self.backbone.parameters()):,} parameters."
@@ -522,7 +524,6 @@ class ORBBackboneModule(
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield import featurization_utilities as feat_util
         
-        system_config = self.hparams.system._to_orb_system_config()
         positions = torch.from_numpy(atoms.positions)
         cell = torch.from_numpy(atoms.cell.array)
         pbc = torch.from_numpy(atoms.pbc)
@@ -530,8 +531,8 @@ class ORBBackboneModule(
             positions=positions,
             cell=cell,
             pbc=pbc,
-            radius=system_config.radius,
-            max_number_neighbors=system_config.max_num_neighbors,
+            radius=self.system_config.radius,
+            max_number_neighbors=self.system_config.max_num_neighbors,
             device=torch.device("cpu"),
         )
         edge_indices = edge_indices.cpu().numpy()

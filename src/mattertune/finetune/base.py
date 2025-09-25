@@ -511,7 +511,6 @@ class FinetuneModuleBase(
         batch: TBatch,
         mode: str,
         ignore_gpu_batch_transform_error: bool | None = None,
-        using_partition: bool = False,
     ) -> ModelOutput:
         if ignore_gpu_batch_transform_error is None:
             ignore_gpu_batch_transform_error = (
@@ -530,9 +529,9 @@ class FinetuneModuleBase(
                 batch = self.gpu_batch_transform(batch)
 
             # Run the model
-            if using_partition:
+            if self.hparams.using_partition:
                 model_output = self.model_forward_partition(
-                    batch, mode=mode, using_partition=using_partition
+                    batch, mode=mode, using_partition=self.hparams.using_partition
                 )
             else:
                 model_output = self.model_forward(batch, mode=mode)
@@ -659,7 +658,7 @@ class FinetuneModuleBase(
     @override
     def predict_step(self, batch: TBatch, batch_idx: int):
         output: ModelOutput = self(
-            batch, mode="predict", ignore_gpu_batch_transform_error=False, using_partition=self.hparams.using_partition
+            batch, mode="predict", ignore_gpu_batch_transform_error=False
         )
         predictions = output["predicted_properties"]
         normalization_ctx = self.create_normalization_context_from_batch(batch)
