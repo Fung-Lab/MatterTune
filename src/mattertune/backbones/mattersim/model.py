@@ -11,7 +11,6 @@ import torch.nn.functional as F
 from ase import Atoms
 from ase.units import GPa
 import numpy as np
-from pymatgen.optimization.neighbors import find_points_in_spheres
 from typing_extensions import final, override
 
 from ...finetune import properties as props

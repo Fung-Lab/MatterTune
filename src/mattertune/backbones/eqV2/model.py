@@ -483,6 +483,47 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
     def apply_early_stop_message_passing(self, message_passing_steps: int|None):
         """
         Apply message passing for early stopping.
-        Does nothing for eqV2.
         """
-        pass
+        raise NotImplementedError("For now, UMA models do not support pruning and partition acceleration")
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms):
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Array of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        raise NotImplementedError("For now, UMA models do not support pruning and partition acceleration")
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Tensor of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        raise NotImplementedError("For now, UMA models do not support pruning and partition acceleration")
+    
+    @override
+    def model_forward_partition(
+        self,
+        batch,
+        mode: str,
+        using_partition: bool = False,
+    ) -> ModelOutput:
+        """
+        Forward pass of the model under partitioning.
+
+        Args:
+            batch: Input batch.
+
+        Returns:
+            Prediction of the model.
+        """
+        raise NotImplementedError("For now, UMA models do not support pruning and partition acceleration")
