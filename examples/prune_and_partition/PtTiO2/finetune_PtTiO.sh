@@ -7,5 +7,5 @@ batch_size=8
 python train.py \
     --model_type "mattersim-1m" \
     --batch_size $batch_size \
-    --early_stop_mp_steps 1 \
+    --pruned_mp_steps 1 \
     --devices 0 1 2 3 4 5 6 7

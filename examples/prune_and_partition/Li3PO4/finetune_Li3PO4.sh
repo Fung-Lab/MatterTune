@@ -7,7 +7,7 @@ batch_size=32
 python train.py \
     --model_type "mattersim-1m" \
     --batch_size $batch_size \
-    --early_stop_mp_steps 1 \
+    --pruned_mp_steps 1 \
     --lr 1e-4 \
     --down_sample "first_half_0.02" \
     --devices 0 1 2 3 4 5 6 7
@@ -17,7 +17,7 @@ batch_size=8
 python train.py \
     --model_type "jmp-s" \
     --batch_size $batch_size \
-    --early_stop_mp_steps 1 \
+    --pruned_mp_steps 1 \
     --lr 1e-4 \
     --down_sample "first_half_0.02" \
     --devices 0 1 2 3 4 5 6 7
@@ -27,7 +27,7 @@ batch_size=32
 python train.py \
     --model_type "orb-v3-conservative-inf-omat" \
     --batch_size $batch_size \
-    --early_stop_mp_steps 1 \
+    --pruned_mp_steps 1 \
     --lr 1e-4 \
     --down_sample "first_half_0.02" \
     --devices 0 1 2 3 4 5 6 7 \
@@ -39,7 +39,7 @@ batch_size=16
 python train.py \
     --model_type "mace-medium-omat-0" \
     --batch_size $batch_size \
-    --early_stop_mp_steps 1 \
+    --pruned_mp_steps 1 \
     --lr 1e-4 \
     --devices 0 1 2 3 4 5 6 7 \
     --conservative 

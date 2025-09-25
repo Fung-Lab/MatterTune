@@ -62,7 +62,7 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     The normalizers are applied in the order they are defined in the list.
     """
     
-    early_stop_message_passing: int | None = None
+    pruning_message_passing: int | None = None
     """Number of message passing steps for early stopping. If None, no early stopping is applied."""
     
     using_partition: bool = False
@@ -162,7 +162,7 @@ class FinetuneModuleBase(
         ...
 
     @abstractmethod
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+    def apply_pruning_message_passing(self, message_passing_steps: int|None):
         """
         Apply message passing for early stopping.
         """
@@ -374,7 +374,7 @@ class FinetuneModuleBase(
         self.create_model()
         
         if self.hparams.using_partition:
-            self.apply_early_stop_message_passing(self.hparams.early_stop_message_passing)
+            self.apply_pruning_message_passing(self.hparams.pruning_message_passing)
         
         if self.hparams.reset_backbone:
             for name, param in self.backbone.named_parameters(): # type: ignore

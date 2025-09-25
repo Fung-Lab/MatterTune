@@ -60,7 +60,7 @@ def main(args_dict: dict):
             )
         hparams.model.reset_backbone = args_dict["reset_backbone"]
         hparams.model.reset_output_heads = True
-        hparams.model.early_stop_message_passing = args_dict["early_stop_mp_steps"]
+        hparams.model.pruning_message_passing = args_dict["pruned_mp_steps"]
         hparams.model.optimizer = MC.AdamWConfig(
             lr=args_dict["lr"],
             amsgrad=False,
@@ -135,7 +135,7 @@ def main(args_dict: dict):
         )
 
         # Configure Model Checkpoint
-        ckpt_name = f"{args_dict['model_type']}-best-MPx{args_dict['early_stop_mp_steps']}-{args_dict['down_sample']}"
+        ckpt_name = f"{args_dict['model_type']}-best-MPx{args_dict['pruned_mp_steps']}-{args_dict['down_sample']}"
         if args_dict["reset_backbone"]:
             ckpt_name += "-reset_backbone"
         if os.path.exists(f"./Li3PO4-checkpoints/{ckpt_name}.ckpt"):
@@ -153,7 +153,7 @@ def main(args_dict: dict):
         hparams.trainer.loggers = [
             WandbLoggerConfig(
                 project="MatterTune-Prune&Partition", 
-                name=f"Li3PO4-{args_dict['model_type']}-MPx{args_dict['early_stop_mp_steps']}-{args_dict['down_sample']}",
+                name=f"Li3PO4-{args_dict['model_type']}-MPx{args_dict['pruned_mp_steps']}-{args_dict['down_sample']}",
             )
         ]
 
@@ -171,7 +171,7 @@ def main(args_dict: dict):
     
     ## Perform Evaluation
 
-    ckpt_path = f"./Li3PO4-checkpoints/{args_dict['model_type']}-best-MPx{args_dict['early_stop_mp_steps']}-{args_dict['down_sample']}"
+    ckpt_path = f"./Li3PO4-checkpoints/{args_dict['model_type']}-best-MPx{args_dict['pruned_mp_steps']}-{args_dict['down_sample']}"
     if args_dict["reset_backbone"]:
         ckpt_path += "-reset_backbone"
     ckpt_path += ".ckpt"
@@ -198,7 +198,7 @@ def main(args_dict: dict):
     import wandb
     from tqdm import tqdm
     
-    wandb.init(project="MatterTune-Prune&Partition", name=f"Li3PO4-{args_dict['model_type']}-MPx{args_dict['early_stop_mp_steps']}-{args_dict['down_sample']}", resume=True)
+    wandb.init(project="MatterTune-Prune&Partition", name=f"Li3PO4-{args_dict['model_type']}-MPx{args_dict['pruned_mp_steps']}-{args_dict['down_sample']}", resume=True)
     
     val_atoms_list:list[Atoms] = read("/net/csefiles/coc-fung-cluster/lingyu/datasets/li3po4-test.xyz", ":") # type: ignore
     calc = ft_model.ase_calculator(
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="mattersim-1m")
     parser.add_argument("--reset_backbone", action="store_true")
     parser.add_argument("--down_sample", type=str, default=None)
-    parser.add_argument("--early_stop_mp_steps", type=int, default=2)
+    parser.add_argument("--pruned_mp_steps", type=int, default=2)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--max_epochs", type=int, default=5000)

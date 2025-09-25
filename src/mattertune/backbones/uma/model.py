@@ -295,7 +295,7 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
         self.backbone = new_backbone.float().to(self.device) # type: ignore[reportGeneralTypeIssues]
         
     @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+    def apply_pruning_message_passing(self, message_passing_steps: int|None):
         """
         Apply message passing for early stopping.
         """
