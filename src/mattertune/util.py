@@ -12,10 +12,6 @@ import numpy as np
 import torch
 from ase import Atoms
 import ase.geometry
-import ase.neighborlist as ase_nl
-from pymatgen.optimization.neighbors import find_points_in_spheres
-from vesin import NeighborList as vesin_nl
-import matscipy.neighbours
 
 
 @contextlib.contextmanager
@@ -103,6 +99,18 @@ def neighbor_list_and_relative_vec(
     Compute connectivity of atoms within a cutoff radius using various implementations.
     https://github.com/mir-group/nequip/blob/main/nequip/data/AtomicData.py
     """
+    with optional_import_error_message("ase"):
+        import ase.neighborlist as ase_nl
+    
+    with optional_import_error_message("pymatgen"):
+        from pymatgen.optimization.neighbors import find_points_in_spheres
+        
+    with optional_import_error_message("vesin"):
+        from vesin import NeighborList as vesin_nl
+    
+    with optional_import_error_message("matscipy"):
+        import matscipy.neighbours
+    
     if isinstance(pbc, bool):
         pbc = (pbc, pbc, pbc)
     elif isinstance (pbc, np.ndarray):
