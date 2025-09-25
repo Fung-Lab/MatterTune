@@ -480,7 +480,7 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
-    def apply_early_stop_message_passing(self, message_passing_steps: int|None):
+    def apply_pruning_message_passing(self, message_passing_steps: int|None):
         """
         Apply message passing for early stopping.
         """
