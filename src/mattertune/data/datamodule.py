@@ -231,9 +231,10 @@ class MatterTuneDataModule(LightningDataModule):
             raise ValueError("No LightningModule found.")
 
         from ..finetune.base import FinetuneModuleBase
+        from ..distillation.base import StudentModuleBase
 
-        if not isinstance(lightning_module, FinetuneModuleBase):
-            raise ValueError("The LightningModule is not a FinetuneModuleBase.")
+        if not isinstance(lightning_module, FinetuneModuleBase) and not isinstance(lightning_module, StudentModuleBase):
+            raise ValueError("The LightningModule is not a FinetuneModuleBase nor StudentModuleBase.")
 
         return lightning_module
 

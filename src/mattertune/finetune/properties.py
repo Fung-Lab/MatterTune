@@ -107,11 +107,14 @@ class PropertyConfigBase(C.Config, ABC):
 
     def _from_ase_atoms_to_torch(self, atoms: Atoms) -> torch.Tensor:
         """Internal helper to convert the property value from an ASE Atoms object to a torch tensor."""
-        value = self.from_ase_atoms(atoms)
-        value = torch.tensor(value, dtype=self._torch_dtype())
-        if isinstance(self, StressesPropertyConfig):
-            value = value.reshape(1, 3, 3)
-        return value
+        try:
+            value = self.from_ase_atoms(atoms)
+            value = torch.tensor(value, dtype=self._torch_dtype())
+            if isinstance(self, StressesPropertyConfig):
+                value = value.reshape(1, 3, 3)
+            return value
+        except KeyError as e:
+            return None
 
     @abstractmethod
     def ase_calculator_property_name(self) -> ASECalculatorPropertyName | None:

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ..finetune.properties import PropertyConfig
     from .property_predictor import MatterTunePropertyPredictor
     from ..finetune.base import FinetuneModuleBase
-    from ..students.base import StudentModuleBase
+    from ..distillation.base import StudentModuleBase
 
 
 class MatterTuneCalculator(Calculator):

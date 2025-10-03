@@ -15,7 +15,7 @@ from ..finetune.properties import PropertyConfig
 
 if TYPE_CHECKING:
     from ..finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig
-    from ..students.base import StudentModuleBase, StudentModuleBaseConfig
+    from ..distillation.base import StudentModuleBase, StudentModuleBaseConfig
 
 
 log = logging.getLogger(__name__)

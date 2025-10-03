@@ -9,7 +9,7 @@ from lightning.pytorch.callbacks import Callback
 
 from . import StudentModelConfig
 from ..data import DataModuleConfig, MatterTuneDataModule
-from .base import StudentModuleBase
+from ..distillation.base import StudentModuleBase
 from ..registry import student_registry, data_registry
 from ..main import TrainerConfig
 
@@ -99,6 +99,15 @@ class MatterTuneOfflineDistillationTrainer:
         # Set up the callbacks for recipes
         callbacks: list[Callback] = trainer_kwargs_.pop("callbacks", [])
         trainer_kwargs_["callbacks"] = callbacks
+        
+        # set up the data and model
+        try:
+            datamodule.prepare_data()
+        except Exception:
+            pass
+        datamodule.setup(stage="fit")
+        
+        lightning_module.before_fit_start(datamodule)
 
         # Create the trainer
         trainer = Trainer(**trainer_kwargs_)

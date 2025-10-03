@@ -12,7 +12,7 @@ from .data_util import IterableDatasetWrapper, MapDatasetWrapper
 
 if TYPE_CHECKING:
     from .base import FinetuneModuleBase, TBatch, TData, TFinetuneModuleConfig
-    from ..students.base import StudentModuleBase, StudentModuleBaseConfig
+    from ..distillation.base import StudentModuleBase, StudentModuleBaseConfig
 
 
 class DataLoaderKwargs(TypedDict, total=False):
