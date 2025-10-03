@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Generic
 from typing_extensions import TypeVar, Any, cast, override, Unpack
 from collections.abc import Callable, Iterable, Mapping, Sequence
+import warnings
 
 import ase
 import nshconfig as C
@@ -23,6 +24,7 @@ from mattertune.finetune.optimizer import OptimizerConfig, create_optimizer
 from mattertune.finetune.lr_scheduler import LRSchedulerConfig, ReduceOnPlateauConfig, create_lr_scheduler
 from mattertune.finetune.loss import compute_loss
 from mattertune.finetune.loader import DataLoaderKwargs, create_dataloader
+from mattertune.normalization import ComposeNormalizers, NormalizationContext, NormalizerConfig
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +45,18 @@ class StudentModuleBaseConfig(C.Config, ABC):
 
     lr_scheduler: LRSchedulerConfig | None = None
     """Learning Rate Scheduler"""
+    
+    normalizers: Mapping[str, Sequence[NormalizerConfig]] = {}
+    """Normalizers for the properties.
+
+    Any property can be associated with multiple normalizers. This is useful
+    for cases where we want to normalize the same property in different ways.
+    For example, we may want to normalize the energy by subtracting
+    the atomic reference energies, as well as by mean and standard deviation
+    normalization.
+
+    The normalizers are applied in the order they are defined in the list.
+    """
     
     @classmethod
     @abstractmethod
@@ -161,7 +175,7 @@ class StudentModuleBase(
         ...
         
     @abstractmethod
-    def batch_to_labels(self, batch: TBatch) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+    def batch_to_labels(self, batch: TBatch) -> dict[str, torch.Tensor]:
         """
         Extract ground truth values from a batch. 
         
@@ -170,16 +184,6 @@ class StudentModuleBase(
             mask: Dictionary of masks for the ground truth values, each mask is an integer tensor of shape (batch_size,) or (num_atoms,) with 1 for valid values and 0 for misssing values.
             Both dictionaries should use the property names as keys.
             mask[key] should be a 1-dim tensor with the same length as labels[key].
-        """
-        ...
-        
-    @abstractmethod
-    def batch_to_num_atoms(self, batch: TBatch) -> torch.Tensor:
-        """
-        Extract number of atoms in each structure from a batch.
-
-        Returns:
-            num_atoms: Tensor of shape (batch_size,) with the number of atoms in each structure.
         """
         ...
     
@@ -195,6 +199,39 @@ class StudentModuleBase(
         """
         ...
     
+    @abstractmethod
+    def create_normalization_context_from_batch(
+        self, batch: TBatch
+    ) -> NormalizationContext:
+        """
+        Create a normalization context from a batch. This is used to normalize
+        and denormalize the properties.
+
+        The normalization context contains all the information required to
+        normalize and denormalize the properties. Currently, this only
+        includes the compositions of the materials in the batch.
+        The compositions should be provided as an integer tensor of shape
+        (batch_size, num_elements), where each row (i.e., `compositions[i]`)
+        corresponds to the composition vector of the `i`-th material in the batch.
+
+        The composition vector is a vector that maps each element to the number of
+        atoms of that element in the material. For example, `compositions[:, 1]`
+        corresponds to the number of Hydrogen atoms in each material in the batch,
+        `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
+
+        Args:
+            batch: Input batch.
+
+        Returns:
+            Normalization context.
+        """
+        ...
+        
+    def before_fit_start(self, datamodule) -> None:
+        """Optional hook: called before Trainer.fit(.).
+        Use it to perform lazy initialization safely.
+        """
+        return
 
     # endregion
 
@@ -217,10 +254,112 @@ class StudentModuleBase(
         # Create metrics
         self.create_metrics()
         
+        # Create normalization modules
+        self.create_normalizers()
+        
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
         self.val_metrics = FinetuneMetrics(self.hparams.properties)
         self.test_metrics = FinetuneMetrics(self.hparams.properties)
+        
+    def create_normalizers(self):
+        self.normalizers = nn.ModuleDict(
+            {
+                prop.name: ComposeNormalizers(
+                    [
+                        normalizer.create_normalizer_module()
+                        for normalizer in normalizers
+                    ]
+                )
+                for prop in self.hparams.properties
+                if (normalizers := self.hparams.normalizers.get(prop.name))
+            }
+        )
+        
+    def normalize(
+        self,
+        predictions: dict[str, torch.Tensor],
+        targets: dict[str, torch.Tensor],
+        ctx: NormalizationContext,
+    ):
+        """
+        Normalizes predictions and targets
+
+        Args:
+            predictions: Dictionary of predicted values to normalize. 
+            targets: Dictionary of target values to normalize. 
+            ctx: Normalization context. This should be created using
+                ``create_normalization_context_from_batch``.
+
+        Returns:
+            Normalized predictions and targets.
+        """
+        normalized_predictions = {}
+        normalized_targets = {}
+        for key in predictions.keys():
+            pred = predictions[key]
+            target = None if targets is None else targets[key]
+            if key in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[key])
+                pred, target = normalizer.normalize(predictions[key], targets[key], ctx)
+            normalized_predictions[key] = pred
+            normalized_targets[key] = target
+        return normalized_predictions, normalized_targets
+
+    def denormalize(
+        self,
+        predictions: dict[str, torch.Tensor],
+        targets: dict[str, torch.Tensor],
+        ctx: NormalizationContext,
+    ):
+        """
+        Denormalizes predictions and targets
+
+        Args:
+            predictions: Dictionary of predicted values to denormalize.
+            targets: Dictionary of target values to denormalize.
+            ctx: Normalization context. This should be created using
+                ``create_normalization_context_from_batch``.
+
+        Returns:
+            Denormalized predictions and targets.
+        """
+        denormalized_predictions = {}
+        denormalized_targets = {}
+        for key in predictions.keys():
+            pred = predictions[key]
+            target = targets[key]
+            if key in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[key])
+                pred, target = normalizer.denormalize(pred, target, ctx)
+            denormalized_predictions[key] = pred
+            denormalized_targets[key] = target
+        return denormalized_predictions, denormalized_targets
+    
+    def denormalize_predict(
+        self,
+        predictions: dict[str, torch.Tensor],
+        ctx: NormalizationContext,
+    ):
+        """
+        Denormalizes predictions
+
+        Args:
+            predictions: Dictionary of predicted values to denormalize.
+            ctx: Normalization context. This should be created using
+                ``create_normalization_context_from_batch``.
+
+        Returns:
+            Denormalized predictions.
+        """
+        denormalized_predictions = {}
+        for key in predictions.keys():
+            pred = predictions[key]
+            if key in self.normalizers:
+                normalizer = cast(ComposeNormalizers, self.normalizers[key])
+                pred = normalizer.denormalize_predict(pred, ctx)
+            denormalized_predictions[key] = pred
+        return denormalized_predictions
     
     @override
     def forward(
@@ -263,7 +402,6 @@ class StudentModuleBase(
         self,
         predictions: dict[str, torch.Tensor],
         labels: dict[str, torch.Tensor],
-        label_masks: dict[str, torch.Tensor],
         log: bool = True,
         log_prefix: str = "",
     ):
@@ -272,11 +410,6 @@ class StudentModuleBase(
             # Get the target and prediction
             prediction = predictions[prop.name]
             label = labels[prop.name]
-            
-            if label_masks is not None and prop.name in label_masks:
-                mask = label_masks[prop.name].bool()
-                label = label[mask]
-                prediction = prediction[mask]
 
             # Compute the loss
             loss = compute_loss(prop.loss, prediction, label) * prop.loss_coefficient
@@ -315,34 +448,49 @@ class StudentModuleBase(
                 #   parameters so that the optimizer can still update them.
                 # This prevents DDP unused parameter errors.
                 return cast(torch.Tensor, sum(p.sum() * 0.0 for p in self.parameters()))
+            
+            warnings.warn(
+                "Skipping batch due to error in data processing. "
+                "This is likely due to bad data. "
+                "To see the full error, set `ignore_gpu_batch_transform_error` to False.",
+                UserWarning,
+            )
 
             return _zero_output(), _zero_loss()
 
         # Extract labels from the batch
-        labels, label_masks = self.batch_to_labels(batch)
+        labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
-
-        for key, value in labels.items():
-            labels[key] = value.contiguous()
-            label_masks[key] = label_masks[key].contiguous()
-
+            
+        for key in predictions.keys():
+            labels[key] = labels[key].contiguous()
+            predictions[key] = predictions[key].contiguous()
+            
+        if len(self.normalizers) > 0:
+            # Create the normalization context required for normalization/referencing.
+            # We only need to create the context once per batch.
+            normalization_ctx = self.create_normalization_context_from_batch(batch)
+            predictions, labels = self.normalize(predictions, labels, normalization_ctx)
+        
         # Compute loss
         loss = self._compute_loss(
             predictions,
             labels,
-            label_masks,
             log=log,
             log_prefix=f"{mode}/",
         )
+        
+        if len(self.normalizers) > 0:
+            predictions, labels = self.denormalize(predictions, labels, normalization_ctx) # type: ignore
 
         # Log metrics
         if log and (metrics is not None):
-            log_metrics = {
+            denormalized_metrics = {
                 f"{mode}/{metric_name}": metric
                 for metric_name, metric in metrics(predictions, labels).items()
             }
             self.log_dict(
-                log_metrics,
+                denormalized_metrics,
                 on_epoch=True,
                 sync_dist=True,
             )
@@ -372,7 +520,10 @@ class StudentModuleBase(
             batch, mode="predict", ignore_gpu_batch_transform_error=False
         )
         predictions = output["predicted_properties"]
-        num_atoms = self.batch_to_num_atoms(batch).detach().cpu()
+        normalization_ctx = self.create_normalization_context_from_batch(batch)
+        if len(self.normalizers) > 0:
+            predictions = self.denormalize_predict(predictions, normalization_ctx)
+        num_atoms = normalization_ctx.num_atoms
         pred_list = []
         for i in range(len(num_atoms)):
             pred_dict = {}
@@ -405,6 +556,8 @@ class StudentModuleBase(
 
     @override
     def configure_optimizers(self):
+        assert self._lazy_inited, "Model not initialized. Did you forget to call before_fit_start()?"
+        
         optimizer = create_optimizer(
             self.hparams.optimizer, self.trainable_parameters()
         )

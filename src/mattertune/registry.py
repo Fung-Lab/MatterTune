@@ -3,7 +3,7 @@ from __future__ import annotations
 import nshconfig as C
 
 from .finetune.base import FinetuneModuleBaseConfig
-from .students.base import StudentModuleBaseConfig
+from .distillation.base import StudentModuleBaseConfig
 
 backbone_registry = C.Registry(FinetuneModuleBaseConfig, discriminator="name")
 """Registry for backbone modules."""

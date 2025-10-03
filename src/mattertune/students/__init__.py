@@ -5,7 +5,7 @@ from typing import Annotated
 from typing_extensions import TypeAliasType
 
 from ..registry import student_registry
-from .base import StudentModuleBaseConfig, StudentModuleBase
+from ..distillation.base import StudentModuleBaseConfig, StudentModuleBase
 from .cace_model.model import CACECutoffFnConfig, CACERBFConfig, CACEStudentModelConfig, CACEStudentModel
 
 StudentModelConfig = TypeAliasType(
