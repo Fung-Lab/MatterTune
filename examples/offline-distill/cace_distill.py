@@ -36,7 +36,7 @@ def main(args_dict: dict):
         )
         hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
             mode="min",
-            monitor=f"val/total_loss",
+            monitor=f"val/forces_rmse",
             factor=0.8,
             patience=10,
             min_lr=1e-8,
@@ -48,7 +48,7 @@ def main(args_dict: dict):
         )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MSELossConfig(), conservative=True, loss_coefficient=1.0
+            loss=MC.MSELossConfig(), conservative=True, loss_coefficient=1000.0
         )
         hparams.model.properties.append(forces)
         
@@ -81,16 +81,15 @@ def main(args_dict: dict):
         hparams.trainer.gradient_clip_algorithm = "value"
         hparams.trainer.gradient_clip_val = 10.0
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/total_loss", patience=200, mode="min"
+            monitor=f"val/forces_rmse", patience=200, mode="min"
         )
         os.system("rm -rf ./checkpoints/cace-best.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
-            monitor="val/total_loss",
+            monitor="val/forces_rmse",
             dirpath="./checkpoints",
             filename="cace-best",
             save_top_k=1,
             mode="min",
-            every_n_epochs=10,
         )
         now = datetime.now()
         formatted = now.strftime("%m-%d %H:%M")
