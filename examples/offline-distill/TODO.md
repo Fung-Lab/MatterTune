@@ -1,0 +1,6 @@
+- Add CACE
+- Do water training and plot rdf of CACE
+- Compare speed of CACE with AFMs
+- Try a complex system, 4-elem example, on CACE -> If it slows down
+- Implement a real-world distillation experiment on CACE
+- 

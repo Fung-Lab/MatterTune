@@ -556,7 +556,6 @@ class StudentModuleBase(
 
     @override
     def configure_optimizers(self):
-        assert self._lazy_inited, "Model not initialized. Did you forget to call before_fit_start()?"
         
         optimizer = create_optimizer(
             self.hparams.optimizer, self.trainable_parameters()
