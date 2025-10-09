@@ -1,6 +1,8 @@
-# Scalable Foundation Interatomic Potentials via
+# Scalable Foundation Interatomic Potentials via Message-Passing Pruning and Graph Partitioning
 
 This is the experimental code for the paper **Scalable Foundation Interatomic Potentials via Message-Passing Pruning and Graph Partitioning**. In the MatterTune documentation, we provide instructions on how to install the environment dependencies and use this acceleration workflow.
+
+For environment setup, please refer to [doc](https://fung-lab.github.io/MatterTune/advanced/prune%26partition.html)
 
 ## Li$_3$PO$_4$
 
