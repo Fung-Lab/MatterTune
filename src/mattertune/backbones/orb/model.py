@@ -393,7 +393,7 @@ class ORBBackboneModule(
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
             system_config=self.system_config,
-            device=self.device,
+            device=torch.device("cpu"),
         )
         
         if has_labels:
