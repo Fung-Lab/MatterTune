@@ -81,12 +81,12 @@ class ORBBackboneConfig(FinetuneModuleBaseConfig):
             #   PR: https://github.com/orbital-materials/orb_models/pull/35
             # FIXME: Remove this note once the PR is merged.
 
-        # Make sure pynanoflann is available
-        if importlib.util.find_spec("pynanoflann") is None:
-            raise ImportError(
-                "The pynanoflann module is not installed. Please install it by running"
-                'pip install "pynanoflann@git+https://github.com/dwastberg/pynanoflann#egg=af434039ae14bedcbb838a7808924d6689274168"'
-            )
+        # # Make sure pynanoflann is available
+        # if importlib.util.find_spec("pynanoflann") is None:
+        #     raise ImportError(
+        #         "The pynanoflann module is not installed. Please install it by running"
+        #         'pip install "pynanoflann@git+https://github.com/dwastberg/pynanoflann#egg=af434039ae14bedcbb838a7808924d6689274168"'
+        #     )
 
 
 @final
@@ -105,23 +105,33 @@ class ORBBackboneModule(
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield.forcefield_heads import (
-                EnergyHeadPoolAfter,
                 ForceHead,
                 StressHead,
-                GraphHeadPoolAfter,
             )
+            if self.hparams.using_partition:
+                from orb_models.forcefield.forcefield_heads import GraphHeadPoolAfter, EnergyHeadPoolAfter
+            else:
+                from orb_models.forcefield.forcefield_heads import EnergyHead, GraphHead
 
         match prop:
             case props.EnergyPropertyConfig():
                 if not self.hparams.reset_output_heads:
                     return pretrained_model.graph_head
                 else:
-                    return EnergyHeadPoolAfter(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        reference_energy="vasp-shifted",
-                    )
+                    if self.hparams.using_partition:
+                        return EnergyHeadPoolAfter( # type: ignore[reportUnboundType] # noqa
+                            latent_dim=256,
+                            num_mlp_layers=1,
+                            mlp_hidden_dim=256,
+                            predict_atom_avg = False,
+                        )
+                    else:
+                        return EnergyHead( # type: ignore[reportUnboundType] # noqa
+                            latent_dim=256,
+                            num_mlp_layers=1,
+                            mlp_hidden_dim=256,
+                            predict_atom_avg = False,
+                        )
 
             case props.ForcesPropertyConfig():
                 self.include_forces = True
@@ -164,17 +174,30 @@ class ORBBackboneModule(
                         "Pretrained model does not support general graph properties, only energy, forces, and stresses are supported."
                     )
                 else:
-                    return GraphHeadPoolAfter(
-                        latent_dim=256,
-                        num_mlp_layers=1,
-                        mlp_hidden_dim=256,
-                        target=PropertyDefinition(
-                            name=prop.name,
-                            dim=1,
-                            domain="real",
-                        ),
-                        node_aggregation=prop.reduction, # type: ignore[reportUnboundType] # noqa
-                    )
+                    if self.hparams.using_partition:
+                        return GraphHeadPoolAfter(  # type: ignore[reportUnboundType] # noqa
+                            latent_dim=256,
+                            num_mlp_layers=1,
+                            mlp_hidden_dim=256,
+                            target=PropertyDefinition(
+                                name=prop.name,
+                                dim=1,
+                                domain="real",
+                            ),
+                            node_aggregation=prop.reduction, # type: ignore
+                        )
+                    else:
+                        return GraphHead(  # type: ignore[reportUnboundType] # noqa
+                            latent_dim=256,
+                            num_mlp_layers=1,
+                            mlp_hidden_dim=256,
+                            target=PropertyDefinition(
+                                name=prop.name,
+                                dim=1,
+                                domain="real",
+                            ),
+                            node_aggregation=prop.reduction, # type: ignore
+                        )
             case _:
                 raise ValueError(
                     f"Unsupported property config: {prop} for ORB"
@@ -449,16 +472,16 @@ class ORBBackboneModule(
             from orb_models.forcefield import atomic_system  # type: ignore[reportMissingImports] # noqa
 
         # This is the dataset transform; we can't use GPU here.
-        # NOTE: The 0.4.0 version of `orb_models` doesn't actually fully respect
-        #   the `device` argument. We have a patch to fix this, and we have
-        #   a PR open to fix this upstream. Until that is merged, users
-        #   will need to install the patched version of `orb_models` from our fork:
-        #   `pip install "orb_models@git+https://github.com/nimashoghi/orb_models.git"`
-        #   PR: https://github.com/orbital-materials/orb_models/pull/35
+        # NOTE: the 0.5.5 version of `orb_models` has a bug in the `ase_atoms_to_atom_graphs`
+        # in "orb_models/.../featurization_utilities.py" there is a line: positions = positions.to(device)
+        # that trys to move the positions to the device
+        # when device="gpu" and num_workers>0, it will throw an error because it is not allowed to do CUDA lazy init in
+        # a forked process. We have a patch to fix this, and we have a PR open to fix this upstream. But in 0.5.5 they
+        # have not fixed it yet. Until that is merged, a solution is to set device="cpu"
         atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
             atoms,
             system_config=self.system_config,
-            device=self.device,
+            device=torch.device("cpu"),
         )
         
         if has_labels:
