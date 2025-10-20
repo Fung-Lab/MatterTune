@@ -20,13 +20,13 @@ def main(args_dict: dict):
         hparams.model = MC.CACEStudentModelConfig.draft()
         hparams.model.zs = [1, 8]
         hparams.model.n_atom_basis = 3
-        hparams.model.cutoff = 5.5
+        hparams.model.cutoff = args_dict["cutoff"]
         hparams.model.cutoff_fn = MC.CACECutoffFnConfig(fn_type="polynomial", p=6)
         hparams.model.radial_basis = MC.CACERBFConfig(rbf_type="bessel", n_rbf=6, trainable=True)
         hparams.model.max_l = 3
         hparams.model.max_nu = 3
         hparams.model.n_radial_basis = 12
-        hparams.model.num_message_passing = 1
+        hparams.model.num_message_passing = args_dict["num_message_passing"]
         hparams.model.avg_num_neighbors = 1
         hparams.model.type_message_passing = ["Bchi"]
         hparams.model.args_message_passing = {'Bchi': {'shared_channels': False, 'shared_l': False}}
@@ -83,11 +83,11 @@ def main(args_dict: dict):
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
             monitor=f"val/forces_rmse", patience=200, mode="min"
         )
-        os.system("rm -rf ./checkpoints/cace-best.ckpt")
+        os.system(f"rm -rf ./checkpoints/cace-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
             monitor="val/forces_rmse",
             dirpath="./checkpoints",
-            filename="cace-best",
+            filename=f"cace-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}",
             save_top_k=1,
             mode="min",
         )
@@ -96,7 +96,7 @@ def main(args_dict: dict):
         hparams.trainer.loggers = [
             WandbLoggerConfig(
                 project="MatterTune-Offline-Distill-Test",
-                name=f"cace-water-{formatted}"
+                name=f"cace-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}-water-{formatted}"
             )
         ]
         hparams.trainer.additional_trainer_kwargs = {
@@ -188,6 +188,8 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--max_epochs", type=int, default=5000)
     parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5, 6, 7])
+    parser.add_argument("--num_message_passing", type=int, default=1)
+    parser.add_argument("--cutoff", type=float, default=5.5)
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)

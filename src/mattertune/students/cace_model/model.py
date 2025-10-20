@@ -9,8 +9,8 @@ from typing_extensions import Sequence, Any, Iterable
 import nshconfig as C
 import torch
 import torch.nn as nn
+import numpy as np
 from typing_extensions import final, override
-from typing import Union, IO, Optional
 from torch.nn.modules.module import _IncompatibleKeys
 from ase import Atoms
 
@@ -236,6 +236,7 @@ class CACEStudentModel(
             n_out=1,
             use_batchnorm=self.hparams.readout_head.use_batchnorm,
             add_linear_nn=self.hparams.readout_head.add_linear_nn,
+            per_atom_output_key="energies_per_atom",
         )
         fs_head = Forces(
             calc_forces=self.calc_forces,
@@ -263,7 +264,7 @@ class CACEStudentModel(
         with contextlib.ExitStack() as stack:
             stack.enter_context(torch.enable_grad())
             yield
-            
+    
     @override
     def model_forward(
         self, batch, mode: str
@@ -276,6 +277,12 @@ class CACEStudentModel(
         )
         pred: ModelOutput = {"predicted_properties": output}
         return pred
+    
+    @override
+    def model_forward_partition(
+        self, batch, mode: str
+    ): 
+        return self.model_forward(batch, mode)
     
     @override
     def cpu_data_transform(self, data):
@@ -320,6 +327,11 @@ class CACEStudentModel(
                 value = prop._from_ase_atoms_to_torch(atoms)
                 value_shape = prop.shape.resolve(len(atoms))
                 setattr(data, prop_name, torch.as_tensor(value, dtype=torch.float32).view(value_shape))
+                
+        if self.hparams.using_partition and "root_node_indices" in atoms.info:
+            root_node_indices = atoms.info["root_node_indices"]
+            root_indices_mask = [1 if i in root_node_indices else 0 for i in range(len(atoms))]
+            setattr(data, "root_indices_mask", torch.tensor(root_indices_mask, dtype=torch.long)) # type: ignore[assignment]
         
         return data
     
@@ -403,6 +415,16 @@ class CACEStudentModel(
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
+    def create_normalization_context_from_atoms(
+        self, atoms: Atoms
+    ) -> NormalizationContext:
+        num_atoms = torch.tensor([len(atoms)], dtype=torch.long)
+        atomic_numbers = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.long)
+        atom_types_onehot = torch.nn.functional.one_hot(atomic_numbers, num_classes=120)
+        compositions = atom_types_onehot[:, 1:].sum(dim=0, dtype=torch.long).unsqueeze(0)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
+    
+    @override
     def before_fit_start(self, datamodule) -> None:
         """
         Fetch a batch from the datamodule and run a forward pass to initialize lazy layers.
@@ -445,4 +467,30 @@ class CACEStudentModel(
             _ = self.model_forward(mini_batch, mode="val")
             
         self._lazy_inited = True
+        
+    @override
+    def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Array of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        with optional_import_error_message("cace"):
+            from cace.data.neighborhood import get_neighborhood
+            
+        positions = atoms.get_positions()
+        pbc = tuple(atoms.get_pbc())
+        cell = np.array(atoms.get_cell())
+        
+        edge_index, shifts, unit_shifts = get_neighborhood(
+            positions=positions,
+            cutoff=self.hparams.cutoff,
+            pbc=pbc,
+            cell=cell
+        )
+        
+        return edge_index
    

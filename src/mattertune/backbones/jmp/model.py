@@ -26,7 +26,7 @@ from ...finetune.base import (
 )
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 from .util import get_activation_cls
 from ...finetune.optimizer import PerParamHparamsDict
 
@@ -252,8 +252,7 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
         assert ckpt_path is not None
         self.backbone = GemNetOCBackbone.from_pretrained_ckpt(ckpt_path)
-
-        
+                
         log.info(
             f"Loaded the model from the checkpoint at {ckpt_path}. The model "
             f"has {sum(p.numel() for p in self.backbone.parameters()):,} parameters."
@@ -309,6 +308,40 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         }
         for name, head in self.output_heads.items():
             output = head(head_input)
+            if torch.isnan(output).any() or torch.isinf(output).any():
+                raise _SkipBatchError("NaN or inf detected in the output")
+            head_input["predicted_props"][name] = output
+
+        pred: ModelOutput = {"predicted_properties": predicted_properties}
+        return pred
+    
+    @override
+    def model_forward_partition(self, batch, mode: str, using_partition=False):
+        # Run the backbone
+        backbone_output = self.backbone(batch)
+
+        # Feed the backbone output to the output heads
+        predicted_properties: dict[str, torch.Tensor] = {}
+
+        head_input: dict[str, Any] = {
+            "data": batch,
+            "backbone_output": backbone_output,
+            "predicted_props": predicted_properties,
+        }
+        for name, head in self.output_heads.items():
+            assert (
+                prop := next(
+                    (p for p in self.hparams.properties if p.name == name), None
+                )
+            ) is not None, (
+                f"Property {name} not found in properties. "
+                "This should not happen, please report this."
+            )
+            if using_partition and isinstance(prop, props.EnergyPropertyConfig):
+                output, per_atom_energies = head(head_input, return_per_atom_energy=True)
+                head_input["predicted_props"]["energies_per_atom"] = per_atom_energies
+            else:
+                output = head(head_input)
             if torch.isnan(output).any() or torch.isinf(output).any():
                 raise _SkipBatchError("NaN or inf detected in the output")
             head_input["predicted_props"][name] = output
@@ -391,6 +424,30 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
                 data_dict[prop.name] = value
 
         return Data.from_dict(data_dict)
+    
+    @override
+    def get_connectivity_from_data(self, data) -> torch.Tensor:
+        data = data.to("cuda:0")
+        graph = self.graph_computer(data)
+        edge_indices = graph["main_edge_index"].clone()
+        return edge_indices
+    
+    # @override
+    # def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
+    #     data = self.atoms_to_data(atoms, has_labels=False)
+    #     edge_indices = self.get_connectivity_from_data(data).cpu().numpy()
+    #     return edge_indices
+    
+    @override
+    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
+        edge_index = neighbor_list_and_relative_vec(
+            method = "vesin",
+            pos = np.array(atoms.get_positions()),
+            cell = np.array(atoms.get_cell(complete=True)),
+            r_max = self.hparams.graph_computer.cutoffs.main,
+            pbc = atoms.pbc,
+        )
+        return edge_index
 
     @override
     def create_normalization_context_from_batch(self, batch):
@@ -422,6 +479,16 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
         )
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
+    
+    @override
+    def apply_pruning_message_passing(self, message_passing_steps: int|None):
+        """
+        Apply message passing for early stopping.
+        """
+        if message_passing_steps is None:
+            pass
+        else:
+            self.backbone.num_blocks = min(self.backbone.num_blocks, message_passing_steps)
 
 
 def _get_fixed(atoms: Atoms):

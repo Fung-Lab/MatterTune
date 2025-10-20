@@ -12,6 +12,7 @@ import ase
 import nshconfig as C
 import torch
 import torch.nn as nn
+import numpy as np
 from torch.utils.data import Dataset
 from lightning.pytorch import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRSchedulerConfig
@@ -57,6 +58,9 @@ class StudentModuleBaseConfig(C.Config, ABC):
 
     The normalizers are applied in the order they are defined in the list.
     """
+    
+    using_partition: bool = False
+    """Whether to use partition for distributed inference."""
     
     @classmethod
     @abstractmethod
@@ -131,6 +135,23 @@ class StudentModuleBase(
         
     @abstractmethod
     def model_forward(
+        self,
+        batch: TBatch,
+        mode: str,
+    ) -> ModelOutput:
+        """
+        Forward pass of the model.
+
+        Args:
+            batch: Input batch.
+
+        Returns:
+            Prediction of the model.
+        """
+        ...
+        
+    @abstractmethod
+    def model_forward_partition(
         self,
         batch: TBatch,
         mode: str,
@@ -227,11 +248,52 @@ class StudentModuleBase(
         """
         ...
         
+    @abstractmethod
+    def create_normalization_context_from_atoms(
+        self, atoms: ase.Atoms
+    ) -> NormalizationContext:
+        """
+        Create a normalization context from a batch. This is used to normalize
+        and denormalize the properties.
+
+        The normalization context contains all the information required to
+        normalize and denormalize the properties. Currently, this only
+        includes the compositions of the materials in the batch.
+        The compositions should be provided as an integer tensor of shape
+        (batch_size, num_elements), where each row (i.e., `compositions[i]`)
+        corresponds to the composition vector of the `i`-th material in the batch.
+
+        The composition vector is a vector that maps each element to the number of
+        atoms of that element in the material. For example, `compositions[:, 1]`
+        corresponds to the number of Hydrogen atoms in each material in the batch,
+        `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
+
+        Args:
+            batch: Input batch.
+
+        Returns:
+            Normalization context.
+        """
+        ...
+        
     def before_fit_start(self, datamodule) -> None:
         """Optional hook: called before Trainer.fit(.).
         Use it to perform lazy initialization safely.
         """
         return
+        
+    @abstractmethod
+    def get_connectivity_from_atoms(self, atoms: ase.Atoms) -> np.ndarray:
+        """
+        Get the connectivity from the data. This is used to extract the connectivity
+        information from the data object. This is useful for message passing
+        and other graph-based operations.
+        
+        Returns:
+            edge_index: Array of shape (2, num_edges) containing the src and dst indices of the edges.
+        """
+        ...
+
 
     # endregion
 
@@ -257,6 +319,8 @@ class StudentModuleBase(
         # Create normalization modules
         self.create_normalizers()
         
+        self.disabled_heads = []
+        
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
         self.val_metrics = FinetuneMetrics(self.hparams.properties)
@@ -275,6 +339,9 @@ class StudentModuleBase(
                 if (normalizers := self.hparams.normalizers.get(prop.name))
             }
         )
+    
+    def set_disabled_heads(self, disabled_heads: list[str]):
+        self.disabled_heads = disabled_heads
         
     def normalize(
         self,
@@ -296,7 +363,7 @@ class StudentModuleBase(
         """
         normalized_predictions = {}
         normalized_targets = {}
-        for key in predictions.keys():
+        for key in targets.keys():
             pred = predictions[key]
             target = None if targets is None else targets[key]
             if key in self.normalizers:
@@ -326,7 +393,7 @@ class StudentModuleBase(
         """
         denormalized_predictions = {}
         denormalized_targets = {}
-        for key in predictions.keys():
+        for key in targets.keys():
             pred = predictions[key]
             target = targets[key]
             if key in self.normalizers:
@@ -385,9 +452,14 @@ class StudentModuleBase(
                 batch = self.gpu_batch_transform(batch)
 
             # Run the model
-            model_output = self.model_forward(
-                batch, mode=mode
-            )
+            if not self.hparams.using_partition:
+                model_output = self.model_forward(
+                    batch, mode=mode
+                )
+            else:
+                model_output = self.model_forward_partition(
+                    batch, mode=mode
+                )
 
             model_output["predicted_properties"] = {
                 prop_name: prop_value.contiguous()
@@ -434,6 +506,8 @@ class StudentModuleBase(
         metrics: FinetuneMetrics | None,
         log: bool = True,
     ):
+        labels = self.batch_to_labels(batch)
+        
         try:
             output: ModelOutput = self(batch, mode=mode)
         except _SkipBatchError:
@@ -459,10 +533,9 @@ class StudentModuleBase(
             return _zero_output(), _zero_loss()
 
         # Extract labels from the batch
-        labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
             
-        for key in predictions.keys():
+        for key in labels.keys():
             labels[key] = labels[key].contiguous()
             predictions[key] = predictions[key].contiguous()
             
@@ -674,3 +747,12 @@ class StudentModuleBase(
         from ..wrappers.ase_calculator import MatterTuneCalculator
 
         return MatterTuneCalculator(self, device=torch.device(device))
+    
+    def batch_to_device(self, batch, device):
+        """
+        This is used for moving a batch to a device. 
+        Normally we would just use `batch.to(device)`, but
+        for some models the batch can't be moved by "to()" directly.
+        For these models, we need to override this method.
+        """
+        return batch.to(device)
