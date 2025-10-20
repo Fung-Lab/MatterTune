@@ -102,20 +102,11 @@ class MatterTunePropertyPredictor:
             self.lightning_module, dataloader, return_predictions=True
         )
         assert predictions is not None, "Predictions should not be None. Report a bug."
-        predictions = cast(list[dict[str, torch.Tensor]], predictions)
-
+        predictions = cast(list[list[dict[str, torch.Tensor]]], predictions)
+        
         all_predictions = []
         for batch_preds in predictions:
-            if batch_size > 1:
-                first_tensor = next(iter(batch_preds.values()))
-                batch_size = len(first_tensor)
-                for idx in range(batch_size):
-                    pred_dict = {}
-                    for key, value in batch_preds.items():
-                        pred_dict[key] = torch.tensor(value[idx])
-                    all_predictions.append(pred_dict)
-            else:
-                all_predictions.append(batch_preds[0])
+            all_predictions.extend(batch_preds)
         assert len(all_predictions) == len(
             atoms_list
         ), "Mismatch in predictions length."
@@ -186,6 +177,8 @@ def _atoms_list_to_dataloader(
     atoms_list: list[ase.Atoms],
     lightning_module: FinetuneModuleBase | StudentModuleBase,
     batch_size: int = 1,
+    num_workers: int = 0,
+    **kwargs,
 ):
     class AtomsDataset(Dataset):
         def __init__(self, atoms_list: list[ase.Atoms]):
@@ -204,6 +197,7 @@ def _atoms_list_to_dataloader(
         has_labels=False,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=min(num_workers, len(atoms_list)),
+        **kwargs
     )
     return dataloader

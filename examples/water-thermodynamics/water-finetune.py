@@ -84,10 +84,9 @@ def main(args_dict: dict):
 
         # Add model properties
         hparams.model.properties = []
-        energy_coefficient = 1.0 
         conservative = args_dict["conservative"]
         energy = MC.EnergyPropertyConfig(
-            loss=MC.MSELossConfig(), loss_coefficient=energy_coefficient
+            loss=MC.MSELossConfig(), loss_coefficient=1.0
         )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
@@ -120,7 +119,7 @@ def main(args_dict: dict):
         hparams.trainer.max_epochs = args_dict["max_epochs"]
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
-        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True) if not "orb" in args_dict["model_type"] else DDPStrategy(static_graph=True, find_unused_parameters=True)
+        hparams.trainer.strategy = DDPStrategy(find_unused_parameters=True)
         hparams.trainer.gradient_clip_algorithm = "norm"
         hparams.trainer.gradient_clip_val = 1.0
         hparams.trainer.precision = "32"
@@ -235,8 +234,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=8e-5)
     parser.add_argument("--max_epochs", type=int, default=1000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3])
-    parser.add_argument("--lr_scheduler", type=str, default="steplr")
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5, 6, 7])
+    parser.add_argument("--lr_scheduler", type=str, default="rlp")
     parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()
     args_dict = vars(args)

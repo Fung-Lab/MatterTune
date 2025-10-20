@@ -25,6 +25,13 @@ guides/lightning
 
 ```{toctree}
 :maxdepth: 2
+:caption: Advanced Features
+
+advanced/prune&partition
+```
+
+```{toctree}
+:maxdepth: 2
 :caption: Model Backbones
 
 backbones/jmp

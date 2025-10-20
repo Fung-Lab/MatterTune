@@ -6,35 +6,30 @@ import rich
 from datetime import datetime
 import os
 
+from lightning.pytorch.strategies import DDPStrategy
+
 from mattertune.students.main import OfflineDistillationTrainerConfig, MatterTuneOfflineDistillationTrainer
 from mattertune.configs import WandbLoggerConfig
 import mattertune.configs as MC
-from mattertune.students import CACEStudentModel
+from mattertune.students import PaiNNStudentModel
 
 
 def main(args_dict: dict):
     def hparams():
         hparams = OfflineDistillationTrainerConfig.draft()
-        hparams.model = MC.CACEStudentModelConfig.draft()
-        hparams.model.zs = [1, 8]
-        hparams.model.n_atom_basis = 3
-        hparams.model.cutoff = 5.5
-        hparams.model.cutoff_fn = MC.CACECutoffFnConfig(fn_type="polynomial", p=6)
-        hparams.model.radial_basis = MC.CACERBFConfig(rbf_type="bessel", n_rbf=6, trainable=True)
-        hparams.model.max_l = 3
-        hparams.model.max_nu = 3
-        hparams.model.n_radial_basis = 12
-        hparams.model.num_message_passing = 1
-        hparams.model.avg_num_neighbors = 1
-        hparams.model.type_message_passing = ["Bchi"]
-        hparams.model.args_message_passing = {'Bchi': {'shared_channels': False, 'shared_l': False}}
+        hparams.model = MC.PaiNNStudentModelConfig.draft()
+        hparams.model.cutoff = args_dict["cutoff"]
+        hparams.model.cutoff_fn = MC.PaiNNCutoffFnConfig(fn_type="cosine")
+        hparams.model.neighbor_list_fn = MC.PaiNNNeighborListConfig(fn_type="ase")
+        hparams.model.num_message_passing = args_dict["num_message_passing"]
+        hparams.model.rbf = MC.PaiNNRBFConfig(fn_type="gaussian")
         
         hparams.model.optimizer = MC.AdamConfig(
             lr=args_dict["lr"],
         )
         hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
             mode="min",
-            monitor=f"val/total_loss",
+            monitor=f"val/forces_rmse",
             factor=0.8,
             patience=10,
             min_lr=1e-8,
@@ -46,7 +41,7 @@ def main(args_dict: dict):
         )
         hparams.model.properties.append(energy)
         forces = MC.ForcesPropertyConfig(
-            loss=MC.MSELossConfig(), conservative=True, loss_coefficient=1000.0
+            loss=MC.MSELossConfig(), conservative=True, loss_coefficient=100.0
         )
         hparams.model.properties.append(forces)
         
@@ -54,48 +49,47 @@ def main(args_dict: dict):
         hparams.data = MC.ManualSplitDataModuleConfig.draft()
         hparams.data.num_workers = 8
         hparams.data.train = MC.XYZDatasetConfig.draft()
-        hparams.data.train.src = "./data/normed_train_water_1593_eVAng.xyz"
+        hparams.data.train.src = "./data/train_water_1593_eVAng.xyz"
         hparams.data.validation = MC.XYZDatasetConfig.draft()
-        hparams.data.validation.src = "./data/normed_val_water_1593_eVAng.xyz"
+        hparams.data.validation.src = "./data/val_water_1593_eVAng.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
         
-        # ## Add Normalization for Energy
-        # hparams.model.normalizers = {
-        #     "energy": [
-        #         MC.PerAtomReferencingNormalizerConfig(
-        #             per_atom_references=Path("./data/water_1593_eVAng-energy_reference.json")
-        #         ),
-        #         # MC.PerAtomNormalizerConfig(),
-        #     ]
-        # }
+        ## Add Normalization for Energy
+        hparams.model.normalizers = {
+            "energy": [
+                MC.PerAtomReferencingNormalizerConfig(
+                    per_atom_references=Path("./data/water_1593_eVAng-energy_reference.json")
+                ),
+                MC.PerAtomNormalizerConfig(),
+            ]
+        }
         
         ## Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
         hparams.trainer.max_epochs = args_dict["max_epochs"]
         hparams.trainer.accelerator = "gpu"
         hparams.trainer.devices = args_dict["devices"]
-        hparams.trainer.strategy = "auto"
+        hparams.trainer.strategy = DDPStrategy()
         hparams.trainer.precision = "32"
         hparams.trainer.gradient_clip_algorithm = "value"
         hparams.trainer.gradient_clip_val = 10.0
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/total_loss", patience=200, mode="min"
+            monitor=f"val/forces_rmse", patience=200, mode="min"
         )
-        os.system("rm -rf ./checkpoints/cace-best.ckpt")
+        os.system(f"rm -rf ./checkpoints/painn-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
-            monitor="val/total_loss",
+            monitor="val/forces_rmse",
             dirpath="./checkpoints",
-            filename="cace-best",
+            filename=f"painn-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}",
             save_top_k=1,
             mode="min",
-            every_n_epochs=10,
         )
         now = datetime.now()
         formatted = now.strftime("%m-%d %H:%M")
         hparams.trainer.loggers = [
             WandbLoggerConfig(
                 project="MatterTune-Offline-Distill-Test",
-                name=f"cace-water-{formatted}"
+                name=f"painn-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}-water-{formatted}"
             )
         ]
         hparams.trainer.additional_trainer_kwargs = {
@@ -115,9 +109,9 @@ def main(args_dict: dict):
     from tqdm import tqdm
     import matplotlib.pyplot as plt
     
-    val_atoms_list:list[Atoms] = read("./data/normed_val_water_1593_eVAng.xyz", ":") # type: ignore
+    val_atoms_list:list[Atoms] = read("./data/val_water_1593_eVAng.xyz", ":") # type: ignore
     
-    model = CACEStudentModel.load_from_checkpoint("./checkpoints/cace-best.ckpt", lazy_init_atoms=val_atoms_list[0])
+    model = PaiNNStudentModel.load_from_checkpoint(f"./checkpoints/painn-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}.ckpt")
     calc = model.ase_calculator(device=f"cuda:{args_dict['devices'][0]}")
     
     energies = []
@@ -176,7 +170,7 @@ def main(args_dict: dict):
     plt.title("Forces Z Prediction")
     plt.plot([min(forces[:, 2]), max(forces[:, 2])], [min(forces[:, 2]), max(forces[:, 2])], 'r--')
     plt.tight_layout()
-    plt.savefig("cace_water_val_predictions.png", dpi=300)
+    plt.savefig("painn_water_val_predictions.png", dpi=300)
     
     
 if __name__ == "__main__":
@@ -186,7 +180,9 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--max_epochs", type=int, default=5000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0,1,2,3,4,5,6,7])
+    parser.add_argument("--num_message_passing", type=int, default=3)
+    parser.add_argument("--cutoff", type=float, default=5.0)
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)

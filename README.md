@@ -11,7 +11,12 @@ MatterTune is a flexible and powerful machine learning library designed specific
 - Pre-trained model support: **UMA**, **JMP**, **EquiformerV2**, **MatterSim**, **ORB**, **MACE**, and more to be added.
 - Multiple property predictions: energy, forces, stress, and custom properties.
 - Various supported dataset formats: XYZ, ASE databases, Materials Project, Matbench, and more.
-- Comprehensive training features with automated data splitting and logging.
+- Comprehensive training features with automated data splitting and logging. 
+
+## Advanced Features
+
+- Atomistic Foundation Model Acceleration via Message Passing Pruning and Graph Partitioning ([publication](), [docs]())
+
 
 ## Quick Start
 
@@ -104,4 +109,11 @@ MatterTune's core framework is licensed under the MIT License. Note that each su
 
 ## Citation
 
-Coming soon.
+```
+@article{kong2025mattertune,
+  title={Mattertune: An integrated, user-friendly platform for fine-tuning atomistic foundation models to accelerate materials simulation and discovery},
+  author={Kong, Lingyu and Shoghi, Nima and Hu, Guoxiang and Li, Pan and Fung, Victor},
+  journal={arXiv preprint arXiv:2504.10655},
+  year={2025}
+}
+```
