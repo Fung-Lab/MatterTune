@@ -17,7 +17,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, param_matches_group
 
 if TYPE_CHECKING:
     from torch_geometric.data.batch import Batch  # type: ignore[reportMissingImports] # noqa
@@ -280,10 +280,28 @@ class EqV2BackboneModule(FinetuneModuleBase["BaseData", "Batch", EqV2BackboneCon
 
     @override
     def trainable_parameters(self):
+        """
+        EqV2's param list:
+        - backbone.sphere_embedding
+        - backbone.edge_degree_embedding
+        - backbone.blocks.0
+        - ...
+        - backbone.norm
+        - output_heads
+        """
         if not self.hparams.freeze_backbone:
-            yield from self.backbone.named_parameters()
+            for name, param in self.backbone.named_parameters():
+                if self.hparams.freeze_group_bys is None or param_matches_group(
+                    "backbone."+name, self.hparams.freeze_group_bys
+                ) is False:
+                    yield name, param
         for head in self.output_heads.values():
-            yield from head.named_parameters()
+            if head is not None:
+                for name, param in head.named_parameters():
+                    if self.hparams.freeze_group_bys is None or param_matches_group(
+                        "output_heads"+name, self.hparams.freeze_group_bys
+                    ) is False:
+                        yield name, param
 
     @override
     @contextlib.contextmanager

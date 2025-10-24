@@ -16,7 +16,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, param_matches_group
 from ..eqV2.model import FAIRChemAtomsToGraphSystemConfig
 
 if TYPE_CHECKING:
@@ -138,10 +138,36 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
     
     @override
     def trainable_parameters(self):
+        """
+        UMA's param list:
+        - backbone.sphere_embedding
+        - backbone.charge_embedding
+        - backbone.spin_embedding
+        - backbone.dataset_embedding
+        - backbone.mix_csd
+        - backbone.source_embedding
+        - backbone.target_embedding
+        - backbone.edge_degree_embedding
+        - backbone.blocks.0
+        - ...
+        - backbone.norm
+        - backbone.routing_mlp
+        - backbone.composition_embedding
+        - output_heads
+        """
         if not self.hparams.freeze_backbone:
-            yield from self.backbone.named_parameters()
+            for name, param in self.backbone.named_parameters():
+                if self.hparams.freeze_group_bys is None or param_matches_group(
+                    "backbone."+name, self.hparams.freeze_group_bys
+                ) is False:
+                    yield name, param
         for head in self.output_heads.values():
-            yield from head.named_parameters()
+            if head is not None:
+                for name, param in head.named_parameters():
+                    if self.hparams.freeze_group_bys is None or param_matches_group(
+                        "output_heads"+name, self.hparams.freeze_group_bys
+                    ) is False:
+                        yield name, param
             
     @override
     @contextlib.contextmanager

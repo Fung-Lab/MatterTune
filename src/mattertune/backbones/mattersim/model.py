@@ -17,7 +17,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message, neighbor_list_and_relative_vec
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec, param_matches_group
 
 if TYPE_CHECKING:
     from torch_geometric.data import Batch, Data  # type: ignore[reportMissingImports] # noqa
@@ -176,9 +176,22 @@ class MatterSimM3GNetBackboneModule(
 
     @override
     def trainable_parameters(self):
-        for name, param in self.backbone.model.named_parameters():
+        """
+        MatterSim's params list:
+        - backbone.model.atom_embedding
+        - backbone.model.edge_encoder
+        - backbone.model.graph_conv.0
+        - backbone.model.graph_conv.1
+        - ...
+        - backbone.model.final.g
+        - backbone.model.final.sigma
+        """
+        for name, param in self.named_parameters():
             if not self.hparams.freeze_backbone or "final" in name:
-                yield name, param
+                if self.hparams.freeze_group_bys is None or param_matches_group(
+                    name, self.hparams.freeze_group_bys
+                ) is False:
+                    yield name, param
 
     @override
     @contextlib.contextmanager

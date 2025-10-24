@@ -18,7 +18,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message, neighbor_list_and_relative_vec
+from ...util import optional_import_error_message, param_matches_group
 from ..util import voigt_6_to_full_3x3_stress_torch
 
 if TYPE_CHECKING:
@@ -265,11 +265,29 @@ class ORBBackboneModule(
 
     @override
     def trainable_parameters(self):
+        """
+        ORB's param list:
+        - backbone.atom_emb.embeddings
+        - backbone._encoder._node_fn
+        - backbone._encoder._edge_fn
+        - backbone.gnn_stacks.0
+        - ...
+        - backbone._decoder.node_fn
+        - output_heads
+        """
         if not self.hparams.freeze_backbone:
-            yield from self.backbone.named_parameters()
+            for name, param in self.backbone.named_parameters():
+                if self.hparams.freeze_group_bys is None or param_matches_group(
+                    "backbone."+name, self.hparams.freeze_group_bys
+                ) is False:
+                    yield name, param
         for head in self.output_heads.values():
             if head is not None:
-                yield from head.named_parameters()
+                for name, param in head.named_parameters():
+                    if self.hparams.freeze_group_bys is None or param_matches_group(
+                        "output_heads"+name, self.hparams.freeze_group_bys
+                    ) is False:
+                        yield name, param
                 
     @override
     @contextlib.contextmanager

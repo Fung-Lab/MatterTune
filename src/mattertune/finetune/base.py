@@ -23,6 +23,7 @@ from .lr_scheduler import LRSchedulerConfig, ReduceOnPlateauConfig, create_lr_sc
 from .metrics import FinetuneMetrics
 from .optimizer import OptimizerConfig, create_optimizer
 from .properties import PropertyConfig
+from ..util import param_matches_group
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,12 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     freeze_backbone: bool = False
     """Whether to freeze the backbone during training."""
+    
+    freeze_group_bys: list[str] | None = None
+    """
+    Parameter names to freeze during fine-tuning.
+    For example, if "backbone.conv.1" is included, all parameters under that module will be frozen.
+    """
     
     reset_output_heads: bool = True
     """Whether to reset the output heads of the model when creating the model."""
@@ -67,6 +74,14 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     using_partition: bool = False
     """Whether to be using partitioning in the model."""
+    
+    finetuned_ckpt_path: str | None = None
+    """
+    Path to a finetuned checkpoint to load weights from. If provided,
+    the model will load weights from this checkpoint after initialization.
+    
+    This is useful for continuing training from a previous checkpoint, and often used together with from_ckeckpoint() function.
+    """
 
     @classmethod
     @abstractmethod
@@ -95,6 +110,32 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
                 raise ValueError(
                     f"Key '{key}' in 'normalizers' is not a valid property name."
                 )
+                
+    @classmethod
+    def from_checkpoint(
+        cls,
+        ckpt_path: str,
+    ) -> FinetuneModuleBaseConfig:
+        """
+        Load a finetune module config from a checkpoint.
+        Load config hparams from ckpt and return the corresponding config object.
+
+        Args:
+            ckpt_path: Path to the checkpoint.
+
+        Returns:
+            Finetune module config.
+        """
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        hparams = ckpt.get("hyper_parameters", None)
+        if isinstance(hparams, dict):
+            config = cls.model_validate(hparams)
+            config.finetuned_ckpt_path = ckpt_path
+            return config
+        else:
+            raise ValueError(
+                f"Checkpoint at {ckpt_path} does not contain valid hyperparameters."
+            )
 
 
 class _SkipBatchError(Exception):
@@ -372,17 +413,21 @@ class FinetuneModuleBase(
 
         # Create the backbone model and output heads
         self.create_model()
+        if self.hparams.finetuned_ckpt_path is not None:
+            self._load_from_finetuned_checkpoint()
         
-        if self.hparams.using_partition:
+        if self.hparams.pruning_message_passing is not None:
             self.apply_pruning_message_passing(self.hparams.pruning_message_passing)
         
         if self.hparams.reset_backbone:
-            for name, param in self.backbone.named_parameters(): # type: ignore
+            for name, param in self.trainable_parameters():
                 if param.dim() > 1:
                     print(f"Resetting {name}")
                     nn.init.xavier_uniform_(param)
                 else:
-                    nn.init.zeros_(param)
+                    print(f"Resetting {name} to random values")
+                    nn.init.uniform_(param)
+        
 
         # Create metrics
         self.create_metrics()
@@ -398,6 +443,20 @@ class FinetuneModuleBase(
             )
             
         self.diabled_heads = []
+        
+    def _load_from_finetuned_checkpoint(
+        self,
+    ):
+        assert self.hparams.finetuned_ckpt_path is not None
+        ckpt = torch.load(self.hparams.finetuned_ckpt_path, map_location="cpu")
+        state_dict = ckpt.get("state_dict", ckpt)
+
+        missing, unexpected = self.load_state_dict(state_dict, strict=False)
+        log.info(f"Loaded finetuned checkpoint from {self.hparams.finetuned_ckpt_path}")
+        if missing:
+            log.warning(f"Missing keys when loading finetuned checkpoint: {missing}")
+        if unexpected:
+            log.warning(f"Unexpected keys when loading finetuned checkpoint: {unexpected}")
         
     def set_disabled_heads(self, disabled_heads: list[str]):
         self.disabled_heads = disabled_heads

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from typing import Literal
+from typing_extensions import override, final
 
-import nshconfig as C
+from .base import BaseCallbackConfig
 
-
-class EarlyStoppingConfig(C.Config):
+@final
+class EarlyStoppingConfig(BaseCallbackConfig):
+    name: Literal["early_stopping"] = "early_stopping"
+    
     monitor: str = "val/total_loss"
     """Quantity to be monitored."""
 
@@ -41,7 +44,8 @@ class EarlyStoppingConfig(C.Config):
 
     log_rank_zero_only: bool = False
     """Whether to log the status of early stopping only for rank 0 process. Default: ``False``."""
-
+    
+    @override
     def create_callback(self):
         from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 

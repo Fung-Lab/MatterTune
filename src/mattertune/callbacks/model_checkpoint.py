@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import Literal
+from typing_extensions import override, final
 
-import nshconfig as C
+
+from .base import BaseCallbackConfig
 
 
-class ModelCheckpointConfig(C.Config):
+@final
+class ModelCheckpointConfig(BaseCallbackConfig):
+    name: Literal["model_checkpoint"] = "model_checkpoint"
+    
     dirpath: str | None = None
     """Directory to save the model file. Default: ``None``."""
 
@@ -49,6 +54,7 @@ class ModelCheckpointConfig(C.Config):
     enable_version_counter: bool = True
     """Whether to append version to existing filenames. Default: ``True``."""
 
+    @override
     def create_callback(self):
         """Creates a ModelCheckpoint callback instance from this config."""
         from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint

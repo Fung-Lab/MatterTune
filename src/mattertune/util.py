@@ -218,6 +218,9 @@ def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None, indices=None):
         Subset of atom indices to consider as the "reference" atoms.
         If None, use all atoms.
     """
+    with optional_import_error_message("pymatgen"):
+        from pymatgen.optimization.neighbors import find_points_in_spheres
+    
     scaled_pos = atoms.get_scaled_positions()
     atoms.set_scaled_positions(np.mod(scaled_pos, 1))
 
@@ -312,3 +315,41 @@ class NvidiaSmiMonitor:
             self._thread.join()
         memory_records = np.array(self.memory_records)
         return memory_records
+    
+    
+import re
+from collections.abc import Sequence
+
+PatternLike = str | re.Pattern
+
+def param_matches_group(name: str, group_by: PatternLike | Sequence[PatternLike]) -> bool:
+    """
+    Return True iff `param_name` matches ANY of the given group_by patterns.
+
+    Parameters
+    ----------
+    param_name : str
+        Full parameter name from `named_parameters()`, e.g. "backbone.blocks.0.attn.q_proj.weight".
+    group_by : str | re.Pattern | Sequence[str|re.Pattern]
+        Regex pattern(s). Can be raw strings or precompiled `re.Pattern`s.
+
+    Examples
+    --------
+    >>> param_matches_group("backbone.fc.weight", r"^backbone")
+    True
+    >>> param_matches_group("head.out.bias", [r"^backbone", r"\.out\."])
+    True
+    >>> param_matches_group("embed.weight", [r"^backbone", r"^head"])
+    False
+    """
+    patterns: list[PatternLike]
+    if isinstance(group_by, (str, re.Pattern)):
+        patterns = [group_by]
+    else:
+        patterns = list(group_by)
+
+    for pat in patterns:
+        rex = re.compile(pat) if isinstance(pat, str) else pat
+        if rex.search(name):
+            return True
+    return False

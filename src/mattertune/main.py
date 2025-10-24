@@ -12,9 +12,7 @@ from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.strategies.strategy import Strategy
 
 from .backbones import ModelConfig
-from .callbacks.early_stopping import EarlyStoppingConfig
-from .callbacks.ema import EMAConfig
-from .callbacks.model_checkpoint import ModelCheckpointConfig
+from .callbacks import CallBackConfigs, EarlyStoppingConfig, EMAConfig, ModelCheckpointConfig
 from .data import DataModuleConfig, MatterTuneDataModule
 from .finetune.base import FinetuneModuleBase
 from .loggers import CSVLoggerConfig, LoggerConfig
@@ -137,6 +135,9 @@ class TrainerConfig(C.Config):
     If ``"default"``, will use the CSV logger + the W&B logger if available.
     Default: ``"default"``.
     """
+    
+    additional_callbacks: Sequence[CallBackConfigs] = []
+    """Additional callbacks to add to the trainer."""
 
     additional_trainer_kwargs: dict[str, Any] = {}
     """
@@ -152,6 +153,9 @@ class TrainerConfig(C.Config):
             callbacks.append(self.checkpoint.create_callback())
         if self.early_stopping is not None:
             callbacks.append(self.early_stopping.create_callback())
+            
+        for recipe_callback in self.additional_callbacks:
+            callbacks.append(recipe_callback.create_callback())
 
         loggers = []
         if self.loggers == "default":

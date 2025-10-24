@@ -15,7 +15,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, param_matches_group
 
 if TYPE_CHECKING:
     from mace.tools.torch_geometric import Data, Batch
@@ -157,8 +157,21 @@ class MACEBackboneModule(
 
     @override
     def trainable_parameters(self):
-        for name, param in self.backbone.named_parameters():
-            yield name, param
+        """
+        MACE's params list:
+        - backbone.node_embedding
+        - backbone.interactions.0
+        - backbone.products.0
+        - ...
+        - backbone.readouts.0
+        - ...
+        """
+        for name, param in self.named_parameters():
+            if not self.hparams.freeze_backbone or "readouts" in name:
+                if self.hparams.freeze_group_bys is None or param_matches_group(
+                    name, self.hparams.freeze_group_bys
+                ) is False:
+                    yield name, param
 
     @override
     @contextlib.contextmanager

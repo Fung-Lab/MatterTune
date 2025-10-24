@@ -26,7 +26,7 @@ from ...finetune.base import (
 )
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message, neighbor_list_and_relative_vec
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec, param_matches_group
 from .util import get_activation_cls
 from ...finetune.optimizer import PerParamHparamsDict
 
@@ -279,10 +279,33 @@ class JMPBackboneModule(FinetuneModuleBase["Data", "Batch", JMPBackboneConfig]):
 
     @override
     def trainable_parameters(self):
+        """
+        JMP's param list:
+        - backbone.bases
+        - backbone.embedding
+        - backbone.int_blocks.0
+        - ...
+        - backbone.out_blocks.0
+        - ...
+        - backbone.out_mlp_E
+        - backbone.out_mlp_F
+        - 
+        - backbone._decoder.node_fn
+        - output_heads
+        """
         if not self.hparams.freeze_backbone:
-            yield from self.backbone.named_parameters()
+            for name, param in self.backbone.named_parameters():
+                if self.hparams.freeze_group_bys is None or param_matches_group(
+                    "backbone."+name, self.hparams.freeze_group_bys
+                ) is False:
+                    yield name, param
         for head in self.output_heads.values():
-            yield from head.named_parameters()
+            if head is not None:
+                for name, param in head.named_parameters():
+                    if self.hparams.freeze_group_bys is None or param_matches_group(
+                        "output_heads"+name, self.hparams.freeze_group_bys
+                    ) is False:
+                        yield name, param
 
     @override
     @contextlib.contextmanager
