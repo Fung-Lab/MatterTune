@@ -373,7 +373,7 @@ class FinetuneModuleBase(
         # Create the backbone model and output heads
         self.create_model()
         
-        if self.hparams.using_partition:
+        if self.hparams.pruning_message_passing is not None:
             self.apply_pruning_message_passing(self.hparams.pruning_message_passing)
         
         if self.hparams.reset_backbone:
