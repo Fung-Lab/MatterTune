@@ -23,6 +23,7 @@ from .lr_scheduler import LRSchedulerConfig, ReduceOnPlateauConfig, create_lr_sc
 from .metrics import FinetuneMetrics
 from .optimizer import OptimizerConfig, create_optimizer
 from .properties import PropertyConfig
+from .ewald import EwaldPluginConfig
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +68,9 @@ class FinetuneModuleBaseConfig(C.Config, ABC):
     
     using_partition: bool = False
     """Whether to be using partitioning in the model."""
+    
+    ewald_plugin: EwaldPluginConfig | None = None
+    """Ewald plugin configuration. Used for long-range electrostatics correction."""
 
     @classmethod
     @abstractmethod
@@ -373,7 +377,7 @@ class FinetuneModuleBase(
         # Create the backbone model and output heads
         self.create_model()
         
-        if self.hparams.using_partition:
+        if self.hparams.pruning_message_passing is not None:
             self.apply_pruning_message_passing(self.hparams.pruning_message_passing)
         
         if self.hparams.reset_backbone:
@@ -383,6 +387,10 @@ class FinetuneModuleBase(
                     nn.init.xavier_uniform_(param)
                 else:
                     nn.init.zeros_(param)
+                    
+        # for name, param in self.trainable_parameters():
+        #     print(f"Parameter: {name}, shape: {param.shape}, requires_grad: {param.requires_grad}")
+        # exit()
 
         # Create metrics
         self.create_metrics()

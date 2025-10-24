@@ -116,7 +116,7 @@ class MatterSimM3GNetBackboneModule(
         with optional_import_error_message("mattersim"):
             from mattersim.datasets.utils.convertor import (
                 GraphConvertor as MatterSimGraphConvertor,
-            )  # type: ignore[reportMissingImports] # noqa
+            )
             from mattersim.forcefield.potential import Potential
 
         ## Load the pretrained model
@@ -126,6 +126,7 @@ class MatterSimM3GNetBackboneModule(
             model_name=self.hparams.model_type,
             load_training_state=False,
         )
+        assert isinstance(self.backbone, Potential)
         if self.hparams.reset_output_heads:
             self.backbone.freeze_reset_model(
                 reset_head_for_finetune=True,
@@ -173,11 +174,14 @@ class MatterSimM3GNetBackboneModule(
             raise ValueError(
                 "Stress calculation requires force calculation, cannot calculate stress without force"
             )
+            
+        if self.hparams.ewald_plugin is not None:
+            self.backbone.ewald_plugin = self.hparams.ewald_plugin.create_model()
 
     @override
     def trainable_parameters(self):
-        for name, param in self.backbone.model.named_parameters():
-            if not self.hparams.freeze_backbone or "final" in name:
+        for name, param in self.backbone.named_parameters():
+            if not self.hparams.freeze_backbone or "final" in name or "ewald_plugin" in name:
                 yield name, param
 
     @override
