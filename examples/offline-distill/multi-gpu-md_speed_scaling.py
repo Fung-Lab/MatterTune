@@ -11,18 +11,10 @@ from ase import Atoms
 from ase.io import read, write
 from ase.md.langevin import Langevin
 from ase.md.npt import NPT
+import torch
 import wandb
 
-from mattertune.students import (
-    CACEStudentModel,
-    SchNetStudentModel,
-)
-from mattertune.backbones import (
-    MatterSimM3GNetBackboneModule,
-    MACEBackboneModule,
-    ORBBackboneModule,
-    UMABackboneModule,
-)
+from mattertune import load_finetuned_checkpoint
 from mattertune.util import set_global_random_seed
 from mattertune.wrappers.ase_calculator import MatterTunePartitionCalculator
 from mattertune.wrappers.utils.parallel_inference import ParallizedInferenceDDP
@@ -30,7 +22,7 @@ from mattertune.wrappers.utils.parallel_inference import ParallizedInferenceDDP
 logging.basicConfig(level=logging.ERROR)
 
 # supercell_as = [8, 10, 14, 18]
-supercell_as = [18]
+supercell_as = [16, 18]
 
 def main(args_dict: dict):
     
@@ -41,19 +33,14 @@ def main(args_dict: dict):
     model_path = args_dict["model"]
     model_type = model_path.split("/")[-1].replace(".ckpt", "").lower()
     if "cace" in model_type:
-        model = CACEStudentModel.load_from_checkpoint(model_path, lazy_init_atoms=md_atoms_base)
-    elif "schnet" in model_type:
-        model = SchNetStudentModel.load_from_checkpoint(model_path)
-    elif "mattersim" in model_type:
-        model = MatterSimM3GNetBackboneModule.load_from_checkpoint(model_path, map_location="cpu")
-    elif "mace" in model_type:
-        model = MACEBackboneModule.load_from_checkpoint(model_path, map_location="cpu")
-    elif "orb" in model_type:
-        model = ORBBackboneModule.load_from_checkpoint(model_path, map_location="cpu")
-    elif "uma" in model_type:
-        model = UMABackboneModule.load_from_checkpoint(model_path, map_location="cpu")
+        model = load_finetuned_checkpoint(model_path, lazy_init_atoms=md_atoms_base)
     else:
-        raise NotImplementedError()
+        model = load_finetuned_checkpoint(model_path)
+    if args_dict["nl_fn_type"] is not None:
+        model.set_neighborlist_fn(args_dict["nl_fn_type"]) # type: ignore
+    if args_dict["skin_cutoff"] is not None:
+        model.set_neighborlist_skin(args_dict["skin_cutoff"]) # type: 
+
     inferencer = ParallizedInferenceDDP(
         ckpt_path=args_dict["model"],
         properties=["energy", "forces"],
@@ -73,7 +60,7 @@ def main(args_dict: dict):
 
     wandb.init(
         project="MatterTune-Distill-MDSpeed",
-        name=f"{model_type}-H2O-298K-{args_dict['thermo_state']}-devices{'-'.join(map(str, args_dict['devices']))}-mp{args_dict['mp_steps']}",
+        name=f"MultiGPU-{model_type}-H2O-298K-{args_dict['thermo_state']}-devices{'-'.join(map(str, args_dict['devices']))}-mp{args_dict['mp_steps']}",
         save_code=False,
     )
     wandb.config.update(args_dict)
@@ -145,12 +132,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="./checkpoints/schnet-5.0A-T=3.ckpt")
-    parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--mp_steps", type=int, default=3)
     parser.add_argument("--thermo_state", type=str, default="NVT")
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5, 6, 7])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5])
     parser.add_argument("--timestep", type=float, default=1)
     parser.add_argument("--friction", type=float, default=0.02)
     parser.add_argument("--steps", type=int, default=1000)
+    parser.add_argument("--nl_fn_type", type=str, default=None)
+    parser.add_argument("--skin_cutoff", type=float, default=None)
     args_dict = vars(parser.parse_args())
     main(args_dict)

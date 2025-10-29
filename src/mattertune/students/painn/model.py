@@ -4,14 +4,12 @@ import contextlib
 import importlib.util
 import logging
 from typing import TYPE_CHECKING, Literal, cast
-from typing_extensions import Sequence, Any, Iterable
 
 import nshconfig as C
 import torch
 import torch.nn as nn
 import numpy as np
 from typing_extensions import final, override
-from torch.nn.modules.module import _IncompatibleKeys
 from ase import Atoms
 
 from ...registry import student_registry
@@ -20,6 +18,7 @@ from ...finetune.base import ModelOutput
 from ...distillation.base import StudentModuleBaseConfig, StudentModuleBase
 from ...util import optional_import_error_message
 from mattertune.normalization import NormalizationContext
+from ..schnet.util import GeneralNeighborListTransform
 
 log = logging.getLogger(__name__)
 
@@ -103,25 +102,22 @@ class PaiNNRBFConfig(C.Config):
 class PaiNNNeighborListConfig(C.Config):
     """Configuration for the neighbor list used in PaiNN."""
     
-    fn_type: Literal["ase", "matscipy", "torchani"] = "ase"
-    """Type of neighbor list function to use. Options are 'ase', 'matscipy', and 'torchani'."""
+    fn_type: Literal["ase", "matscipy", "vesin", "pymatgen"] = "pymatgen"
+    """Type of neighbor list function to use."""
+    
+    skin: float | None = None
+    """Skin distance for neighbor list reuse. If None, disables skin reuse."""
     
     def create_neighbor_list_fn(
         self,
         cutoff: float,
     ):
-        with optional_import_error_message("schnetpack"):
-            from schnetpack.transform import ASENeighborList, MatScipyNeighborList, TorchNeighborList
             
-        match self.fn_type:
-            case "ase":
-                return ASENeighborList(cutoff=cutoff)
-            case "matscipy":
-                return MatScipyNeighborList(cutoff=cutoff)
-            case "torchani":
-                return TorchNeighborList(cutoff=cutoff)
-            case _:
-                raise ValueError(f"Unknown neighbor list function: {self.fn_type}")
+        return GeneralNeighborListTransform(
+            cutoff=cutoff,
+            fn_type=self.fn_type,
+            skin=self.skin,
+        )
 
 @student_registry.register
 class PaiNNStudentModelConfig(StudentModuleBaseConfig):
@@ -347,3 +343,27 @@ class PaiNNStudentModel(
             if isinstance(value, torch.Tensor):
                 batch[key] = value.to(device)
         return batch
+    
+    def set_neighborlist_skin(
+        self,
+        skin: float | None
+    ):
+        """
+        Set skin for neighbor list transform.
+        If set to None, disables skin reuse.
+        If skin is set to a>0, then when computing neighbor lists,
+        a larger cutoff of (cutoff+skin) is used, and neighbor lists
+        are reused across multiple steps until atoms move more than 'skin'.
+        """
+        self.hparams.neighbor_list_fn.skin = skin
+        self.neighbor_list_fn.skin = skin
+        
+    def set_neighborlist_fn(
+        self,
+        fn_type: Literal["ase", "matscipy", "vesin", "pymatgen"]
+    ):
+        """
+        Set neighbor list function type.
+        """
+        self.hparams.neighbor_list_fn.fn_type = fn_type
+        self.neighbor_list_fn.fn_type = fn_type

@@ -24,7 +24,7 @@ from mattertune.backbones import (
     UMABackboneModule,
 )
 
-supercell_as = [1, 2, 3, 4, 5, 8, 10]
+supercell_as = [1, 2, 3, 4, 5, 8, 10, 12, 14, 16]
 
 
 def main(args_dict: dict):
@@ -39,8 +39,16 @@ def main(args_dict: dict):
         model = CACEStudentModel.load_from_checkpoint(model_path, lazy_init_atoms=md_atoms_base)
     elif "schnet" in model_type:
         model = SchNetStudentModel.load_from_checkpoint(model_path)
+        if args_dict["nl_fn_type"] is not None:
+            model.set_neighborlist_fn(args_dict["nl_fn_type"])
+        if args_dict["skin_cutoff"] is not None:
+            model.set_neighborlist_skin(args_dict["skin_cutoff"]) # type: ignore
     elif "painn" in model_type:
         model = PaiNNStudentModel.load_from_checkpoint(model_path)
+        if args_dict["nl_fn_type"] is not None:
+            model.set_neighborlist_fn(args_dict["nl_fn_type"])
+        if args_dict["skin_cutoff"] is not None:
+            model.set_neighborlist_skin(args_dict["skin_cutoff"]) # type: ignore
     elif "mattersim" in model_type:
         model = MatterSimM3GNetBackboneModule.load_from_checkpoint(model_path, map_location="cpu")
     elif "mace" in model_type:
@@ -55,7 +63,7 @@ def main(args_dict: dict):
 
     wandb.init(
         project="MatterTune-Distill-MDSpeed",
-        name=f"{model_type}-H2O-298K-{args_dict['thermo_state']}",
+        name=f"{model_type}-H2O-298K-{args_dict['thermo_state']}-{args_dict['nl_fn_type']}-Skin{args_dict['skin_cutoff']}A",
         save_code=False,
     )
     wandb.config.update(args_dict)
@@ -118,11 +126,13 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="./checkpoints/cace-5.5A-T=1.ckpt")
+    parser.add_argument("--model", type=str, default="./checkpoints/schnet-5.0A-T=3.ckpt")
     parser.add_argument("--thermo_state", type=str, default="NVT")
     parser.add_argument("--device", type=int, default=3)
     parser.add_argument("--timestep", type=float, default=1)
     parser.add_argument("--friction", type=float, default=0.02)
     parser.add_argument("--steps", type=int, default=1000)
+    parser.add_argument("--nl_fn_type", type=str, default=None)
+    parser.add_argument("--skin_cutoff", type=float, default=None)
     args_dict = vars(parser.parse_args())
     main(args_dict)

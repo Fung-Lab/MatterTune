@@ -756,3 +756,20 @@ class StudentModuleBase(
         For these models, we need to override this method.
         """
         return batch.to(device)
+    
+    def save_to_checkpoint(
+        self,
+        ckpt_path: str,
+    ):
+        """
+        Save the model to a checkpoint file along with its hyperparameters.
+        """
+        ckpt_dict = {
+            "state_dict": self.state_dict(),
+            "hparams_name": "hparams",
+            "hyper_parameters": self.hparams,
+            "epoch": 0,
+            "global_step": 0,
+            "pytorch-lightning_version": "2.4.0"
+        }
+        torch.save(ckpt_dict, ckpt_path)

@@ -279,3 +279,56 @@ class MatterTuner:
 
         # Return the trained model
         return TuneOutput(model=lightning_module, trainer=trainer)
+
+
+def load_finetuned_checkpoint(
+    ckpt_path: str,
+    **kwargs: Any,
+):
+    """
+    Load a finetuned checkpoint and return the model.
+    First, parse the ckpt to get model type
+    Then, use .load_from_checkpoint() to load the model
+    """
+    import torch
+    
+    from mattertune.backbones import (
+        JMPBackboneModule,
+        MatterSimM3GNetBackboneModule,
+        ORBBackboneModule,
+        EqV2BackboneModule,
+        MACEBackboneModule,
+        UMABackboneModule,
+    )
+    from mattertune.students import (
+        CACEStudentModel,
+        SchNetStudentModel,
+        PaiNNStudentModel,
+    )
+    
+    ckpt_dict = torch.load(ckpt_path, weights_only=False)
+    name = ckpt_dict.get("hyper_parameters", {}).get("name", None)
+    if name is None:
+        raise ValueError("Could not find model name in checkpoint hyper_parameters. Please ensure the checkpoint was saved using MatterTune.")
+    
+    match name:
+        case "mattersim":
+            return MatterSimM3GNetBackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
+        case "mace":
+            return MACEBackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
+        case "orb":
+            return ORBBackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
+        case "jmp":
+            return JMPBackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
+        case "eqV2":
+            return EqV2BackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
+        case "uma":
+            return UMABackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
+        case "schnet":
+            return SchNetStudentModel.load_from_checkpoint(ckpt_path, **kwargs)
+        case "painn":
+            return PaiNNStudentModel.load_from_checkpoint(ckpt_path, **kwargs)
+        case "cace":
+            return CACEStudentModel.load_from_checkpoint(ckpt_path, **kwargs)
+        case _:
+            raise ValueError(f"Unknown model name '{name}' in checkpoint.")

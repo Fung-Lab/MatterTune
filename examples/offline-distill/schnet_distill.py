@@ -20,7 +20,7 @@ def main(args_dict: dict):
         hparams.model = MC.SchNetStudentModelConfig.draft()
         hparams.model.cutoff = args_dict["cutoff"]
         hparams.model.cutoff_fn = MC.SchNetCutoffFnConfig(fn_type="cosine")
-        hparams.model.neighbor_list_fn = MC.SchNetNeighborListConfig(fn_type="ase")
+        hparams.model.neighbor_list_fn = MC.SchNetNeighborListConfig(fn_type="pymatgen")
         hparams.model.n_atom_basis = 30
         hparams.model.num_message_passing = args_dict["num_message_passing"]
         hparams.model.rbf = MC.SchNetRBFConfig(fn_type="gaussian")
@@ -75,7 +75,7 @@ def main(args_dict: dict):
         hparams.trainer.gradient_clip_algorithm = "value"
         hparams.trainer.gradient_clip_val = 10.0
         hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-            monitor=f"val/forces_rmse", patience=200, mode="min"
+            monitor=f"val/forces_rmse", patience=200, mode="min", min_delta=1e-5
         )
         os.system(f"rm -rf ./checkpoints/schnet-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
@@ -100,8 +100,8 @@ def main(args_dict: dict):
         hparams = hparams.finalize(strict=False)
         return hparams
     
-    train_config = hparams()
-    model = MatterTuneOfflineDistillationTrainer(train_config).train()
+    # train_config = hparams()
+    # model = MatterTuneOfflineDistillationTrainer(train_config).train()
     
     from ase.io import read
     from ase import Atoms
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=1e-2)
+    parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--max_epochs", type=int, default=5000)
     parser.add_argument("--devices", type=int, nargs="+", default=[0,1,2,3,4,5,6,7])
     parser.add_argument("--num_message_passing", type=int, default=3)

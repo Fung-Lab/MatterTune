@@ -28,19 +28,7 @@ from mattertune.finetune.base import FinetuneModuleBase
 from mattertune.callbacks.multi_gpu_writer import CustomWriter
 from mattertune.wrappers.property_predictor import _create_trainer, _atoms_list_to_dataloader
 from mattertune.util import is_rank_zero, load_from_npz
-
-from mattertune.backbones import (
-    JMPBackboneModule,
-    MatterSimM3GNetBackboneModule,
-    ORBBackboneModule,
-    EqV2BackboneModule,
-    MACEBackboneModule,
-    UMABackboneModule,
-)
-from mattertune.students import (
-    CACEStudentModel,
-    SchNetStudentModel,
-)
+from mattertune import load_finetuned_checkpoint
 
 logging.getLogger("lightning.pytorch").setLevel(logging.ERROR)
 
@@ -68,23 +56,11 @@ def exit_signal(workspace: str):
 
 def main(args_dict):
     ckpt_path = args_dict["ckpt_path"]
-    if "jmp" in ckpt_path:
-        model = JMPBackboneModule.load_from_checkpoint(ckpt_path)
-    elif "mattersim" in ckpt_path:
-        model = MatterSimM3GNetBackboneModule.load_from_checkpoint(ckpt_path)
-    elif "orb" in ckpt_path:
-        model = ORBBackboneModule.load_from_checkpoint(ckpt_path)
-    elif "eqv2" in ckpt_path:
-        model = EqV2BackboneModule.load_from_checkpoint(ckpt_path)
-    elif "mace" in ckpt_path:
-        model = MACEBackboneModule.load_from_checkpoint(ckpt_path)
-    elif "cace" in ckpt_path:
+    if args_dict["lazy_init_atoms"] is not None:
         lazy_init_atoms = read(args_dict["lazy_init_atoms"])
-        model = CACEStudentModel.load_from_checkpoint(ckpt_path, lazy_init_atoms=lazy_init_atoms)
-    elif "schnet" in ckpt_path:
-        model = SchNetStudentModel.load_from_checkpoint(ckpt_path)
+        model = load_finetuned_checkpoint(ckpt_path, lazy_init_atoms=lazy_init_atoms)
     else:
-        raise ValueError(f"Unsupported model type: {ckpt_path}, please include one of 'jmp', 'mattersim', 'orb', 'eqv2', 'mace', 'cace', 'schnet' in the checkpoint path.")
+        model = load_finetuned_checkpoint(ckpt_path)
     model.hparams.using_partition = args_dict["using_partition"]
     properties = args_dict["properties"]
     implemented_properties: list[str] = []
