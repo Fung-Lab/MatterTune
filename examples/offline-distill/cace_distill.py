@@ -118,7 +118,7 @@ def main(args_dict: dict):
     
     val_atoms_list:list[Atoms] = read("./data/val_water_1593_eVAng.xyz", ":") # type: ignore
     
-    model = CACEStudentModel.load_from_checkpoint("./checkpoints/cace-best.ckpt", lazy_init_atoms=val_atoms_list[0])
+    model = CACEStudentModel.load_from_checkpoint(f"./checkpoints/cace-{args_dict['cutoff']}A-T={args_dict['num_message_passing']}.ckpt", lazy_init_atoms=val_atoms_list[0])
     calc = model.ase_calculator(device=f"cuda:{args_dict['devices'][0]}")
     
     energies = []

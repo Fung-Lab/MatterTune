@@ -100,8 +100,8 @@ def main(args_dict: dict):
         hparams = hparams.finalize(strict=False)
         return hparams
     
-    # train_config = hparams()
-    # model = MatterTuneOfflineDistillationTrainer(train_config).train()
+    train_config = hparams()
+    model = MatterTuneOfflineDistillationTrainer(train_config).train()
     
     from ase.io import read
     from ase import Atoms

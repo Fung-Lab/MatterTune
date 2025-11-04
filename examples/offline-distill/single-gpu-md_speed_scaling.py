@@ -126,7 +126,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="./checkpoints/schnet-5.0A-T=3.ckpt")
+    parser.add_argument("--model", type=str, default="./checkpoints/painn-5.0A-T=3.ckpt")
     parser.add_argument("--thermo_state", type=str, default="NVT")
     parser.add_argument("--device", type=int, default=3)
     parser.add_argument("--timestep", type=float, default=1)
