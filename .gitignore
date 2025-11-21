@@ -228,3 +228,5 @@ bfg.jar
 docs/_autosummary/
 contents/
 results/
+checkpoints/
+data/

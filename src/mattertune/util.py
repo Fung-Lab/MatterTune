@@ -193,8 +193,8 @@ def neighbor_list_and_relative_vec(
 
 def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None, indices=None):
     """
-    Compute RDF for a given ASE Atoms object.
-    
+    Compute normalized RDF g(r) for a given ASE Atoms object.
+
     Parameters
     ----------
     atoms : Atoms
@@ -204,53 +204,84 @@ def rdf_compute(atoms: Atoms, r_max, n_bins, elements=None, indices=None):
     n_bins : int
         Number of bins
     elements : tuple(str,str) or None
-        If not None, compute partial RDF for element pair (A,B)
+        If not None, compute partial RDF for element pair (A,B),
+        where A is the central atom and B is the neighbor.
     indices : array-like or None
         Subset of atom indices to consider as the "reference" atoms.
         If None, use all atoms.
+
+    Returns
+    -------
+    rdf_x : np.ndarray
+        Bin centers r (Å).
+    rdf_y : np.ndarray
+        Normalized RDF g(r), dimensionless, with g(r) → 1 at large r
+        for a homogeneous system.
     """
+    # wrap positions into unit cell
     scaled_pos = atoms.get_scaled_positions()
     atoms.set_scaled_positions(np.mod(scaled_pos, 1))
 
-    num_atoms = len(atoms)
+    # total info
+    total_num_atoms = len(atoms)
     volume = atoms.get_volume()
-    density = num_atoms / volume
+    species = np.array(atoms.get_chemical_symbols())
 
     pos = np.array(atoms.get_positions())
     cell = np.array(atoms.get_cell(complete=True))
     pbc = np.array(atoms.pbc, dtype=int)
+
+    # all pairs within r_max
     send_indices, receive_indices, _, distances = find_points_in_spheres(
         pos, pos, r=r_max, pbc=pbc, lattice=cell, tol=1e-8
     )
+
+    # exclude self-pairs
     exclude_self = np.where(send_indices != receive_indices)[0]
     send_indices = send_indices[exclude_self]
     receive_indices = receive_indices[exclude_self]
     distances = distances[exclude_self]
-    
+
+    # element filter: central = elements[0], neighbor = elements[1]
     if elements is not None and len(elements) == 2:
-        species = np.array(atoms.get_chemical_symbols())
-        element_mask = np.logical_and(
-                species[send_indices] == elements[0],
-                species[receive_indices] == elements[1],
-            )
+        element_mask = (
+            (species[send_indices] == elements[0]) &
+            (species[receive_indices] == elements[1])
+        )
     else:
         element_mask = np.ones_like(send_indices, dtype=bool)
-    
+
+    # optional subset of central atoms
     if indices is not None:
         include_mask = np.isin(send_indices, indices)
     else:
         include_mask = np.ones_like(send_indices, dtype=bool)
-        
-    mask = np.logical_and(element_mask, include_mask)
+
+    mask = element_mask & include_mask
     send_indices = send_indices[mask]
     distances = distances[mask]
-    num_atoms = len(np.unique(send_indices))
 
+    # number of unique central atoms A
+    central_atoms = np.unique(send_indices)
+    N_A = len(central_atoms)
+
+    # histogram of distances
     hist, bin_edges = np.histogram(distances, range=(0, r_max), bins=n_bins)
-    rdf_x = 0.5 * (bin_edges[1:] + bin_edges[:-1]) + 0.5 * r_max / n_bins
-    bin_volume = (4 / 3) * np.pi * (bin_edges[1:] ** 3 - bin_edges[:-1] ** 3)
-    num_species = len(set(elements)) if elements is not None else 1
-    rdf_y = hist / (bin_volume * density * num_atoms) / num_species
+    rdf_x = 0.5 * (bin_edges[1:] + bin_edges[:-1])         # bin centers
+    bin_volume = (4.0 / 3.0) * np.pi * (bin_edges[1:]**3 - bin_edges[:-1]**3)
+
+    # number density of neighbor species B
+    if elements is not None and len(elements) == 2:
+        # B is elements[1]
+        N_B = np.count_nonzero(species == elements[1])
+    else:
+        # total RDF: B = "any atom"
+        N_B = total_num_atoms
+
+    rho_B = N_B / volume
+
+    # normalized RDF: g_AB(r) = hist / (N_A * rho_B * shell_volume)
+    rdf_y = hist / (bin_volume * rho_B * N_A)
 
     return rdf_x, rdf_y
 
