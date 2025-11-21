@@ -20,7 +20,7 @@ def main(args_dict: dict):
     def hparams():
         hparams = MC.MatterTunerConfig.draft()
         hparams.model = MC.NequIPBackboneConfig.draft()
-        hparams.model.pretrained_model = "NequIP-OAM-L-0.1"
+        hparams.model.pretrained_model = "Allegro-OAM-L-0.1"
         hparams.model.reset_output_heads = True
         hparams.model.optimizer = MC.AdamWConfig(
             lr=args_dict["lr"],
@@ -55,10 +55,11 @@ def main(args_dict: dict):
         ## Data Hyperparameters
         hparams.data = MC.ManualSplitDataModuleConfig.draft()
         hparams.data.train = MC.XYZDatasetConfig.draft()
-        hparams.data.train.src = "./data/Li_electrode_finetune.xyz"
+        hparams.data.train.src = "./data/Li_electrode_finetune_small.xyz"
         hparams.data.validation = MC.XYZDatasetConfig.draft()
-        hparams.data.validation.src = "./data/Li_electrode_val.xyz"
+        hparams.data.validation.src = "./data/Li_electrode_val_small.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
+        hparams.data.pin_memory = False
 
         ## Add Normalization for Energy
         hparams.model.normalizers = {
@@ -86,7 +87,7 @@ def main(args_dict: dict):
         )
 
         # Configure Model Checkpoint
-        ckpt_name = "NequIP-OAM-best"
+        ckpt_name = "Allegro-OAM-best"
         if os.path.exists(f"./checkpoints/{ckpt_name}.ckpt"):
             os.remove(f"./checkpoints/{ckpt_name}.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
@@ -125,10 +126,10 @@ def main(args_dict: dict):
     import wandb
     from tqdm import tqdm
     
-    ckpt_path = "./checkpoints/NequIP-OAM-best.ckpt"
+    ckpt_path = "./checkpoints/Allegro-OAM-best.ckpt"
     model = NequIPBackboneModule.load_from_checkpoint(ckpt_path)
     
-    val_atoms_list:list[Atoms] = read("./data/Li_electrode_test.xyz", ":") # type: ignore
+    val_atoms_list:list[Atoms] = read("./data/Li_electrode_test_small.xyz", ":") # type: ignore
     calc = model.ase_calculator(
         device = f"cuda:{args_dict['devices'][0]}"
     )
@@ -161,11 +162,11 @@ def main(args_dict: dict):
     from ase import Atoms
     import time
     
-    ckpt_path = "./checkpoints/NequIP-OAM-best.ckpt"
+    ckpt_path = "./checkpoints/Allegro-OAM-best.ckpt"
     model = NequIPBackboneModule.load_from_checkpoint(ckpt_path)
     
     ### before merging MoE
-    atoms: Atoms = read("./data/Li_electrode_test.xyz", index=0) # type: ignore
+    atoms: Atoms = read("./data/Li_electrode_test_small.xyz", index=0) # type: ignore
     calc = model.ase_calculator(
         device = f"cuda:{args_dict['devices'][0]}"
     )
@@ -187,7 +188,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--devices", type=int, nargs="+", default=[0])
     args = parser.parse_args()

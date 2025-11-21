@@ -25,8 +25,10 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 MODEL_URLS = {
-    "Nequip-OAM-L-0.1": "https://zenodo.org/api/records/16980200/files/NequIP-OAM-L-0.1.nequip.zip/content",
-    "Nequip-MP-L-0.1": "https://zenodo.org/api/records/16980200/files/NequIP-MP-L-0.1.nequip.zip/content",
+    "NequIP-OAM-L-0.1": "https://zenodo.org/api/records/16980200/files/NequIP-OAM-L-0.1.nequip.zip/content",
+    "NequIP-MP-L-0.1": "https://zenodo.org/api/records/16980200/files/NequIP-MP-L-0.1.nequip.zip/content",
+    "Allegro-OAM-L-0.1": "https://zenodo.org/api/records/16980200/files/Allegro-OAM-L-0.1.nequip.zip/content",
+    "Allegro-MP-L-0.1": "https://zenodo.org/api/records/16980200/files/Allegro-MP-L-0.1.nequip.zip/content",
 }
 CACHE_DIR = Path(torch.hub.get_dir()) / "nequip_checkpoints"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,8 +48,8 @@ class NequIPBackboneConfig(FinetuneModuleBaseConfig):
     pretrained_model: str = "NequIP-OAM-L-0.1"
     """
     The name of the pretrained model to load.
-    - Nequip-OAM-L-0.1: NequIP foundational potential model for materials, pretrained on OAM dataset.
-    - Nequip-MP-L-0.1: NequIP foundational potential model pretrained on MP dataset.
+    - NequIP-OAM-L-0.1: NequIP foundational potential model for materials, pretrained on OAM dataset.
+    - NequIP-MP-L-0.1: NequIP foundational potential model pretrained on MP dataset.
     """
 
     @override
