@@ -45,6 +45,7 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalizerConfig
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
+from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
@@ -63,7 +64,7 @@ from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
@@ -117,6 +118,7 @@ from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalize
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.main import ModelConfig as ModelConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
+from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.finetune.base import NormalizerConfig as NormalizerConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
@@ -140,7 +142,7 @@ from mattertune.finetune.lr_scheduler import StepLRConfig as StepLRConfig
 from mattertune.finetune.properties import StressesPropertyConfig as StressesPropertyConfig
 from mattertune.loggers import TensorBoardLoggerConfig as TensorBoardLoggerConfig
 from mattertune.main import TrainerConfig as TrainerConfig
-from mattertune.backbones.uma import UMABackboneConfig as UMABackboneConfig
+from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
 from mattertune.loggers import WandbLoggerConfig as WandbLoggerConfig
 from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
@@ -210,6 +212,7 @@ __all__ = [
     "ModelCheckpointConfig",
     "ModelConfig",
     "MultiStepLRConfig",
+    "NequIPBackboneConfig",
     "NoOpRecipeConfig",
     "NormalizerConfig",
     "NormalizerConfigBase",

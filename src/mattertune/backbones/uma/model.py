@@ -281,6 +281,7 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
         #     dim_size=batch.num_graphs,
         #     reduce="sum",
         # )
+        
         compositions = compositions[:, 1:]  # Remove the zeroth element
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     

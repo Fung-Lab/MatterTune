@@ -343,7 +343,7 @@ class FinetuneModuleBase(
             )
             
     def apply_reset_backbone(self):
-        for name, param in self.backbone.named_parameters():
+        for name, param in self.backbone.named_parameters(): # type: ignore
             if param.dim() > 1:
                 print(f"Resetting {name}")
                 nn.init.xavier_uniform_(param)
@@ -528,6 +528,9 @@ class FinetuneModuleBase(
         metrics: FinetuneMetrics | None,
         log: bool = True,
     ):
+        # Extract labels from the batch before predicting
+        labels = self.batch_to_labels(batch)
+        
         try:
             output: ModelOutput = self(batch, mode=mode)
         except _SkipBatchError:
@@ -545,8 +548,6 @@ class FinetuneModuleBase(
 
             return _zero_output(), _zero_loss()
 
-        # Extract labels from the batch
-        labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
 
         if len(self.normalizers) > 0:
@@ -759,3 +760,23 @@ class FinetuneModuleBase(
         from ..wrappers.ase_calculator import MatterTuneCalculator
 
         return MatterTuneCalculator(self, device=torch.device(device))
+    
+    def batch_to_device(
+        self,
+        batch: TBatch,
+        device: torch.device | str,
+    ):
+        """
+        Move a batch to the specified device.
+
+        This method should be overridden if the batch contains
+        non-tensor objects that need to be moved to the device.
+
+        Args:
+            batch: Batch to move.
+            device: Device to move the batch to.
+
+        Returns:
+            Batch on the specified device.
+        """
+        return batch.to(device) # type: ignore

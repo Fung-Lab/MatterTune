@@ -70,7 +70,7 @@ class MatterTuneCalculator(Calculator):
         
         batch = self.model.atoms_to_data(normalized_atoms, has_labels=False)
         batch = self.model.collate_fn([batch])
-        batch = batch.to(self.model.device)
+        batch = self.model.batch_to_device(batch, self.model.device)
         
         pred = self.model.predict_step(
             batch = batch,
