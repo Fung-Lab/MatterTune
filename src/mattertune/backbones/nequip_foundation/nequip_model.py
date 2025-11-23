@@ -132,12 +132,12 @@ class NequIPBackboneModule(
         model = ModelFromPackage(package_path=str(ckpt_path))
         self.backbone: GraphModel = model["sole_model"]
         self.metadata = self.backbone.metadata
-        r_max = float(self.metadata[graph_model.R_MAX_KEY])
-        type_names = self.metadata[graph_model.TYPE_NAMES_KEY].split(" ")
-        self.neighbor_transform: NeighborListTransform = _create_neighbor_transform(metadata=self.metadata, r_max=r_max, type_names=type_names)
-        chemical_species_to_atom_type_map = {sym: sym for sym in type_names}
+        self.r_max = float(self.metadata[graph_model.R_MAX_KEY])
+        self.type_names = self.metadata[graph_model.TYPE_NAMES_KEY].split(" ")
+        self.neighbor_transform: NeighborListTransform = _create_neighbor_transform(metadata=self.metadata, r_max=self.r_max, type_names=self.type_names)
+        chemical_species_to_atom_type_map = {sym: sym for sym in self.type_names}
         self.atomtype_transform: ChemicalSpeciesToAtomTypeMapper = ChemicalSpeciesToAtomTypeMapper(
-            model_type_names=type_names,
+            model_type_names=self.type_names,
             chemical_species_to_atom_type_map=chemical_species_to_atom_type_map,
         )
         
@@ -211,7 +211,7 @@ class NequIPBackboneModule(
         return labels
 
     @override
-    def atoms_to_data(self, atoms, has_labels):
+    def atoms_to_data(self, atoms, has_labels: bool=True):
         import copy
         
         with optional_import_error_message("nequip"):
