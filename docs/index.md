@@ -12,7 +12,7 @@ installation
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: User Guide
 
 guides/datasets
@@ -31,7 +31,7 @@ advanced/prune&partition
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Model Backbones
 
 backbones/jmp
