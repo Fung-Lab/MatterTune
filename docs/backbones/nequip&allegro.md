@@ -1,4 +1,4 @@
-## Nequip/Allegro Backbone
+# Nequip/Allegro Backbone
 
 The [NequIP and Allegro atomistic foundation models](https://www.nequip.net/) are equivariant interatomic potentials trained within the [NequIP](https://www.nature.com/articles/s41467-022-29939-5) and [Allegro](https://www.nature.com/articles/s41467-023-36329-y) model frameworks. Their key features lie in robustness and scalability improvements to the original NequIP framework, and in achieving faster inference through model packaging and compilation, as well as optimized tensor-product computations.
 
