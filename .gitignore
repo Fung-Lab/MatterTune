@@ -217,7 +217,7 @@ nshtrainer/
 wandb/
 abandoned/
 .ruff_cache/
-examples/hidden/
+hidden/
 *checkpoints*/
 md_results/
 results_backup/

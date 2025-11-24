@@ -12,7 +12,7 @@ from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneConfig
 from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
-from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
+from mattertune.backbones import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
@@ -30,7 +30,7 @@ from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneCon
 from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
 from mattertune.backbones import ModelConfig as ModelConfig
-from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
+from mattertune.backbones import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.backbones import UMABackboneConfig as UMABackboneConfig

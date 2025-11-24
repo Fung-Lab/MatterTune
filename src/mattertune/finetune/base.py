@@ -397,6 +397,9 @@ class FinetuneModuleBase(
                 "Please ensure that some parts of the model are trainable."
             )
             
+    def set_disabled_heads(self, disabled_heads: list[str]):
+        self.disabled_heads = disabled_heads
+            
     def apply_reset_backbone(self):
         for name, param in self.backbone.named_parameters(): # type: ignore
             if param.dim() > 1:
@@ -794,3 +797,23 @@ class FinetuneModuleBase(
         from ..wrappers.ase_calculator import MatterTuneCalculator
         
         return MatterTuneCalculator(self, device=torch.device(device))
+
+    def batch_to_device(
+        self,
+        batch: TBatch,
+        device: torch.device | str,
+    ):
+        """
+        Move a batch to the specified device.
+
+        This method should be overridden if the batch contains
+        non-tensor objects that need to be moved to the device.
+
+        Args:
+            batch: Batch to move.
+            device: Device to move the batch to.
+
+        Returns:
+            Batch on the specified device.
+        """
+        return batch.to(device) # type: ignore

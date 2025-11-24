@@ -114,8 +114,8 @@ def main(args_dict: dict):
         hparams = hparams.finalize(strict=False)
         return hparams
 
-    mt_config = hparams()
-    model, trainer = MatterTuner(mt_config).tune()
+    # mt_config = hparams()
+    # model, trainer = MatterTuner(mt_config).tune()
     
     
     ## Perform Evaluation
