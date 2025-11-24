@@ -12,6 +12,7 @@ from mattertune.backbones import MACEBackboneConfig as MACEBackboneConfig
 from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneConfig
 from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
+from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
@@ -29,6 +30,7 @@ from mattertune.backbones import MatterSimBackboneConfig as MatterSimBackboneCon
 from mattertune.backbones.mattersim import MatterSimGraphConvertorConfig as MatterSimGraphConvertorConfig
 from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsConfig
 from mattertune.backbones import ModelConfig as ModelConfig
+from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.backbones import UMABackboneConfig as UMABackboneConfig
@@ -40,6 +42,7 @@ from . import jmp as jmp
 from . import m3gnet as m3gnet
 from . import mace_foundation as mace_foundation
 from . import mattersim as mattersim
+from . import nequip_foundation as nequip_foundation
 from . import orb as orb
 from . import uma as uma
 
@@ -57,6 +60,7 @@ __all__ = [
     "MatterSimGraphConvertorConfig",
     "MaxNeighborsConfig",
     "ModelConfig",
+    "NequIPBackboneConfig",
     "ORBBackboneConfig",
     "ORBSystemConfig",
     "UMABackboneConfig",
@@ -66,6 +70,7 @@ __all__ = [
     "m3gnet",
     "mace_foundation",
     "mattersim",
+    "nequip_foundation",
     "orb",
     "uma",
 ]

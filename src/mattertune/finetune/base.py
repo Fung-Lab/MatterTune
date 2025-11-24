@@ -397,10 +397,13 @@ class FinetuneModuleBase(
                 "Please ensure that some parts of the model are trainable."
             )
             
-        self.diabled_heads = []
-        
-    def set_disabled_heads(self, disabled_heads: list[str]):
-        self.disabled_heads = disabled_heads
+    def apply_reset_backbone(self):
+        for name, param in self.backbone.named_parameters(): # type: ignore
+            if param.dim() > 1:
+                print(f"Resetting {name}")
+                nn.init.xavier_uniform_(param)
+            else:
+                nn.init.zeros_(param)
 
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
@@ -582,6 +585,9 @@ class FinetuneModuleBase(
         metrics: FinetuneMetrics | None,
         log: bool = True,
     ):
+        # Extract labels from the batch before predicting
+        labels = self.batch_to_labels(batch)
+        
         try:
             output: ModelOutput = self(batch, mode=mode)
         except _SkipBatchError:
@@ -599,8 +605,6 @@ class FinetuneModuleBase(
 
             return _zero_output(), _zero_loss()
 
-        # Extract labels from the batch
-        labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
 
         if len(self.normalizers) > 0:

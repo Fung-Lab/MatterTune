@@ -45,6 +45,7 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalizerConfig
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
+from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
@@ -117,6 +118,7 @@ from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalize
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.main import ModelConfig as ModelConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
+from mattertune.backbones.nequip_foundation.nequip_model import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.finetune.base import NormalizerConfig as NormalizerConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
@@ -210,6 +212,7 @@ __all__ = [
     "ModelCheckpointConfig",
     "ModelConfig",
     "MultiStepLRConfig",
+    "NequIPBackboneConfig",
     "NoOpRecipeConfig",
     "NormalizerConfig",
     "NormalizerConfigBase",

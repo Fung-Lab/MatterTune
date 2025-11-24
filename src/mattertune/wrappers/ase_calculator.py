@@ -79,9 +79,14 @@ class MatterTuneCalculator(Calculator):
         self.model.set_disabled_heads(diabled_properties)
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
-        data = self.model.atoms_to_data(input_atoms, has_labels=False)
-        batch = self.model.collate_fn([data])
-        batch = batch.to(self.model.device)
+        normalized_atoms = copy.deepcopy(self.atoms)
+        # scaled_pos = normalized_atoms.get_scaled_positions()
+        # scaled_pos = np.mod(scaled_pos, 1.0)
+        # normalized_atoms.set_scaled_positions(scaled_pos)
+        
+        batch = self.model.atoms_to_data(normalized_atoms, has_labels=False)
+        batch = self.model.collate_fn([batch])
+        batch = self.model.batch_to_device(batch, self.model.device)
         
         pred = self.model.predict_step(
             batch = batch,
