@@ -39,6 +39,8 @@ backbones/m3gnet
 backbones/orb
 backbones/eqv2
 backbones/mattersim
+backbones/uma
+backbones/nequip&allegro
 ```
 
 ```{toctree}

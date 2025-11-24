@@ -21,8 +21,8 @@ def nequip_model_package(
     A suggested NequIP workflow is:
     1. Train a NequIP model and save the checkpoint (.ckpt) file.
     2. Test the trained model using the checkpoint file if needed.
-    3. Package the trained model into a NequIP package file (.nequip.zip) using this nequip_model_package() function.
-    4. Compile the NequIP package file into a compiled model file (.nequip.pth/pt2) using nequip_package_compile().
+    3. Package the trained model into a NequIP package file (.nequip.zip)
+    4. Compile the NequIP package file into a compiled model file (.nequip.pth/pt2)
     
     This function packages a trained NequIP model from a checkpoint file into a NequIP package file.
     The implementation of this function is based on the nequip-package API in the NequIP repository, 

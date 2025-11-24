@@ -50,6 +50,8 @@ class NequIPBackboneConfig(FinetuneModuleBaseConfig):
     The name of the pretrained model to load.
     - NequIP-OAM-L-0.1: NequIP foundational potential model for materials, pretrained on OAM dataset.
     - NequIP-MP-L-0.1: NequIP foundational potential model pretrained on MP dataset.
+    - Allegro-OAM-L-0.1: Allegro foundational potential model for materials, pretrained on OAM dataset.
+    - Allegro-MP-L-0.1: Allegro foundational potential model pretrained on MP dataset.
     """
 
     @override

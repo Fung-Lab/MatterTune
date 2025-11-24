@@ -91,6 +91,21 @@ git clone https://github.com/ACEsuit/mace.git
 pip install ./mace
 ```
 
+### NequIP/Allegro
+
+Both NequIP and Allegro models both depend on the ```nequip``` package. To setup the environment, please install ```nequip``` by following [nequip doc](https://nequip.readthedocs.io/en/latest/guide/getting-started/install.html).
+
+Or the user can refer to the sample installation we provide:
+
+```bash
+conda create -n nequip-tune python=3.10 -y
+conda activate nequip-tune
+pip install torch
+git clone --depth 1 https://github.com/mir-group/nequip.git
+cd nequip
+pip install .
+```
+
 
 ### JMP
 

@@ -1,4 +1,4 @@
-# MACE Backbone
+# UMA Backbone
 
 "UMA (Universal Models for Atoms) is a next-generation atomistic foundation model developed by Meta FAIRChem team. The UMA models are based on the [eSEN](https://arxiv.org/abs/2502.12147) architecture and trained on 5 billion unique 3D atomic structures — the largest training run to date — by compiling data from multiple chemical domains, including molecules, materials, catalysts, and metal–organic frameworks. In addition, UMA introduces a mixture-of-experts design, which scales the parameter size through the combination of multiple expert models. When performing structure optimization or molecular dynamics simulations, these expert models can be integrated to achieve the same speed as a single expert model.
 
