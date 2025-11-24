@@ -34,13 +34,14 @@ advanced/prune&partition
 :maxdepth: 1
 :caption: Model Backbones
 
-backbones/jmp
-backbones/m3gnet
-backbones/orb
-backbones/eqv2
-backbones/mattersim
 backbones/uma
+backbones/mace
+backbones/mattersim
 backbones/nequip&allegro
+backbones/eqv2
+backbones/jmp
+backbones/orb
+backbones/m3gnet
 ```
 
 ```{toctree}

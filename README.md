@@ -8,7 +8,15 @@ MatterTune is a flexible and powerful machine learning library designed specific
 
 ## Features
 
-- Pre-trained model support: **UMA**, **JMP**, **EquiformerV2**, **MatterSim**, **MACE**, **NequIP/Allegro**, **ORB**, and more to be added.
+- Foundation models support: 
+  - [UMA](https://fung-lab.github.io/MatterTune/backbones/uma.html)
+  - [MACE](https://fung-lab.github.io/MatterTune/backbones/mace.html)
+  - [MatterSim](https://fung-lab.github.io/MatterTune/backbones/mattersim.html)
+  - [NequIP/Allegro](https://fung-lab.github.io/MatterTune/backbones/nequip%26allegro.html)
+  - [EquiformerV2](https://fung-lab.github.io/MatterTune/backbones/eqv2.html)
+  - [JMP](https://fung-lab.github.io/MatterTune/backbones/jmp.html)
+  - [ORB](https://fung-lab.github.io/MatterTune/backbones/orb.html)
+  - and more to be added...
 - Multiple property predictions: energy, forces, stress, and custom properties.
 - Various supported dataset formats: XYZ, ASE databases, Materials Project, Matbench, and more.
 - Comprehensive training features with automated data splitting and logging. 
