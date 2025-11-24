@@ -71,4 +71,32 @@ nequip-compile \
   --target ase
 ```
 
-The compiled model can then be loaded for production simulations in supported integrations such as [nequip LAMMPS](https://nequip.readthedocs.io/en/latest/integrations/lammps/index.html) or [nequip ASE](https://nequip.readthedocs.io/en/latest/integrations/ase.html)
+The compiled model can then be loaded for production simulations in supported integrations such as [nequip LAMMPS](https://nequip.readthedocs.io/en/latest/integrations/lammps/index.html) or [nequip ASE](https://nequip.readthedocs.io/en/latest/integrations/ase.html). For example:
+
+```python
+import time
+import rich
+from tqdm import tqdm
+from ase.io import read
+from ase import Atoms
+from ase.md.langevin import Langevin
+from nequip.ase import NequIPCalculator
+
+calculator = NequIPCalculator.from_compiled_model(
+    compile_path="./compiled_model_from_mt.nequip.pth",
+    device="cuda:1",
+    chemical_species_to_atom_type_map=True, 
+)
+atoms.set_calculator(calculator)
+dyn = Langevin(
+    atoms,
+    timestep=1.0,
+    temperature_K=300,
+    friction=0.02,
+)
+time1 = time.time()
+for _ in tqdm(range(100)):
+    dyn.step(1) # 100 steps
+time2 = time.time()
+rich.print(f"Inference Speed After Compiling: {(time2 - time1)/100} seconds/step")
+```
