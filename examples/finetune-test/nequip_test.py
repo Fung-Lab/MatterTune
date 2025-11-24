@@ -59,6 +59,7 @@ def main(args_dict: dict):
         hparams.data.validation = MC.XYZDatasetConfig.draft()
         hparams.data.validation.src = "./data/Li_electrode_val.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
+        hparams.data.pin_memory = False
 
         ## Add Normalization for Energy
         hparams.model.normalizers = {
