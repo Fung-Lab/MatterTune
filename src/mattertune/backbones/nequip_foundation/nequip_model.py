@@ -130,7 +130,7 @@ class NequIPBackboneModule(
             raise ValueError(
                 f"Unknown pretrained model: {pretrained_model}, available models: {MODEL_URLS.keys()}"
             )
-        
+        self.ckpt_path = ckpt_path
         model = ModelFromPackage(package_path=str(ckpt_path))
         self.backbone: GraphModel = model["sole_model"]
         self.metadata = self.backbone.metadata
@@ -322,3 +322,11 @@ class NequIPBackboneModule(
             Prediction of the model.
         """
         raise NotImplementedError("For now, NequIP/Allegro models do not support pruning and partition acceleration")
+    
+    def data_dict_from_pretrained_package(
+        self,
+    ):
+        with optional_import_error_message("nequip"):
+            from nequip.model.saved_models.package import data_dict_from_package
+            
+        return data_dict_from_package(package_path=str(self.ckpt_path))

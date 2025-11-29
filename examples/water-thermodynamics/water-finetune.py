@@ -229,14 +229,14 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_type", type=str, default="mattersim-1m")
+    parser.add_argument("--model_type", type=str, default="NequIP-OAM-L-0.1")
     parser.add_argument("--conservative", action="store_true")
     parser.add_argument("--train_down_sample", type=int, default=30)
     parser.add_argument("--down_sample_refill", type=bool, default=True)
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=8e-5)
     parser.add_argument("--max_epochs", type=int, default=1000)
-    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5, 6, 7])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0, 1, 2, 3, 4, 5])
     parser.add_argument("--ema_decay", type=float, default=0.99)
     args = parser.parse_args()
     args_dict = vars(args)

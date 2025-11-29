@@ -14,7 +14,6 @@ from mattertune.backbones import NequIPBackboneModule
 
 def nequip_model_package(
     ckpt_path: str | Path,
-    example_atoms: Atoms,
     output_path: str | Path,
 ):
     """
@@ -35,14 +34,13 @@ def nequip_model_package(
     
     
     assert os.path.exists(ckpt_path), f"Checkpoint path {ckpt_path} does not exist."
-    assert len(example_atoms) > 3, f"Example atoms must contain more than 3 atoms, found {len(example_atoms)} atoms."
     assert str(output_path).endswith(".nequip.zip"), f"Output path must end with .nequip.zip, found {output_path}"
     
     with optional_import_error_message("nequip"):
         from nequip.train.lightning import _SOLE_MODEL_KEY
         from nequip.data import AtomicDataDict
         from nequip.utils.global_dtype import _GLOBAL_DTYPE
-        from nequip.utils.versions import get_current_code_versions
+        from nequip.utils.versions import get_current_code_versions, _TORCH_GE_2_6
         from nequip.utils.versions.version_utils import get_version_safe
         from nequip.scripts.package import _CURRENT_NEQUIP_PACKAGE_VERSION
         from nequip.scripts._package_utils import (
@@ -59,55 +57,49 @@ def nequip_model_package(
         from nequip.model.utils import (
             _COMPILE_MODE_OPTIONS,
             _EAGER_MODEL_KEY,
+            override_model_compile_mode,
         )
+        from nequip.utils.global_state import set_global_state
+        from nequip.model.modify_utils import only_apply_persistent_modifiers
         
     set_workflow_state("package")
+    set_global_state()
     
     mt_module = NequIPBackboneModule.load_from_checkpoint(ckpt_path).to(torch.device("cpu"))
     mt_backbone = mt_module.backbone
+    type_names = mt_module.type_names
     eager_model = torch.nn.ModuleDict({_SOLE_MODEL_KEY: mt_backbone})
-    data = mt_module.atoms_to_data(example_atoms)
-    data = mt_module.atomtype_transform(data)
-    data = mt_module.neighbor_transform(data)
-    if AtomicDataDict.CELL_KEY not in data:
-        data[AtomicDataDict.CELL_KEY] = 1e5 * torch.eye(
-            3,
-            dtype=_GLOBAL_DTYPE,
-            device=data[AtomicDataDict.POSITIONS_KEY].device,
-        ).unsqueeze(0)
-        data[AtomicDataDict.EDGE_CELL_SHIFT_KEY] = torch.zeros(
-            (data[AtomicDataDict.EDGE_INDEX_KEY].size(1), 3),
-            dtype=_GLOBAL_DTYPE,
-            device=data[AtomicDataDict.POSITIONS_KEY].device,
-        )
-    data = AtomicDataDict.to_(data, device=torch.device("cpu"))
+    data = mt_module.data_dict_from_pretrained_package()
     
     code_versions = get_current_code_versions()
     models_to_package = {_EAGER_MODEL_KEY: eager_model}
-    type_names = mt_module.type_names
-    pkg_metadata = {
-        "versions": code_versions,
-        "external_modules": {
-            k: get_version_safe(k) for k in _EXTERNAL_MODULES
-        },
-        "package_version_id": _CURRENT_NEQUIP_PACKAGE_VERSION,
-        "available_models": list(models_to_package.keys()),
-        "atom_types": {idx: name for idx, name in enumerate(type_names)},
-    }
-    ## TODO: In original NequIP code, they wrap the entire config.yaml for training into this dummy_config.
-    ## However, it seems that the dummy config is not used in nequip-compile
-    ## So for now, we just create a minimal dummy_config
-    dummy_config = {"generated_by": "MatterTune-nequip-export", "version": "0.1"}
-    
-    orig_config_yaml = yaml.safe_dump(dummy_config, sort_keys=False)
-    pkg_metadata_yaml = yaml.safe_dump(pkg_metadata, sort_keys=False)
-    importers = (torch.package.importer.sys_importer,)
+    importers = (torch.package.importer.sys_importer,) # type: ignore[call-arg]
     
     imp = _get_shared_importer()  ## return a global variable _PACKAGE_TIME_SHARED_IMPORTER.
-    print(imp)
-    assert imp is not None, f"Failed to get shared importer, it should not be None."
     if imp is not None:
+        # the origin is `ModelFromPackage`
+        # first update the `importers`
         importers = (imp,) + importers
+        # we only repackage what's in the package
+        # e.g. if the original package was made with torch<2.6, and we're doing the current packaging with torch>=2.6, we'll miss the `compile` model, but there's nothing we can do about it
+        package_compile_modes = _get_package_metadata(imp)["available_models"]
+    else:
+        if _TORCH_GE_2_6:
+            # allow everything (including compile models)
+            package_compile_modes = _COMPILE_MODE_OPTIONS.copy()
+        else:
+            # only allow eager model if not torch>=2.6
+            package_compile_modes = [_EAGER_MODEL_KEY]
+            
+    # remove eager model since we already built it
+    package_compile_modes.remove(_EAGER_MODEL_KEY)
+    for compile_mode in package_compile_modes:
+        with only_apply_persistent_modifiers(persistent_only=True):
+            with override_model_compile_mode(compile_mode):
+                module = NequIPBackboneModule.load_from_checkpoint(ckpt_path).to(torch.device("cpu"))
+                backbone = module.backbone
+                model = torch.nn.ModuleDict({_SOLE_MODEL_KEY: backbone})
+        models_to_package.update({compile_mode: model})
     
     output_path = Path(output_path)
     with _suppress_package_importer_exporter_warnings():
@@ -123,12 +115,28 @@ def nequip_model_package(
                 dependencies=True,
             )
 
+            ## TODO: In original NequIP code, they wrap the entire config.yaml for training into this dummy_config.
+            ## However, it seems that the dummy config is not used in nequip-compile
+            ## So for now, we just create a minimal dummy_config
+            dummy_config = {"generated_by": "MatterTune-nequip-export", "version": "0.1"}
+            orig_config_yaml = yaml.safe_dump(dummy_config, sort_keys=False)
             exp.save_text(
                 "model",
                 "config.yaml",
                 orig_config_yaml,
             )
 
+            pkg_metadata = {
+                "versions": code_versions,
+                "external_modules": {
+                    k: get_version_safe(k) for k in _EXTERNAL_MODULES
+                },
+                "package_version_id": _CURRENT_NEQUIP_PACKAGE_VERSION,
+                "available_models": list(models_to_package.keys()),
+                "atom_types": {idx: name for idx, name in enumerate(type_names)},
+            }
+            print(pkg_metadata["available_models"])
+            pkg_metadata_yaml = yaml.safe_dump(pkg_metadata, sort_keys=False)
             exp.save_text(
                 "model",
                 "package_metadata.txt",
@@ -143,5 +151,11 @@ def nequip_model_package(
                     obj=model,
                     dependencies=True,
                 )
+            
+            del importers
+        
+    set_workflow_state(None)
 
     rich.print("Saved package to", output_path)
+    
+    return output_path
