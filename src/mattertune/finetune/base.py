@@ -817,3 +817,42 @@ class FinetuneModuleBase(
             Batch on the specified device.
         """
         return batch.to(device) # type: ignore
+    
+    def model_to_double(
+        self,
+    ):
+        """
+        Convert the model to double precision.
+
+        This method should be overridden if the model contains
+        non-tensor objects that need to be converted to double precision.
+        """
+        self.double()
+    
+    def batch_to_double(
+        self,
+        batch: TBatch,
+    ):
+        """
+        Convert a batch to double precision.
+
+        This method should be overridden if the batch contains
+        non-tensor objects that need to be converted to double precision.
+
+        Args:
+            batch: Batch to convert.
+
+        Returns:
+            Batch in double precision.
+        """
+        try:
+            for key, value in batch: # type: ignore
+                if torch.is_tensor(value) and value.dtype == torch.float:
+                    batch[key] = value.double() # type: ignore
+            return batch
+        except Exception as e:
+            print("Error converting batch to double precision:", e)
+            raise ValueError(
+                f"Error converting batch to double precision for {self.hparams.name} Model.",  # type: ignore
+                "Please report this problem in the Issues section of the MatterTune repository to let us fix it. Thank you!"
+            ) from e

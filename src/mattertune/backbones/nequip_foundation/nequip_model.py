@@ -113,6 +113,7 @@ class NequIPBackboneModule(
                 NeighborListTransform,
             )
             from nequip.nn import graph_model
+            from nequip.utils.global_state import set_global_state
 
         pretrained_model = self.hparams.pretrained_model
         if pretrained_model in MODEL_URLS:
@@ -130,6 +131,7 @@ class NequIPBackboneModule(
             raise ValueError(
                 f"Unknown pretrained model: {pretrained_model}, available models: {MODEL_URLS.keys()}"
             )
+        
         self.ckpt_path = ckpt_path
         model = ModelFromPackage(package_path=str(ckpt_path))
         self.backbone: GraphModel = model["sole_model"]
@@ -164,14 +166,14 @@ class NequIPBackboneModule(
     @override
     def model_forward(
         self, batch: AtomicDataDict.Type, mode: str
-    ):
+    ):  
         output = self.backbone(batch)
         
         predicted_properties: dict[str, torch.Tensor] = {}
         for prop in self.hparams.properties:
             key = PROPERTY_KEY_MAP.get(prop.name)
             if key is not None and key in output:
-                predicted_properties[prop.name] = output[key].to(torch.float32)
+                predicted_properties[prop.name] = output[key]
             else:
                 raise ValueError(f"Property {prop.name} not found in the model output.")
             
@@ -330,3 +332,28 @@ class NequIPBackboneModule(
             from nequip.model.saved_models.package import data_dict_from_package
             
         return data_dict_from_package(package_path=str(self.ckpt_path))
+    
+    @override
+    def model_to_double(
+        self,
+    ):
+        """
+        Convert the model to double precision.
+
+        This method should be overridden if the model contains
+        non-tensor objects that need to be converted to double precision.
+        """
+        with optional_import_error_message("nequip"):
+            from nequip.utils.global_state import set_global_state
+        
+        set_global_state(allow_tf32=False)
+    
+    @override
+    def batch_to_double(
+        self,
+        batch,
+    ):  
+        for key in batch:
+            if torch.is_floating_point(batch[key]):
+                batch[key] = batch[key].double()
+        return batch

@@ -18,7 +18,7 @@ from ..finetune.properties import PropertyConfig, ForcesPropertyConfig, Stresses
 from ..finetune.base import FinetuneModuleBase
 from .utils.graph_partition import grid_partition, BFS_extension
 from .utils.parallel_inference import ParallizedInferenceBase
-from ..util import write_to_npz, load_from_npz
+
 
 class MatterTuneCalculator(Calculator):
     """
@@ -45,6 +45,12 @@ class MatterTuneCalculator(Calculator):
         self.partition_times = []
         self.forward_times = []
         self.collect_times = []
+        
+        self.use_double_precision = False
+        
+    def set_use_double_precision(self):
+        self.model.model_to_double()
+        self.use_double_precision = True
 
     @override
     def calculate(
@@ -76,7 +82,8 @@ class MatterTuneCalculator(Calculator):
         input_atoms.set_scaled_positions(scaled_positions)
         
         diabled_properties = list(set(self.implemented_properties) - set(properties))
-        self.model.set_disabled_heads(diabled_properties)
+        if self.use_double_precision:
+            self.model.set_disabled_heads(diabled_properties)
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
         normalized_atoms = copy.deepcopy(self.atoms)
@@ -85,6 +92,12 @@ class MatterTuneCalculator(Calculator):
         # normalized_atoms.set_scaled_positions(scaled_pos)
         
         batch = self.model.atoms_to_data(normalized_atoms, has_labels=False)
+        if self.use_double_precision:
+            batch = self.model.batch_to_double(batch)
+        # for k,v in batch:
+        #     if torch.is_tensor(v):
+        #         print(f"{k}: {v.dtype}")
+        # exit()
         batch = self.model.collate_fn([batch])
         batch = self.model.batch_to_device(batch, self.model.device)
         
