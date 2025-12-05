@@ -15,7 +15,7 @@ from ...finetune import properties as props
 from ...finetune.base import FinetuneModuleBase, FinetuneModuleBaseConfig, ModelOutput
 from ...normalization import NormalizationContext
 from ...registry import backbone_registry
-from ...util import optional_import_error_message
+from ...util import optional_import_error_message, neighbor_list_and_relative_vec
 
 if TYPE_CHECKING:
     from mace.tools.torch_geometric import Data, Batch
@@ -255,10 +255,23 @@ class MACEBackboneModule(
         edge_indices: torch.Tensor = data.edge_index # type: ignore [2, n_edges]
         return edge_indices
     
+    # @override
+    # def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
+    #     data = self.atoms_to_data(atoms, has_labels=False)
+    #     return self.get_connectivity_from_data(data).numpy()
+    
     @override
     def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
-        data = self.atoms_to_data(atoms, has_labels=False)
-        return self.get_connectivity_from_data(data).numpy()
+        twobody_cutoff = self.cutoff
+        edge_indices = neighbor_list_and_relative_vec(
+            "vesin",
+            pos=np.array(atoms.get_positions()),
+            cell=np.array(atoms.get_cell()),
+            r_max=twobody_cutoff,
+            self_interaction=False,
+            pbc=atoms.pbc,
+        )
+        return edge_indices
         
 
     @override
