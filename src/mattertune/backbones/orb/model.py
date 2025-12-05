@@ -6,6 +6,7 @@ import logging
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal, cast
 
+from ase import Atoms
 import nshconfig as C
 import numpy as np
 import torch
@@ -543,22 +544,16 @@ class ORBBackboneModule(
         return torch.stack([senders, receivers], dim=0)
     
     @override
-    def get_connectivity_from_atoms(self, atoms) -> np.ndarray:
-        with optional_import_error_message("orb_models"):
-            from orb_models.forcefield import featurization_utilities as feat_util
-        
-        positions = torch.from_numpy(atoms.positions)
-        cell = torch.from_numpy(atoms.cell.array)
-        pbc = torch.from_numpy(atoms.pbc)
-        edge_indices, _, _ = feat_util.compute_pbc_radius_graph(
-            positions=positions,
-            cell=cell,
-            pbc=pbc,
-            radius=self.system_config.radius,
-            max_number_neighbors=self.system_config.max_num_neighbors,
-            device=torch.device("cpu"),
+    def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:
+        twobody_cutoff = self.hparams.system.radius
+        edge_indices = neighbor_list_and_relative_vec(
+            "vesin",
+            pos=np.array(atoms.get_positions()),
+            cell=np.array(atoms.get_cell()),
+            r_max=twobody_cutoff,
+            self_interaction=False,
+            pbc=atoms.pbc,
         )
-        edge_indices = edge_indices.cpu().numpy()
         return edge_indices
 
     @override
