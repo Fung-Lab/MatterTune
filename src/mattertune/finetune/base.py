@@ -856,3 +856,15 @@ class FinetuneModuleBase(
                 f"Error converting batch to double precision for {self.hparams.name} Model.",  # type: ignore
                 "Please report this problem in the Issues section of the MatterTune repository to let us fix it. Thank you!"
             ) from e
+            
+    def to_device(
+        self,
+        device: torch.device | str,
+    ):
+        """
+        Move the model to the specified device.
+
+        This method should be overridden if the model contains
+        non-tensor objects that need to be moved to the device.
+        """
+        self.to(device)

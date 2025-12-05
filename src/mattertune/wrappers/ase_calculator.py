@@ -29,7 +29,8 @@ class MatterTuneCalculator(Calculator):
     def __init__(self, model: FinetuneModuleBase, device: torch.device):
         super().__init__()
 
-        self.model = model.to(device)
+        self.model = model
+        self.model.to_device(device)
         self.model.hparams.using_partition = False
 
         self.implemented_properties: list[str] = []

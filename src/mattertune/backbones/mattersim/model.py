@@ -121,7 +121,7 @@ class MatterSimM3GNetBackboneModule(
 
         ## Load the pretrained model
         self.backbone = Potential.from_checkpoint(  # type: ignore[no-untyped-call]
-            device="cuda",
+            device="cpu",
             load_path=self.hparams.pretrained_model,
             model_name=self.hparams.model_type,
             load_training_state=False,
@@ -382,3 +382,18 @@ class MatterSimM3GNetBackboneModule(
             pass
         else:
             self.backbone.model.num_blocks = min(self.backbone.model.num_blocks, message_passing_steps)
+            
+    @override
+    def to_device(
+        self,
+        device: torch.device | str,
+    ):
+        """
+        Move the model to the specified device.
+
+        This method should be overridden if the model contains
+        non-tensor objects that need to be moved to the device.
+        """
+        # self.backbone.to(device)
+        self.backbone.device = device
+        self.to(device)
