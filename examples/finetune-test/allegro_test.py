@@ -1,44 +1,3 @@
-# UMA Backbone
-
-"UMA (Universal Models for Atoms) is a next-generation atomistic foundation model developed by Meta FAIRChem team. The UMA models are based on the [eSEN](https://arxiv.org/abs/2502.12147) architecture and trained on 5 billion unique 3D atomic structures — the largest training run to date — by compiling data from multiple chemical domains, including molecules, materials, catalysts, and metal–organic frameworks. In addition, UMA introduces a mixture-of-experts design, which scales the parameter size through the combination of multiple expert models. When performing structure optimization or molecular dynamics simulations, these expert models can be integrated to achieve the same speed as a single expert model.
-
-## Installation
-
-To use the UMA series models, please first make sure you have obtained Hugging Face access at https://huggingface.co/facebook/UMA in order to access their checkpoints and created a Huggingface token at https://huggingface.co/settings/tokens/ with this permission:
-- Permissions: Read access to contents of all public gated repos you can access
-
-Then, add the token as an environment variable
-
-```bash 
-# pip install huggingface_hub
-huggingface-cli login
-```
-
-It may be enough to use ```pip install fairchem-core``` to install UMA. This gets you the latest version on PyPi (https://pypi.org/project/fairchem-core/)
-
-Or you can install from source code in edit mode:
-
-```bash
-git clone git@github.com:facebookresearch/fairchem.git
-pip install -e fairchem/packages/fairchem-core
-# or 
-# pip install -e fairchem/packages/fairchem-core[dev] 
-# for development
-```
-
-## Key Features
-
-We consider the key feature of the UMA model to be its unprecedented breadth of training domains among atomistic foundation models to date, encompassing molecules, materials, catalysts, and metal–organic frameworks. For detailed information about UMA, please see [UMA: A Family of Universal Models for Atoms](https://ai.meta.com/research/publications/uma-a-family-of-universal-models-for-atoms/)
-
-## License
-
-The UMA backbone is available under MIT License
-
-## Usage Example
-
-### UMA Fine-tuning
-
-```python
 from __future__ import annotations
 
 import logging
@@ -51,7 +10,7 @@ from lightning.pytorch.strategies import DDPStrategy
 import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
-from mattertune.backbones.uma import UMABackboneModule
+from mattertune.backbones import NequIPBackboneModule
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -60,9 +19,8 @@ logging.basicConfig(level=logging.ERROR)
 def main(args_dict: dict):
     def hparams():
         hparams = MC.MatterTunerConfig.draft()
-        hparams.model = MC.UMABackboneConfig.draft()
-        hparams.model.model_name = "uma-s-1.1"
-        hparams.model.task_name = "omat"
+        hparams.model = MC.NequIPBackboneConfig.draft()
+        hparams.model.pretrained_model = "Allegro-OAM-L-0.1"
         hparams.model.reset_output_heads = True
         hparams.model.optimizer = MC.AdamWConfig(
             lr=args_dict["lr"],
@@ -97,10 +55,11 @@ def main(args_dict: dict):
         ## Data Hyperparameters
         hparams.data = MC.ManualSplitDataModuleConfig.draft()
         hparams.data.train = MC.XYZDatasetConfig.draft()
-        hparams.data.train.src = "./data/Li_electrode_finetune.xyz"
+        hparams.data.train.src = "./data/Li_electrode_finetune_small.xyz"
         hparams.data.validation = MC.XYZDatasetConfig.draft()
-        hparams.data.validation.src = "./data/Li_electrode_val.xyz"
+        hparams.data.validation.src = "./data/Li_electrode_val_small.xyz"
         hparams.data.batch_size = args_dict["batch_size"]
+        hparams.data.pin_memory = False
 
         ## Add Normalization for Energy
         hparams.model.normalizers = {
@@ -128,7 +87,7 @@ def main(args_dict: dict):
         )
 
         # Configure Model Checkpoint
-        ckpt_name = "uma-s11-best"
+        ckpt_name = "Allegro-OAM-best"
         if os.path.exists(f"./checkpoints/{ckpt_name}.ckpt"):
             os.remove(f"./checkpoints/{ckpt_name}.ckpt")
         hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
@@ -143,7 +102,7 @@ def main(args_dict: dict):
         hparams.trainer.loggers = [
             WandbLoggerConfig(
                 project="MatterTune-UsageTest", 
-                name="UMA",
+                name="NequIP",
             )
         ]
 
@@ -160,10 +119,6 @@ def main(args_dict: dict):
     
     
     ## Perform Evaluation
-
-    ckpt_path = "./checkpoints/uma-s11-best.ckpt"
-    model = UMABackboneModule.load_from_checkpoint(ckpt_path)
-    
     from ase.io import read
     from ase import Atoms
     import numpy as np
@@ -171,9 +126,10 @@ def main(args_dict: dict):
     import wandb
     from tqdm import tqdm
     
-    wandb.init(project="MatterTune-UsageTest", name="UMA", resume=True)
+    ckpt_path = "./checkpoints/Allegro-OAM-best.ckpt"
+    model = NequIPBackboneModule.load_from_checkpoint(ckpt_path)
     
-    val_atoms_list:list[Atoms] = read("./data/Li_electrode_test.xyz", ":") # type: ignore
+    val_atoms_list:list[Atoms] = read("./data/Li_electrode_test_small.xyz", ":") # type: ignore
     calc = model.ase_calculator(
         device = f"cuda:{args_dict['devices'][0]}"
     )
@@ -200,46 +156,41 @@ def main(args_dict: dict):
     rich.print(f"Forces MAE: {f_mae} eV/Ang")
     rich.print(f"Stresses MAE: {s_mae} eV/Ang^3")
     
-    wandb.finish()
+    ## Mixture of Experts (MoE) Inference Example
+    from ase.md.langevin import Langevin
+    from ase.io import read
+    from ase import Atoms
+    import time
+    
+    ckpt_path = "./checkpoints/Allegro-OAM-best.ckpt"
+    model = NequIPBackboneModule.load_from_checkpoint(ckpt_path)
+    
+    ### before merging MoE
+    atoms: Atoms = read("./data/Li_electrode_test_small.xyz", index=0) # type: ignore
+    calc = model.ase_calculator(
+        device = f"cuda:{args_dict['devices'][0]}"
+    )
+    atoms.set_calculator(calc)
+    dyn = Langevin(
+        atoms,
+        timestep=1.0,
+        temperature_K=300,
+        friction=0.02,
+    )
+    time1 = time.time()
+    dyn.run(1000) # 1000 steps
+    time2 = time.time()
+    rich.print(f"Inference Speed: {(time2 - time1)/1000} seconds/step")
+    
     
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--devices", type=int, nargs="+", default=[1, 2, 3])
+    parser.add_argument("--devices", type=int, nargs="+", default=[0])
     args = parser.parse_args()
     args_dict = vars(args)
     main(args_dict)
-
-```
-
-### Mixture of Experts Merging
-
-If during your whole task, the overall charge and spin tag of your structure, as well as the element of each atom, are all fixed, you can accelerate UMA's inferencing by ```model.merge_MOLE_model(atoms)```. An example is:
-
-```python
-from ase.md.langevin import Langevin
-from ase.io import read
-from ase import Atoms
-from mattertune.backbones.uma import UMABackboneModule
-    
-ckpt_path = "./checkpoints/uma-s11-best.ckpt"
-model = UMABackboneModule.load_from_checkpoint(ckpt_path)
-atoms: Atoms = read("./data/Li_electrode_test.xyz", index=0) # type: ignore
-model.merge_MOLE_model(atoms)
-calc = model.ase_calculator(
-    device = f"cuda:0"
-)
-    
-atoms.set_calculator(calc)
-dyn = Langevin(
-    atoms,
-    timestep=1.0,
-    temperature_K=300,
-    friction=0.02,
-)
-dyn.run(1000)
-```

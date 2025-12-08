@@ -49,6 +49,7 @@ from mattertune.backbones.jmp.model import MaxNeighborsConfig as MaxNeighborsCon
 from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalizerConfig
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
+from mattertune.backbones import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
 from mattertune.data import OMAT24DatasetConfig as OMAT24DatasetConfig
@@ -56,10 +57,10 @@ from mattertune.backbones import ORBBackboneConfig as ORBBackboneConfig
 from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.students.main import OfflineDistillationTrainerConfig as OfflineDistillationTrainerConfig
 from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfigBase
-from mattertune.students.painn.model import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
+from mattertune.students import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
 from mattertune.students.painn.model import PaiNNNeighborListConfig as PaiNNNeighborListConfig
-from mattertune.students.painn.model import PaiNNRBFConfig as PaiNNRBFConfig
-from mattertune.students.painn.model import PaiNNStudentModelConfig as PaiNNStudentModelConfig
+from mattertune.students import PaiNNRBFConfig as PaiNNRBFConfig
+from mattertune.students import PaiNNStudentModelConfig as PaiNNStudentModelConfig
 from mattertune.recipes.lora import PeftConfig as PeftConfig
 from mattertune.normalization import PerAtomNormalizerConfig as PerAtomNormalizerConfig
 from mattertune.normalization import PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig
@@ -136,6 +137,7 @@ from mattertune.normalization import MeanStdNormalizerConfig as MeanStdNormalize
 from mattertune.main import ModelCheckpointConfig as ModelCheckpointConfig
 from mattertune.main import ModelConfig as ModelConfig
 from mattertune.finetune.lr_scheduler import MultiStepLRConfig as MultiStepLRConfig
+from mattertune.backbones import NequIPBackboneConfig as NequIPBackboneConfig
 from mattertune.recipes import NoOpRecipeConfig as NoOpRecipeConfig
 from mattertune.finetune.base import NormalizerConfig as NormalizerConfig
 from mattertune.normalization import NormalizerConfigBase as NormalizerConfigBase
@@ -145,10 +147,10 @@ from mattertune.backbones.orb.model import ORBSystemConfig as ORBSystemConfig
 from mattertune.students.main import OfflineDistillationTrainerConfig as OfflineDistillationTrainerConfig
 from mattertune.finetune.base import OptimizerConfig as OptimizerConfig
 from mattertune.finetune.optimizer import OptimizerConfigBase as OptimizerConfigBase
-from mattertune.students.painn.model import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
+from mattertune.students import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
 from mattertune.students.painn.model import PaiNNNeighborListConfig as PaiNNNeighborListConfig
-from mattertune.students.painn.model import PaiNNRBFConfig as PaiNNRBFConfig
-from mattertune.students.painn.model import PaiNNStudentModelConfig as PaiNNStudentModelConfig
+from mattertune.students import PaiNNRBFConfig as PaiNNRBFConfig
+from mattertune.students import PaiNNStudentModelConfig as PaiNNStudentModelConfig
 from mattertune.recipes.lora import PeftConfig as PeftConfig
 from mattertune.normalization import PerAtomNormalizerConfig as PerAtomNormalizerConfig
 from mattertune.normalization import PerAtomReferencingNormalizerConfig as PerAtomReferencingNormalizerConfig
@@ -248,6 +250,7 @@ __all__ = [
     "ModelCheckpointConfig",
     "ModelConfig",
     "MultiStepLRConfig",
+    "NequIPBackboneConfig",
     "NoOpRecipeConfig",
     "NormalizerConfig",
     "NormalizerConfigBase",

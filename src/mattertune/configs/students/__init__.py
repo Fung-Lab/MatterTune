@@ -5,10 +5,10 @@ from mattertune.students import CACERBFConfig as CACERBFConfig
 from mattertune.students.cace_model.model import CACEReadOutHeadConfig as CACEReadOutHeadConfig
 from mattertune.students import CACEStudentModelConfig as CACEStudentModelConfig
 from mattertune.students.main import OfflineDistillationTrainerConfig as OfflineDistillationTrainerConfig
-from mattertune.students.painn.model import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
+from mattertune.students import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
 from mattertune.students.painn.model import PaiNNNeighborListConfig as PaiNNNeighborListConfig
-from mattertune.students.painn.model import PaiNNRBFConfig as PaiNNRBFConfig
-from mattertune.students.painn.model import PaiNNStudentModelConfig as PaiNNStudentModelConfig
+from mattertune.students import PaiNNRBFConfig as PaiNNRBFConfig
+from mattertune.students import PaiNNStudentModelConfig as PaiNNStudentModelConfig
 from mattertune.students import SchNetCutoffFnConfig as SchNetCutoffFnConfig
 from mattertune.students.schnet.model import SchNetNeighborListConfig as SchNetNeighborListConfig
 from mattertune.students import SchNetRBFConfig as SchNetRBFConfig
@@ -22,10 +22,10 @@ from mattertune.students.cace_model.model import CACEReadOutHeadConfig as CACERe
 from mattertune.students import CACEStudentModelConfig as CACEStudentModelConfig
 from mattertune.students.main import DataModuleConfig as DataModuleConfig
 from mattertune.students.main import OfflineDistillationTrainerConfig as OfflineDistillationTrainerConfig
-from mattertune.students.painn.model import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
+from mattertune.students import PaiNNCutoffFnConfig as PaiNNCutoffFnConfig
 from mattertune.students.painn.model import PaiNNNeighborListConfig as PaiNNNeighborListConfig
-from mattertune.students.painn.model import PaiNNRBFConfig as PaiNNRBFConfig
-from mattertune.students.painn.model import PaiNNStudentModelConfig as PaiNNStudentModelConfig
+from mattertune.students import PaiNNRBFConfig as PaiNNRBFConfig
+from mattertune.students import PaiNNStudentModelConfig as PaiNNStudentModelConfig
 from mattertune.students import SchNetCutoffFnConfig as SchNetCutoffFnConfig
 from mattertune.students.schnet.model import SchNetNeighborListConfig as SchNetNeighborListConfig
 from mattertune.students import SchNetRBFConfig as SchNetRBFConfig

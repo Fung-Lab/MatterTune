@@ -12,7 +12,7 @@ installation
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: User Guide
 
 guides/datasets
@@ -31,14 +31,17 @@ advanced/prune&partition
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Model Backbones
 
-backbones/jmp
-backbones/m3gnet
-backbones/orb
-backbones/eqv2
+backbones/uma
+backbones/mace
 backbones/mattersim
+backbones/nequip&allegro
+backbones/eqv2
+backbones/jmp
+backbones/orb
+backbones/m3gnet
 ```
 
 ```{toctree}

@@ -16,6 +16,8 @@ Seamlessly work with multiple state-of-the-art pre-trained models including:
 - ORB
 - MatterSim
 - MACE
+- UMA
+- NequIP/Allegro
 
 ### Flexible Property Predictions
 Support for various molecular and materials properties:

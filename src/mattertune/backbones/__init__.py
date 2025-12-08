@@ -20,6 +20,8 @@ from .mace_foundation import MACEBackboneConfig as MACEBackboneConfig
 from .mace_foundation import MACEBackboneModule as MACEBackboneModule
 from .uma import UMABackboneConfig as UMABackboneConfig
 from .uma import UMABackboneModule as UMABackboneModule
+from .nequip_foundation import NequIPBackboneConfig as NequIPBackboneConfig
+from .nequip_foundation import NequIPBackboneModule as NequIPBackboneModule
 
 ModelConfig = TypeAliasType(
     "ModelConfig",

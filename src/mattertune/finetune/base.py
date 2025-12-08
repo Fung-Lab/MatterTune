@@ -373,7 +373,7 @@ class FinetuneModuleBase(
         # Create the backbone model and output heads
         self.create_model()
         
-        if self.hparams.using_partition:
+        if self.hparams.pruning_message_passing is not None:
             self.apply_pruning_message_passing(self.hparams.pruning_message_passing)
         
         if self.hparams.reset_backbone:
@@ -397,10 +397,16 @@ class FinetuneModuleBase(
                 "Please ensure that some parts of the model are trainable."
             )
             
-        self.diabled_heads = []
-        
     def set_disabled_heads(self, disabled_heads: list[str]):
         self.disabled_heads = disabled_heads
+            
+    def apply_reset_backbone(self):
+        for name, param in self.backbone.named_parameters(): # type: ignore
+            if param.dim() > 1:
+                print(f"Resetting {name}")
+                nn.init.xavier_uniform_(param)
+            else:
+                nn.init.zeros_(param)
 
     def create_metrics(self):
         self.train_metrics = FinetuneMetrics(self.hparams.properties)
@@ -582,6 +588,9 @@ class FinetuneModuleBase(
         metrics: FinetuneMetrics | None,
         log: bool = True,
     ):
+        # Extract labels from the batch before predicting
+        labels = self.batch_to_labels(batch)
+        
         try:
             output: ModelOutput = self(batch, mode=mode)
         except _SkipBatchError:
@@ -599,8 +608,6 @@ class FinetuneModuleBase(
 
             return _zero_output(), _zero_loss()
 
-        # Extract labels from the batch
-        labels = self.batch_to_labels(batch)
         predictions = output["predicted_properties"]
 
         if len(self.normalizers) > 0:
@@ -790,12 +797,74 @@ class FinetuneModuleBase(
         from ..wrappers.ase_calculator import MatterTuneCalculator
         
         return MatterTuneCalculator(self, device=torch.device(device))
+
+    def batch_to_device(
+        self,
+        batch: TBatch,
+        device: torch.device | str,
+    ):
+        """
+        Move a batch to the specified device.
+
+        This method should be overridden if the batch contains
+        non-tensor objects that need to be moved to the device.
+
+        Args:
+            batch: Batch to move.
+            device: Device to move the batch to.
+
+        Returns:
+            Batch on the specified device.
+        """
+        return batch.to(device) # type: ignore
     
-    def batch_to_device(self, batch, device):
+    def model_to_double(
+        self,
+    ):
         """
-        This is used for moving a batch to a device. 
-        Normally we would just use `batch.to(device)`, but
-        for some models the batch can't be moved by "to()" directly.
-        For these models, we need to override this method.
+        Convert the model to double precision.
+
+        This method should be overridden if the model contains
+        non-tensor objects that need to be converted to double precision.
         """
-        return batch.to(device)
+        self.double()
+    
+    def batch_to_double(
+        self,
+        batch: TBatch,
+    ):
+        """
+        Convert a batch to double precision.
+
+        This method should be overridden if the batch contains
+        non-tensor objects that need to be converted to double precision.
+
+        Args:
+            batch: Batch to convert.
+
+        Returns:
+            Batch in double precision.
+        """
+        try:
+            for key, value in batch: # type: ignore
+                if torch.is_tensor(value) and value.dtype == torch.float:
+                    batch[key] = value.double() # type: ignore
+            return batch
+        except Exception as e:
+            print("Error converting batch to double precision:", e)
+            raise ValueError(
+                f"Error converting batch to double precision for {self.hparams.name} Model.",  # type: ignore
+                "Please report this problem in the Issues section of the MatterTune repository to let us fix it. Thank you!"
+            ) from e
+            
+    def to_device(
+        self,
+        device: torch.device | str,
+    ):
+        """
+        Move the model to the specified device.
+
+        This method should be overridden if the model contains
+        non-tensor objects that need to be moved to the device.
+        """
+        self.to(device)

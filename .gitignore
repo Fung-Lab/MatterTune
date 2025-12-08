@@ -217,7 +217,7 @@ nshtrainer/
 wandb/
 abandoned/
 .ruff_cache/
-examples/hidden/
+hidden/
 *checkpoints*/
 md_results/
 results_backup/
@@ -228,4 +228,4 @@ bfg.jar
 docs/_autosummary/
 contents/
 results/
-examples/offline-distill/data/
+offline-distill/

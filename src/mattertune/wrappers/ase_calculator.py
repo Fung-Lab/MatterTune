@@ -19,6 +19,7 @@ from ..distillation.base import StudentModuleBase
 from .utils.graph_partition import grid_partition, BFS_extension
 from .utils.parallel_inference import ParallizedInferenceBase
 
+
 class MatterTuneCalculator(Calculator):
     """
     A fast version of the MatterTuneCalculator that uses the `predict_step` method directly without creating a trainer.
@@ -28,7 +29,8 @@ class MatterTuneCalculator(Calculator):
     def __init__(self, model: FinetuneModuleBase | StudentModuleBase, device: torch.device):
         super().__init__()
 
-        self.model = model.to(device)
+        self.model = model
+        self.model.to_device(device)
         self.model.hparams.using_partition = False
 
         self.implemented_properties: list[str] = []
@@ -41,9 +43,15 @@ class MatterTuneCalculator(Calculator):
             self.implemented_properties.append(ase_prop_name)
             self._ase_prop_to_config[ase_prop_name] = prop
         
-        self.last_build_graph_time = 0.0
-        self.last_forward_time = 0.0
-        self.last_calculation_time = 0.0
+        self.partition_times = []
+        self.forward_times = []
+        self.collect_times = []
+        
+        self.use_double_precision = False
+        
+    def set_use_double_precision(self):
+        self.model.model_to_double()
+        self.use_double_precision = True
 
     @override
     def calculate(
@@ -79,10 +87,20 @@ class MatterTuneCalculator(Calculator):
         diabled_properties = list(set(self.implemented_properties) - set(properties))
         prop_configs = [self._ase_prop_to_config[prop] for prop in properties]
         
-        data = self.model.atoms_to_data(input_atoms, has_labels=False)
-        batch = self.model.collate_fn([data])
+        normalized_atoms = copy.deepcopy(self.atoms)
+        # scaled_pos = normalized_atoms.get_scaled_positions()
+        # scaled_pos = np.mod(scaled_pos, 1.0)
+        # normalized_atoms.set_scaled_positions(scaled_pos)
+        
+        batch = self.model.atoms_to_data(normalized_atoms, has_labels=False)
+        if self.use_double_precision:
+            batch = self.model.batch_to_double(batch)
+        # for k,v in batch:
+        #     if torch.is_tensor(v):
+        #         print(f"{k}: {v.dtype}")
+        # exit()
+        batch = self.model.collate_fn([batch])
         batch = self.model.batch_to_device(batch, self.model.device)
-        self.last_build_graph_time = time.time() - _time
         
         _time = time.time()
         pred = self.model.predict_step(
