@@ -9,6 +9,7 @@ from ..distillation.base import StudentModuleBaseConfig, StudentModuleBase
 from .cace_model.model import CACECutoffFnConfig, CACERBFConfig, CACEStudentModelConfig, CACEStudentModel
 from .schnet.model import SchNetCutoffFnConfig, SchNetRBFConfig, SchNetStudentModelConfig, SchNetStudentModel
 from .painn.model import PaiNNCutoffFnConfig, PaiNNRBFConfig, PaiNNStudentModelConfig, PaiNNStudentModel
+from .allegro_model.model import AllegroStudentModelConfig, AllegroStudentModel
 
 StudentModelConfig = TypeAliasType(
     "StudentModelConfig",

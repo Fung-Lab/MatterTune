@@ -1,5 +1,6 @@
 __codegen__ = True
 
+from mattertune.students import AllegroStudentModelConfig as AllegroStudentModelConfig
 from mattertune.students import CACECutoffFnConfig as CACECutoffFnConfig
 from mattertune.students import CACERBFConfig as CACERBFConfig
 from mattertune.students.cace_model.model import CACEReadOutHeadConfig as CACEReadOutHeadConfig
@@ -16,6 +17,7 @@ from mattertune.students import SchNetStudentModelConfig as SchNetStudentModelCo
 from mattertune.students import StudentModuleBaseConfig as StudentModuleBaseConfig
 from mattertune.students.main import TrainerConfig as TrainerConfig
 
+from mattertune.students import AllegroStudentModelConfig as AllegroStudentModelConfig
 from mattertune.students import CACECutoffFnConfig as CACECutoffFnConfig
 from mattertune.students import CACERBFConfig as CACERBFConfig
 from mattertune.students.cace_model.model import CACEReadOutHeadConfig as CACEReadOutHeadConfig
@@ -37,12 +39,14 @@ from mattertune.students.main import TrainerConfig as TrainerConfig
 from mattertune.students.main import data_registry as data_registry
 from mattertune.students import student_registry as student_registry
 
+from . import allegro_model as allegro_model
 from . import cace_model as cace_model
 from . import main as main
 from . import painn as painn
 from . import schnet as schnet
 
 __all__ = [
+    "AllegroStudentModelConfig",
     "CACECutoffFnConfig",
     "CACERBFConfig",
     "CACEReadOutHeadConfig",
@@ -60,6 +64,7 @@ __all__ = [
     "StudentModelConfig",
     "StudentModuleBaseConfig",
     "TrainerConfig",
+    "allegro_model",
     "cace_model",
     "data_registry",
     "main",

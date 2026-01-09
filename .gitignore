@@ -228,4 +228,6 @@ bfg.jar
 docs/_autosummary/
 contents/
 results/
-offline-distill/
+# offline-distill/
+data/
+plots/

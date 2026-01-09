@@ -1,0 +1,165 @@
+# yamllint disable rule:line-length
+run: [train, test]
+
+cutoff_radius: 4.0
+model_type_names: [Li, P, O]
+chemical_species: ${model_type_names}
+monitored_metric: val0_epoch/weighted_sum
+
+data:
+  _target_: nequip.data.datamodule.ASEDataModule
+  seed: 456
+
+  split_dataset:
+    file_path: /net/csefiles/coc-fung-cluster/lingyu/datasets/li3po4-12000-samples.xyz
+    train: 0.8
+    val: 0.1
+    test: 0.1
+
+  transforms:
+    - _target_: nequip.data.transforms.ChemicalSpeciesToAtomTypeMapper
+      model_type_names: ${model_type_names}
+    - _target_: nequip.data.transforms.NeighborListTransform
+      r_max: ${cutoff_radius}
+
+  train_dataloader:
+    _target_: torch.utils.data.DataLoader
+    batch_size: 128
+  val_dataloader:
+    _target_: torch.utils.data.DataLoader
+    batch_size: 128
+  test_dataloader: ${data.val_dataloader}
+  stats_manager:
+    _target_: nequip.data.CommonDataStatisticsManager
+    type_names: ${model_type_names}
+
+
+trainer:
+  _target_: lightning.Trainer
+  max_epochs: 5000
+  log_every_n_steps: 5
+  accelerator: gpu
+  devices: 8
+  strategy:
+    _target_: nequip.train.SimpleDDPStrategy
+
+  logger:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    project: allegro_baseline
+    name: num_scalar_features=1-num_tensor_features=1-l_max=1-num_layers=1
+    save_dir: ${hydra:runtime.output_dir}
+
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.EarlyStopping
+      monitor: ${monitored_metric}            # validation metric to monitor
+      min_delta: 1e-5                         # how much to be considered a "change"
+      patience: 200                            # how many instances of "no change" before stopping
+
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      monitor: ${monitored_metric}            # validation metric to monitor
+      dirpath: ${hydra:runtime.output_dir}    # use hydra output directory
+      filename: best                          # `best.ckpt` is the checkpoint name
+      save_last: true                         # `last.ckpt` will be saved
+
+    - _target_: lightning.pytorch.callbacks.LearningRateMonitor
+      logging_interval: epoch
+
+# NOTE:
+# interpolation parameters for Allegro model
+num_scalar_features: 1
+num_tensor_features: 1
+l_max: 1
+num_layers: 1
+
+training_module:
+  _target_: nequip.train.EMALightningModule
+  ema_decay: 0.99
+
+  loss:
+    _target_: nequip.train.EnergyForceLoss
+    per_atom_energy: true
+    coeffs:
+      total_energy: 1.0
+      forces: 1.0
+  val_metrics:
+    _target_: nequip.train.EnergyForceMetrics
+    coeffs:
+      per_atom_energy_mae: 1.0
+      forces_mae: 1.0
+  test_metrics: ${training_module.val_metrics}
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.001
+
+  lr_scheduler:
+    scheduler:
+      _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+      factor: 0.5
+      patience: 25
+      min_lr: 1e-8
+    monitor: ${monitored_metric}
+    interval: epoch
+    frequency: 1
+
+  model:
+    _target_: allegro.model.AllegroModel
+    compile_mode: compile
+
+    seed: 456
+    model_dtype: float32
+    type_names: ${model_type_names}
+    r_max: ${cutoff_radius}
+
+    radial_chemical_embed:
+      _target_: allegro.nn.TwoBodyBesselScalarEmbed
+      num_bessels: 8
+      bessel_trainable: false
+      polynomial_cutoff_p: 48
+
+    radial_chemical_embed_dim: 64
+
+
+    scalar_embed_mlp_hidden_layers_depth: 2
+    scalar_embed_mlp_hidden_layers_width: 64
+    scalar_embed_mlp_nonlinearity: silu
+
+
+    l_max: ${l_max}
+
+    num_layers: ${num_layers}
+
+    num_scalar_features: ${num_scalar_features}
+
+    num_tensor_features: ${num_tensor_features}
+
+
+    allegro_mlp_hidden_layers_depth: 1
+    allegro_mlp_hidden_layers_width: 64
+    allegro_mlp_nonlinearity: silu
+
+    parity: false
+
+    tp_path_channel_coupling: true
+
+    readout_mlp_hidden_layers_depth: 1
+    readout_mlp_hidden_layers_width: 32
+    readout_mlp_nonlinearity: null
+    # ^ setting `nonlinearity` to `null` means that output MLP is effectively a linear layer
+
+    # === misc hyperparameters ===
+    # average number of neighbors for edge sum normalization
+    avg_num_neighbors: ${training_data_stats:num_neighbors_mean}
+
+    # per-type per-atom scales and shifts
+    per_type_energy_shifts: ${training_data_stats:per_atom_energy_mean}
+    per_type_energy_scales: ${training_data_stats:forces_rms}
+    per_type_energy_scales_trainable: false
+    per_type_energy_shifts_trainable: false
+
+    # # ZBL pair potential (optional, can be removed or included depending on aplication)
+    # # see NequIP docs for details:
+    # # https://nequip.readthedocs.io/en/latest/api/nn.html#nequip.nn.pair_potential.ZBL
+    # pair_potential:
+    #   _target_: nequip.nn.pair_potential.ZBL
+    #   units: real     # Ang and kcal/mol, LAMMPS unit names;  allowed values "metal" and "real"
+    #   chemical_species: ${chemical_species}   # must tell ZBL the chemical species of the various model atom types

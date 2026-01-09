@@ -152,6 +152,8 @@ class TrainerConfig(C.Config):
             callbacks.append(self.checkpoint.create_callback())
         if self.early_stopping is not None:
             callbacks.append(self.early_stopping.create_callback())
+        if self.ema is not None:
+            callbacks.append(self.ema.construct_callback())
 
         loggers = []
         if self.loggers == "default":

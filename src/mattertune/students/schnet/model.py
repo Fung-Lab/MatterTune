@@ -306,16 +306,6 @@ class SchNetStudentModel(
         return NormalizationContext(
             compositions=compositions, num_atoms=num_atoms
         )
-        
-    @override
-    def create_normalization_context_from_atoms(
-        self, atoms: Atoms
-    ) -> NormalizationContext:
-        num_atoms = torch.tensor([len(atoms)], dtype=torch.long)
-        atomic_numbers = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.long)
-        atom_types_onehot = torch.nn.functional.one_hot(atomic_numbers, num_classes=120)
-        compositions = atom_types_onehot[:, 1:].sum(dim=0, dtype=torch.long).unsqueeze(0)
-        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
     def get_connectivity_from_atoms(self, atoms: Atoms) -> np.ndarray:

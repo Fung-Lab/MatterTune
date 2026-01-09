@@ -10,11 +10,12 @@ from torch.package import PackageExporter, PackageImporter
 from ase import Atoms
 
 from mattertune.util import optional_import_error_message
-from mattertune.backbones import NequIPBackboneModule
+from mattertune.students import AllegroStudentModel
 
-def nequip_model_package(
+def allegro_model_package(
     ckpt_path: str | Path,
     output_path: str | Path,
+    atoms_example: Atoms,
 ):
     """
     A suggested NequIP workflow is:
@@ -65,11 +66,15 @@ def nequip_model_package(
     set_workflow_state("package")
     set_global_state()
     
-    mt_module = NequIPBackboneModule.load_from_checkpoint(ckpt_path).to(torch.device("cpu"))
+    mt_module = AllegroStudentModel.load_from_checkpoint(ckpt_path, weights_only=False,).to(torch.device("cpu"))
     mt_backbone = mt_module.backbone
     type_names = mt_module.type_names
     eager_model = torch.nn.ModuleDict({_SOLE_MODEL_KEY: mt_backbone})
-    data = mt_module.data_dict_from_pretrained_package()
+    
+    # create example data dict from the provided atoms_example
+    data = mt_module.atoms_to_data(atoms_example)
+    data = mt_module.atomtype_transform(data)
+    data = mt_module.neighbor_transform(data)
     
     code_versions = get_current_code_versions()
     models_to_package = {_EAGER_MODEL_KEY: eager_model}
@@ -96,7 +101,7 @@ def nequip_model_package(
     for compile_mode in package_compile_modes:
         with only_apply_persistent_modifiers(persistent_only=True):
             with override_model_compile_mode(compile_mode):
-                module = NequIPBackboneModule.load_from_checkpoint(ckpt_path).to(torch.device("cpu"))
+                module = AllegroStudentModel.load_from_checkpoint(ckpt_path, weights_only=False).to(torch.device("cpu"))
                 backbone = module.backbone
                 model = torch.nn.ModuleDict({_SOLE_MODEL_KEY: backbone})
         models_to_package.update({compile_mode: model})

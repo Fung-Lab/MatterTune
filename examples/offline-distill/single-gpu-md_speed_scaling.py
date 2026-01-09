@@ -16,6 +16,7 @@ from mattertune.students import (
     CACEStudentModel,
     SchNetStudentModel,
     PaiNNStudentModel,
+    AllegroStudentModel,
 )
 from mattertune.backbones import (
     MatterSimM3GNetBackboneModule,
@@ -49,6 +50,8 @@ def main(args_dict: dict):
             model.set_neighborlist_fn(args_dict["nl_fn_type"])
         if args_dict["skin_cutoff"] is not None:
             model.set_neighborlist_skin(args_dict["skin_cutoff"]) # type: ignore
+    elif "allegro" in model_type:
+        model = AllegroStudentModel.load_from_checkpoint(model_path, weights_only=False)
     elif "mattersim" in model_type:
         model = MatterSimM3GNetBackboneModule.load_from_checkpoint(model_path, map_location="cpu")
     elif "mace" in model_type:
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="./checkpoints/painn-5.0A-T=3.ckpt")
+    parser.add_argument("--model", type=str, default="./checkpoints/allegro-5.0A-T=2.ckpt")
     parser.add_argument("--thermo_state", type=str, default="NVT")
     parser.add_argument("--device", type=int, default=3)
     parser.add_argument("--timestep", type=float, default=1)

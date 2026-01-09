@@ -248,34 +248,6 @@ class StudentModuleBase(
         """
         ...
         
-    @abstractmethod
-    def create_normalization_context_from_atoms(
-        self, atoms: ase.Atoms
-    ) -> NormalizationContext:
-        """
-        Create a normalization context from a batch. This is used to normalize
-        and denormalize the properties.
-
-        The normalization context contains all the information required to
-        normalize and denormalize the properties. Currently, this only
-        includes the compositions of the materials in the batch.
-        The compositions should be provided as an integer tensor of shape
-        (batch_size, num_elements), where each row (i.e., `compositions[i]`)
-        corresponds to the composition vector of the `i`-th material in the batch.
-
-        The composition vector is a vector that maps each element to the number of
-        atoms of that element in the material. For example, `compositions[:, 1]`
-        corresponds to the number of Hydrogen atoms in each material in the batch,
-        `compositions[:, 2]` corresponds to the number of Helium atoms, and so on.
-
-        Args:
-            batch: Input batch.
-
-        Returns:
-            Normalization context.
-        """
-        ...
-        
     def before_fit_start(self, datamodule) -> None:
         """Optional hook: called before Trainer.fit(.).
         Use it to perform lazy initialization safely.
@@ -756,20 +728,27 @@ class StudentModuleBase(
         For these models, we need to override this method.
         """
         return batch.to(device)
+        
+    def create_normalization_context_from_atoms(
+        self, atoms: ase.Atoms
+    ) -> NormalizationContext:
+        num_atoms = torch.tensor([len(atoms)], dtype=torch.long)
+        atomic_numbers = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.long)
+        atom_types_onehot = torch.nn.functional.one_hot(atomic_numbers, num_classes=120)
+        compositions = atom_types_onehot[:, 1:].sum(dim=0, dtype=torch.long).unsqueeze(0)
+        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
-    def save_to_checkpoint(
+    def to_device(
         self,
-        ckpt_path: str,
+        device: torch.device | str,
     ):
         """
-        Save the model to a checkpoint file along with its hyperparameters.
+        Moves the model to the specified device.
+
+        Args:
+            device: Device to move the model to.
+
+        Returns:
+            The model on the specified device.
         """
-        ckpt_dict = {
-            "state_dict": self.state_dict(),
-            "hparams_name": "hparams",
-            "hyper_parameters": self.hparams,
-            "epoch": 0,
-            "global_step": 0,
-            "pytorch-lightning_version": "2.4.0"
-        }
-        torch.save(ckpt_dict, ckpt_path)
+        self.to(device)

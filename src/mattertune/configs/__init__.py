@@ -2,6 +2,7 @@ __codegen__ = True
 
 from mattertune.finetune.optimizer import AdamConfig as AdamConfig
 from mattertune.finetune.optimizer import AdamWConfig as AdamWConfig
+from mattertune.students import AllegroStudentModelConfig as AllegroStudentModelConfig
 from mattertune.data.atoms_list import AtomsListDatasetConfig as AtomsListDatasetConfig
 from mattertune.data.datamodule import AutoSplitDataModuleConfig as AutoSplitDataModuleConfig
 from mattertune.students import CACECutoffFnConfig as CACECutoffFnConfig
@@ -85,6 +86,7 @@ from mattertune.data import XYZDatasetConfig as XYZDatasetConfig
 
 from mattertune.finetune.optimizer import AdamConfig as AdamConfig
 from mattertune.finetune.optimizer import AdamWConfig as AdamWConfig
+from mattertune.students import AllegroStudentModelConfig as AllegroStudentModelConfig
 from mattertune.data.atoms_list import AtomsListDatasetConfig as AtomsListDatasetConfig
 from mattertune.data.datamodule import AutoSplitDataModuleConfig as AutoSplitDataModuleConfig
 from mattertune.students import CACECutoffFnConfig as CACECutoffFnConfig
@@ -198,6 +200,7 @@ from . import wrappers as wrappers
 __all__ = [
     "AdamConfig",
     "AdamWConfig",
+    "AllegroStudentModelConfig",
     "AtomsListDatasetConfig",
     "AutoSplitDataModuleConfig",
     "CACECutoffFnConfig",

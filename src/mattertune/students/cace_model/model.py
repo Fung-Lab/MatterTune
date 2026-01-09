@@ -181,7 +181,7 @@ class CACEStudentModelConfig(StudentModuleBaseConfig):
     @override
     @classmethod
     def ensure_dependencies(cls):
-        # Make sure the jmp module is available
+        # Make sure the cace module is available
         if importlib.util.find_spec("cace") is None:
             raise ImportError(
                 "The cace is not installed. Please install it by following our installation guide."
@@ -412,16 +412,6 @@ class CACEStudentModel(
         compositions = compositions.index_add(0, batch_idx, atom_types_onehot)
         compositions = compositions[:, 1:]  # Remove the zeroth element
         
-        return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
-    
-    @override
-    def create_normalization_context_from_atoms(
-        self, atoms: Atoms
-    ) -> NormalizationContext:
-        num_atoms = torch.tensor([len(atoms)], dtype=torch.long)
-        atomic_numbers = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.long)
-        atom_types_onehot = torch.nn.functional.one_hot(atomic_numbers, num_classes=120)
-        compositions = atom_types_onehot[:, 1:].sum(dim=0, dtype=torch.long).unsqueeze(0)
         return NormalizationContext(num_atoms=num_atoms, compositions=compositions)
     
     @override
