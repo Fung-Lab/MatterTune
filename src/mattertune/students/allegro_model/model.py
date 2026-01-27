@@ -206,7 +206,10 @@ class AllegroStudentModel(
     @override
     def create_model(self):
         with optional_import_error_message("allegro"):
-            from allegro.model import AllegroModel
+            # Import the external "allegro" package, not mattertune.students.allegro.
+            import importlib
+
+            AllegroModel = importlib.import_module("allegro.model").AllegroModel
             from nequip.data.transforms import (
                 ChemicalSpeciesToAtomTypeMapper,
                 NeighborListTransform,
