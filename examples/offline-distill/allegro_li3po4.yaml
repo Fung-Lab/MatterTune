@@ -24,10 +24,10 @@ data:
 
   train_dataloader:
     _target_: torch.utils.data.DataLoader
-    batch_size: 128
+    batch_size: 1
   val_dataloader:
     _target_: torch.utils.data.DataLoader
-    batch_size: 128
+    batch_size: 1
   test_dataloader: ${data.val_dataloader}
   stats_manager:
     _target_: nequip.data.CommonDataStatisticsManager
@@ -39,7 +39,7 @@ trainer:
   max_epochs: 5000
   log_every_n_steps: 5
   accelerator: gpu
-  devices: 8
+  devices: 1
   strategy:
     _target_: nequip.train.SimpleDDPStrategy
 
