@@ -41,8 +41,8 @@ class UMABackboneConfig(FinetuneModuleBaseConfig):
     The specific UMA model variant to use.
     Options include:
     - "uma-s-1"
-    - "uma-s-1.1"
-    - "uma-m-1.1"
+    - "uma-s-1p1"
+    - "uma-m-1p1"
     - "uma-l"
     """
 
@@ -88,7 +88,7 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
             )
             from fairchem.core import pretrained_mlip
 
-        predictor = pretrained_mlip.get_predict_unit("uma-s-1")
+        predictor = pretrained_mlip.get_predict_unit(self.hparams.model_name)
         # type: ignore[reportGeneralTypeIssues]
         backbone: eSCNMDMoeBackbone = predictor.model.module.backbone
         self.backbone = backbone.float()

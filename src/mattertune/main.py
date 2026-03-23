@@ -1,5 +1,4 @@
 from __future__ import annotations
-import torch
 
 import logging
 from collections.abc import Sequence
@@ -19,6 +18,7 @@ from .callbacks.model_checkpoint import ModelCheckpointConfig
 from .data import DataModuleConfig, MatterTuneDataModule
 from .finetune.base import FinetuneModuleBase
 from .loggers import CSVLoggerConfig, LoggerConfig
+from .pretrained import load_pretrained_model as load_pretrained_model
 from .recipes import RecipeConfig
 from .registry import backbone_registry, data_registry
 
@@ -324,24 +324,3 @@ def load_finetuned_checkpoint(
             return UMABackboneModule.load_from_checkpoint(ckpt_path, **kwargs)
         case _:
             raise ValueError(f"Unknown model name '{name}' in checkpoint.")
-
-
-def load_pretrained_model(
-    model_config: ModelConfig,
-    device: str | int | torch.device = "cuda",
-):
-    import mattertune.configs as MC
-
-    model_config.optimizer = MC.AdamWConfig(lr=1.0e-4)
-    energy = MC.EnergyPropertyConfig(
-        loss=MC.MSELossConfig(), loss_coefficient=1.0)
-    forces = MC.ForcesPropertyConfig(
-        loss=MC.MSELossConfig(), loss_coefficient=1.0, conservative=True
-    )
-    stress = MC.StressesPropertyConfig(
-        loss=MC.MSELossConfig(), loss_coefficient=1.0, conservative=True
-    )
-    model_config.properties = [energy, forces]
-    model = model_config.create_model()
-    model.to(device)
-    return model
