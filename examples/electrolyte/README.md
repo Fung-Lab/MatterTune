@@ -11,12 +11,19 @@ The calculator in [`ghost_target_calculator.py`](./ghost_target_calculator.py) i
 
 The motivation is the following:
 
-- In this simplified setup, the alchemical mask is binary.
-- `lambda = 1` means a normal environment atom.
-- `lambda = 0` means a ghost-like target atom.
-- For the foundation model, ghost atoms are treated as if they do not exist.
-- Therefore, before the model prediction, all `lambda = 0` target atoms are deleted from the input `Atoms`.
+- The alchemical target identity is stored separately from the lambda values.
+- `lambda = 0` means the selected target atoms are fully real.
+- `lambda = 1` means the selected target atoms are fully ghost-like.
+- For the foundation model, fully ghost target atoms are treated as if they do not exist.
+- Therefore, for the `lambda = 1` endpoint, all selected target atoms are deleted from the input `Atoms`.
 - After the model returns forces on the reduced system, the missing force rows are padded back with zeros.
+- The total `lambda = 1` endpoint still includes the soft-core correction, so the target atom's total force is generally not zero unless the correction is disabled.
+
+For intermediate `0 < lambda < 1`, the example calculator uses a simple linear interpolation between the two endpoint predictions:
+
+`E(lambda) = (1 - lambda) E_real + lambda E_ghost`
+
+`F(lambda) = (1 - lambda) F_real + lambda F_ghost`
 
 If we only did that deletion step, the ghost target could overlap with the environment because the base model no longer provides short-range exclusion for those target-environment pairs.
 
@@ -30,7 +37,11 @@ To avoid that, the calculator adds a repulsive soft-core LJ correction:
 
 In short, the total calculator is:
 
-`total energy / force = reduced-system foundation model + target-environment soft-core correction`
+`total energy / force = linear interpolation between the real-target endpoint and the ghost-target endpoint`
+
+where the ghost-target endpoint itself is
+
+`ghost endpoint = reduced-system foundation model + target-environment soft-core correction`
 
 ## Files
 
@@ -68,6 +79,14 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --steps 10
 ```
 
+The helper script [`run_md.sh`](./run_md.sh) wraps the two tested model families:
+
+```bash
+cd MatterTune/examples/electrolyte
+bash run_md.sh uma 0.25 cpu 10
+bash run_md.sh orb 1.0 cpu 10
+```
+
 ## Required MD Configuration
 
 To run MD with this calculator, you need to specify four groups of parameters.
@@ -83,13 +102,18 @@ To run MD with this calculator, you need to specify four groups of parameters.
 
 - `--structure`: optional input structure path readable by ASE; if omitted, the example uses a small bulk-Si supercell
 - `--target-indices`: comma-separated atom indices that should become ghost targets
-- `--lambda-array-name`: name of the `atoms.arrays[...]` field that stores the binary lambda mask; the example default is `alchemical_lambda`
+- `--lambda-array-name`: name of the `atoms.arrays[...]` field that stores the per-atom lambda values; the example default is `alchemical_lambda`
+- `--target-array-name`: name of the `atoms.arrays[...]` field that stores the explicit alchemical target mask
+- `--lambda-value`: ghost fraction assigned to the selected target atoms
 
 Important note:
 
-- This example calculator currently assumes a binary mask only.
-- `lambda = 0` means "delete this atom from the foundation-model input and treat it as a ghost target".
-- `lambda = 1` means "keep this atom in the foundation-model input".
+- Non-target environment atoms should keep `lambda = 0`.
+- Selected target atoms share one common lambda value in this example implementation.
+- `lambda = 0` means "keep this target atom in the foundation-model input".
+- `lambda = 1` means "delete this target atom from the foundation-model input and treat it as a fully ghost target".
+- Intermediate `0 < lambda < 1` means "linearly interpolate between those two endpoint predictions".
+- At `lambda = 1`, the foundation-model contribution on the target atom is zero, but the total target force can still be nonzero because the soft-core correction remains active.
 
 ### 3. Soft-core correction parameters
 
@@ -135,3 +159,29 @@ If you only want a first smoke test, the defaults are enough except for `--model
 - The continuity check script is useful whenever you change `epsilon`, `sigma`, `alpha`, `rc`, or `ro`.
 - The corrected calculator only exposes `energy`, `forces`, and `free_energy`.
 - This example implementation lives under `examples/` on purpose. It is a demonstration layer on top of MatterTune's pretrained-model interface, not yet a formal package API.
+
+## Validation
+
+The current implementation was tested on `examples/electrolyte/data/LiH2O.xyz` with target atom `0`, `epsilon=1.0`, `sigma=1.0`, `alpha=0.5`, `rc=3.0`, `ro=1.5`, and `smooth=True`.
+
+Tested models:
+
+- `uma-s-1p1` in `uma-elec`
+- `orb-v3-conservative-inf-omat` in `orb-elec`
+
+Observed behavior:
+
+- `lambda = 1` target force is not zero in the total calculator output. This is expected here, because the target-environment soft-core correction is still present at the ghost endpoint.
+- For both tested models, `lambda = 0.25` matches the explicit linear interpolation between the `lambda = 0` and `lambda = 1` endpoint predictions to numerical precision.
+
+Measured interpolation residuals:
+
+- UMA `uma-s-1p1`: `|E(0.25) - [0.75 E(0) + 0.25 E(1)]| = 2.92e-7 eV`, `max|F(0.25) - [0.75 F(0) + 0.25 F(1)]| = 1.16e-6 eV/A`
+- ORB `orb-v3-conservative-inf-omat`: energy residual `0.0 eV`, force residual `7.38e-7 eV/A`
+
+Measured `lambda = 1` target-force norm:
+
+- UMA `uma-s-1p1`: `1.66e-3 eV/A`
+- ORB `orb-v3-conservative-inf-omat`: `1.66e-3 eV/A`
+
+The identical `lambda = 1` target-force norm in these two tests is also expected: at the ghost endpoint, the target force comes only from the shared soft-core correction, not from the foundation model.

@@ -48,17 +48,31 @@ def parse_target_indices(raw_value: str | None, natoms: int) -> list[int]:
     return sorted(dict.fromkeys(indices))
 
 
-def build_lambda_mask(natoms: int, target_indices: list[int]) -> np.ndarray:
-    lambda_mask = np.ones(natoms, dtype=np.float64)
-    lambda_mask[target_indices] = 0.0
+def build_target_mask(natoms: int, target_indices: list[int]) -> np.ndarray:
+    target_mask = np.zeros(natoms, dtype=bool)
+    target_mask[target_indices] = True
+    return target_mask
+
+
+def build_lambda_mask(
+    natoms: int,
+    target_indices: list[int],
+    lambda_value: float,
+) -> np.ndarray:
+    if lambda_value < 0.0 or lambda_value > 1.0:
+        raise ValueError("lambda_value must lie in [0, 1].")
+    lambda_mask = np.zeros(natoms, dtype=np.float64)
+    lambda_mask[target_indices] = lambda_value
     return lambda_mask
 
 
 def main(args: argparse.Namespace) -> None:
     atoms = load_atoms(args.structure)
     target_indices = parse_target_indices(args.target_indices, len(atoms))
-    lambda_mask = build_lambda_mask(len(atoms), target_indices)
+    target_mask = build_target_mask(len(atoms), target_indices)
+    lambda_mask = build_lambda_mask(len(atoms), target_indices, args.lambda_value)
     atoms.arrays[args.lambda_array_name] = lambda_mask
+    atoms.arrays[args.target_array_name] = target_mask
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -77,10 +91,12 @@ def main(args: argparse.Namespace) -> None:
         f"loaded model: family={model.family}, name={model.model_name}, device={model.device}"
     )
     print(f"target indices: {target_indices}")
+    print(f"target lambda: {args.lambda_value:.6f}")
 
     calc = GhostTargetCorrectionCalculator(
         model,
         lambda_array_name=args.lambda_array_name,
+        target_array_name=args.target_array_name,
         epsilon=args.epsilon,
         sigma=args.sigma,
         alpha=args.alpha,
@@ -156,9 +172,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target-indices",
         default=None,
-        help="Comma-separated target atom indices whose lambda is set to 0. Defaults to 0.",
+        help="Comma-separated alchemical target atom indices. Defaults to 0.",
     )
     parser.add_argument("--lambda-array-name", default="alchemical_lambda")
+    parser.add_argument("--target-array-name", default="alchemical_target")
+    parser.add_argument(
+        "--lambda-value",
+        type=float,
+        default=1.0,
+        help="Ghost fraction for the selected target atoms: 0 = fully real, 1 = fully ghost.",
+    )
     parser.add_argument("--epsilon", type=float, default=1.0)
     parser.add_argument("--sigma", type=float, default=1.0)
     parser.add_argument("--alpha", type=float, default=0.5)

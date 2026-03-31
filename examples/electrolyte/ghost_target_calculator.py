@@ -11,7 +11,7 @@ from mattertune.pretrained import PretrainedModel
 from mattertune.corrections import soft_core_lj_correction
 
 
-def _normalize_binary_lambda_mask(
+def _normalize_lambda_mask(
     lambda_mask: Sequence[float] | np.ndarray,
     natoms: int,
 ) -> np.ndarray:
@@ -20,17 +20,23 @@ def _normalize_binary_lambda_mask(
         raise ValueError(
             f"Expected lambda mask with shape ({natoms},), got {lambda_array.shape}."
         )
+    if np.any(lambda_array < 0.0) or np.any(lambda_array > 1.0):
+        raise ValueError(
+            "This example calculator only supports lambda masks with values in [0, 1]."
+        )
+    return lambda_array
 
-    rounded = np.rint(lambda_array)
-    if not np.allclose(lambda_array, rounded, atol=1e-8, rtol=0.0):
+
+def _normalize_target_mask(
+    target_mask: Sequence[bool] | np.ndarray,
+    natoms: int,
+) -> np.ndarray:
+    target_array = np.asarray(target_mask, dtype=bool)
+    if target_array.shape != (natoms,):
         raise ValueError(
-            "This example calculator only supports binary lambda masks with values in {0, 1}."
+            f"Expected target mask with shape ({natoms},), got {target_array.shape}."
         )
-    if np.any((rounded != 0.0) & (rounded != 1.0)):
-        raise ValueError(
-            "This example calculator only supports binary lambda masks with values in {0, 1}."
-        )
-    return rounded.astype(np.float64)
+    return target_array
 
 
 def _copy_atoms(atoms: Atoms) -> Atoms:
@@ -50,14 +56,22 @@ def _scalar_energy(value: object) -> float:
 
 
 class GhostTargetCorrectionCalculator(Calculator):
-    """Delete lambda=0 target atoms from the model input, then add a repulsive correction."""
+    """Interpolate between real-target and fully-ghost target endpoints.
+
+    Calculator-level lambda semantics:
+    - lambda = 0: the selected target atoms are fully real and remain in the model input
+    - lambda = 1: the selected target atoms are fully ghost and are deleted from the model input
+    - 0 < lambda < 1: interpolate linearly between those two endpoint predictions
+    """
 
     def __init__(
         self,
         model: PretrainedModel,
         *,
         lambda_mask: Sequence[float] | np.ndarray | None = None,
+        target_mask: Sequence[bool] | np.ndarray | None = None,
         lambda_array_name: str = "alchemical_lambda",
+        target_array_name: str = "alchemical_target",
         epsilon: float = 1.0,
         sigma: float = 1.0,
         alpha: float = 0.5,
@@ -74,7 +88,10 @@ class GhostTargetCorrectionCalculator(Calculator):
         self._model = model
         self._fixed_lambda_mask = None if lambda_mask is None else np.asarray(
             lambda_mask, dtype=np.float64)
+        self._fixed_target_mask = None if target_mask is None else np.asarray(
+            target_mask, dtype=bool)
         self._lambda_array_name = lambda_array_name
+        self._target_array_name = target_array_name
         self._correction_kwargs = {
             "epsilon": epsilon,
             "sigma": sigma,
@@ -85,16 +102,107 @@ class GhostTargetCorrectionCalculator(Calculator):
         }
         self.implemented_properties = ["energy", "forces", "free_energy"]
 
+    def check_state(self, atoms, tol=1e-15):
+        system_changes = super().check_state(atoms, tol=tol)
+        if self.atoms is None:
+            return system_changes
+
+        for array_name in (self._lambda_array_name, self._target_array_name):
+            previous = self.atoms.arrays.get(array_name)
+            current = atoms.arrays.get(array_name)
+            if previous is None and current is None:
+                continue
+            if previous is None or current is None:
+                system_changes.append(array_name)
+                continue
+            if previous.shape != current.shape or not np.array_equal(previous, current):
+                system_changes.append(array_name)
+        return system_changes
+
     def _resolve_lambda_mask(self, atoms: Atoms) -> np.ndarray:
         if self._fixed_lambda_mask is not None:
-            return _normalize_binary_lambda_mask(self._fixed_lambda_mask, len(atoms))
+            return _normalize_lambda_mask(self._fixed_lambda_mask, len(atoms))
 
         if self._lambda_array_name not in atoms.arrays:
             raise ValueError(
                 "No lambda mask was provided to the calculator and "
                 f"`atoms.arrays[{self._lambda_array_name!r}]` is missing."
             )
-        return _normalize_binary_lambda_mask(atoms.arrays[self._lambda_array_name], len(atoms))
+        return _normalize_lambda_mask(atoms.arrays[self._lambda_array_name], len(atoms))
+
+    def _resolve_target_mask(self, atoms: Atoms, lambda_mask: np.ndarray) -> np.ndarray:
+        if self._fixed_target_mask is not None:
+            return _normalize_target_mask(self._fixed_target_mask, len(atoms))
+
+        if self._target_array_name in atoms.arrays:
+            return _normalize_target_mask(atoms.arrays[self._target_array_name], len(atoms))
+
+        # Fallback: infer targets from strictly positive lambda values.
+        # This is insufficient when target lambda is exactly zero, so callers should
+        # provide an explicit target mask in that case.
+        return lambda_mask > 1e-8
+
+    def _resolve_target_lambda(
+        self,
+        lambda_mask: np.ndarray,
+        target_mask: np.ndarray,
+    ) -> float:
+        if not np.any(target_mask):
+            return 0.0
+
+        if np.any(np.abs(lambda_mask[~target_mask]) > 1e-8):
+            raise ValueError(
+                "Non-target atoms must have lambda = 0 in this example calculator."
+            )
+
+        target_values = lambda_mask[target_mask]
+        target_lambda = float(target_values[0])
+        if not np.allclose(target_values, target_lambda, atol=1e-8, rtol=0.0):
+            raise ValueError(
+                "All selected target atoms must share the same lambda value in this example calculator."
+            )
+        return target_lambda
+
+    def _predict_endpoint(
+        self,
+        full_atoms: Atoms,
+        *,
+        target_mask: np.ndarray,
+        ghost_targets: bool,
+    ) -> tuple[float, np.ndarray]:
+        natoms = len(full_atoms)
+        full_forces = np.zeros((natoms, 3), dtype=np.float64)
+        base_energy = 0.0
+
+        if ghost_targets:
+            keep_mask = ~target_mask
+            if np.any(keep_mask):
+                reduced_atoms = _slice_atoms(full_atoms, keep_mask)
+                base_prediction = self._model.predict_one(
+                    reduced_atoms,
+                    properties=["energy", "forces"],
+                )
+                base_energy = _scalar_energy(base_prediction["energy"])
+                full_forces[keep_mask] = np.asarray(
+                    base_prediction["forces"],
+                    dtype=np.float64,
+                )
+
+            correction_energy, correction_forces = soft_core_lj_correction(
+                full_atoms,
+                0.0,
+                target_mask=target_mask,
+                **self._correction_kwargs,
+            )
+            return base_energy + correction_energy, full_forces + correction_forces
+
+        base_prediction = self._model.predict_one(
+            _copy_atoms(full_atoms),
+            properties=["energy", "forces"],
+        )
+        base_energy = _scalar_energy(base_prediction["energy"])
+        full_forces[:] = np.asarray(base_prediction["forces"], dtype=np.float64)
+        return base_energy, full_forces
 
     def calculate(
         self,
@@ -115,34 +223,42 @@ class GhostTargetCorrectionCalculator(Calculator):
 
         full_atoms = _copy_atoms(self.atoms)
         lambda_mask = self._resolve_lambda_mask(full_atoms)
-        ghost_mask = np.isclose(lambda_mask, 0.0)
-        keep_mask = ~ghost_mask
+        target_mask = self._resolve_target_mask(full_atoms, lambda_mask)
+        target_lambda = self._resolve_target_lambda(lambda_mask, target_mask)
 
-        natoms = len(full_atoms)
-        full_forces = np.zeros((natoms, 3), dtype=np.float64)
-        base_energy = 0.0
-
-        if np.any(keep_mask):
-            reduced_atoms = _slice_atoms(full_atoms, keep_mask)
-            base_prediction = self._model.predict_one(
-                reduced_atoms,
-                properties=["energy", "forces"],
-            )
-            base_energy = _scalar_energy(base_prediction["energy"])
-            full_forces[keep_mask] = np.asarray(
-                base_prediction["forces"],
-                dtype=np.float64,
+        if np.any(target_mask) and target_lambda <= 1e-8 and (
+            self._fixed_target_mask is None and self._target_array_name not in full_atoms.arrays
+        ):
+            raise ValueError(
+                "Target atoms at lambda=0 require an explicit target mask. "
+                f"Provide `target_mask=...` or `atoms.arrays[{self._target_array_name!r}]`."
             )
 
-        correction_energy, correction_forces = soft_core_lj_correction(
-            full_atoms,
-            lambda_mask,
-            target_mask=ghost_mask,
-            **self._correction_kwargs,
-        )
-
-        total_energy = base_energy + correction_energy
-        total_forces = full_forces + correction_forces
+        if not np.any(target_mask) or target_lambda <= 1e-8:
+            total_energy, total_forces = self._predict_endpoint(
+                full_atoms,
+                target_mask=target_mask,
+                ghost_targets=False,
+            )
+        elif target_lambda >= 1.0 - 1e-8:
+            total_energy, total_forces = self._predict_endpoint(
+                full_atoms,
+                target_mask=target_mask,
+                ghost_targets=True,
+            )
+        else:
+            energy_real, forces_real = self._predict_endpoint(
+                full_atoms,
+                target_mask=target_mask,
+                ghost_targets=False,
+            )
+            energy_ghost, forces_ghost = self._predict_endpoint(
+                full_atoms,
+                target_mask=target_mask,
+                ghost_targets=True,
+            )
+            total_energy = (1.0 - target_lambda) * energy_real + target_lambda * energy_ghost
+            total_forces = (1.0 - target_lambda) * forces_real + target_lambda * forces_ghost
 
         if "energy" in requested or "free_energy" in requested:
             self.results["energy"] = float(total_energy)
