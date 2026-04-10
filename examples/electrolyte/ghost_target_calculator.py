@@ -122,7 +122,17 @@ class GhostTargetCorrectionCalculator(Calculator):
             "method": d3_method,
             "damping": d3_damping,
         }
+        self._last_real_endpoint_energy: float | None = None
+        self._last_ghost_endpoint_energy: float | None = None
         self.implemented_properties = ["energy", "forces", "free_energy"]
+
+    @property
+    def last_real_endpoint_energy(self) -> float | None:
+        return self._last_real_endpoint_energy
+
+    @property
+    def last_ghost_endpoint_energy(self) -> float | None:
+        return self._last_ghost_endpoint_energy
 
     def check_state(self, atoms, tol=1e-15):
         system_changes = super().check_state(atoms, tol=tol)
@@ -279,29 +289,27 @@ class GhostTargetCorrectionCalculator(Calculator):
                 f"Provide `target_mask=...` or `atoms.arrays[{self._target_array_name!r}]`."
             )
 
+        real_endpoint = self._predict_endpoint(
+            full_atoms,
+            target_mask=target_mask,
+            ghost_targets=False,
+        )
+        ghost_endpoint = self._predict_endpoint(
+            full_atoms,
+            target_mask=target_mask,
+            ghost_targets=True,
+        )
+
+        self._last_real_endpoint_energy = float(real_endpoint.energy)
+        self._last_ghost_endpoint_energy = float(ghost_endpoint.energy)
+        self.results["lambda0_energy"] = self._last_real_endpoint_energy
+        self.results["lambda1_energy"] = self._last_ghost_endpoint_energy
+
         if not np.any(target_mask) or target_lambda <= 1e-8:
-            endpoint = self._predict_endpoint(
-                full_atoms,
-                target_mask=target_mask,
-                ghost_targets=False,
-            )
+            endpoint = real_endpoint
         elif target_lambda >= 1.0 - 1e-8:
-            endpoint = self._predict_endpoint(
-                full_atoms,
-                target_mask=target_mask,
-                ghost_targets=True,
-            )
+            endpoint = ghost_endpoint
         else:
-            real_endpoint = self._predict_endpoint(
-                full_atoms,
-                target_mask=target_mask,
-                ghost_targets=False,
-            )
-            ghost_endpoint = self._predict_endpoint(
-                full_atoms,
-                target_mask=target_mask,
-                ghost_targets=True,
-            )
             endpoint = interpolate_energy_forces(
                 real_endpoint,
                 ghost_endpoint,

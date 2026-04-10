@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-import time
 import copy
+import sys
+import time
+from contextlib import contextmanager
+from pathlib import Path
 
 import ase.units as units
 import numpy as np
 from ase import Atoms
 from ase.build import bulk
 from ase.io import read, write
-from ase.io.trajectory import Trajectory
 from ase.md.langevin import Langevin
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
 
@@ -29,6 +30,98 @@ from mattertune.finetune.base import FinetuneModuleBase
 from mattertune.pretrained import PretrainedModel
 
 from ghost_target_calculator import GhostTargetCorrectionCalculator
+
+
+class TeeStream:
+    def __init__(self, *streams):
+        self._streams = streams
+
+    def write(self, data: str):
+        for stream in self._streams:
+            stream.write(data)
+        return len(data)
+
+    def flush(self):
+        for stream in self._streams:
+            stream.flush()
+
+    def isatty(self):
+        return any(getattr(stream, "isatty", lambda: False)() for stream in self._streams)
+
+
+@contextmanager
+def tee_output(log_path: Path):
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("w", encoding="utf-8") as log_file:
+        stdout_original = sys.stdout
+        stderr_original = sys.stderr
+        tee_stream = TeeStream(stdout_original, log_file)
+        sys.stdout = tee_stream
+        sys.stderr = tee_stream
+        try:
+            yield
+        finally:
+            sys.stdout = stdout_original
+            sys.stderr = stderr_original
+
+
+def lambda_mask_to_string(lambda_mask: np.ndarray) -> str:
+    return np.array2string(
+        np.asarray(lambda_mask, dtype=np.float64),
+        precision=6,
+        separator=", ",
+        max_line_width=1_000_000,
+    )
+
+
+def annotate_frame_metadata(
+    atoms: Atoms,
+    *,
+    step: int,
+    time_fs: float,
+    temperature: float,
+    total_energy: float,
+    lambda0_energy: float | None,
+    lambda1_energy: float | None,
+    lambda_array_name: str,
+):
+    atoms.info["md_step"] = int(step)
+    atoms.info["time_fs"] = float(time_fs)
+    atoms.info["temperature_K"] = float(temperature)
+    atoms.info["total_energy_eV"] = float(total_energy)
+    if lambda0_energy is not None:
+        atoms.info["lambda0_energy_eV"] = float(lambda0_energy)
+        atoms.info["initial_pes_energy_eV"] = float(lambda0_energy)
+    if lambda1_energy is not None:
+        atoms.info["lambda1_energy_eV"] = float(lambda1_energy)
+        atoms.info["final_pes_energy_eV"] = float(lambda1_energy)
+    atoms.arrays[lambda_array_name] = np.asarray(
+        atoms.arrays[lambda_array_name], dtype=np.float64
+    ).copy()
+
+
+def format_step_log(
+    *,
+    step: int,
+    time_fs: float,
+    temperature: float,
+    total_energy: float,
+    lambda0_energy: float | None,
+    lambda1_energy: float | None,
+    lambda_mask: np.ndarray,
+    max_force: float,
+) -> str:
+    lambda0_str = "nan" if lambda0_energy is None else f"{lambda0_energy: .12f}"
+    lambda1_str = "nan" if lambda1_energy is None else f"{lambda1_energy: .12f}"
+    return (
+        f"step={step:5d} time_fs={time_fs:9.3f} "
+        f"temp={temperature:8.3f} K "
+        f"energy={total_energy: .12f} eV "
+        f"lambda0_energy={lambda0_str} eV "
+        f"lambda1_energy={lambda1_str} eV "
+        f"max|F|={max_force:.6f} "
+        f"lambda={lambda_mask_to_string(lambda_mask)}"
+    )
 
 
 def build_default_atoms() -> Atoms:
@@ -226,107 +319,154 @@ def main(args: argparse.Namespace) -> None:
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    model, ghost_model = load_md_models(args)
-    print(
-        f"loaded model: family={model.family}, name={model.model_name}, device={model.device}"
-    )
-    print(f"target indices: {target_indices}")
-    print(f"target lambda: {args.lambda_value:.6f}")
-    if should_enable_uma_merge_experts(args):
-        print("UMA MOE merge: enabled")
-        if ghost_model is not None:
-            print("UMA MOE merge: using a second predictor for the ghost endpoint")
-    elif args.model_type is not None and args.model_type.strip().lower() == "uma":
-        print("UMA MOE merge: disabled")
-    print(f"use D3 correction: {args.use_d3}")
-    if args.use_d3:
-        print(f"D3 method: {args.d3_method}, damping: {args.d3_damping}")
-
-    calc = GhostTargetCorrectionCalculator(
-        model,
-        ghost_model=ghost_model,
-        lambda_array_name=args.lambda_array_name,
-        target_array_name=args.target_array_name,
-        epsilon=args.epsilon,
-        sigma=args.sigma,
-        alpha=args.alpha,
-        rc=args.rc,
-        ro=args.ro,
-        smooth=args.smooth,
-        use_d3=args.use_d3,
-        d3_method=args.d3_method,
-        d3_damping=args.d3_damping,
-    )
-    atoms.calc = calc
-
-    initial_energy = atoms.get_potential_energy()
-    initial_forces = atoms.get_forces()
-    print(f"initial corrected energy: {initial_energy:.12f} eV")
-    print(f"initial max|F|: {np.abs(initial_forces).max():.6f} eV/A")
-
-    if args.init_velocities:
-        MaxwellBoltzmannDistribution(
-            atoms,
-            temperature_K=args.temperature,
-            rng=np.random.default_rng(args.seed),
-        )
-        Stationary(atoms)
-        print(
-            f"initialized velocities at {args.temperature:.3f} K with seed={args.seed}")
-    else:
-        print("initial velocities not assigned")
-
-    dynamics = Langevin(
-        atoms,
-        timestep=args.timestep_fs * units.fs,
-        temperature_K=args.temperature,
-        friction=args.friction_fs_inv / units.fs,
-        fixcm=False,
-    )
-
     trajectory_path = output_dir / args.trajectory_name
     final_structure_path = output_dir / args.final_structure_name
-    trajectory = Trajectory(str(trajectory_path), "w", atoms)
+    log_path = trajectory_path.with_suffix(".txt")
 
-    def log_step() -> None:
-        step = dynamics.nsteps
-        energy = atoms.get_potential_energy()
-        temperature = atoms.get_temperature()
-        max_force = np.abs(atoms.get_forces()).max()
+    with tee_output(log_path):
+        model, ghost_model = load_md_models(args)
         print(
-            f"step={step:5d} time_fs={step * args.timestep_fs:9.3f} "
-            f"energy={energy: .12f} eV temp={temperature:8.3f} K max|F|={max_force:.6f}"
+            f"loaded model: family={model.family}, name={model.model_name}, device={model.device}"
+        )
+        print(f"target indices: {target_indices}")
+        print(f"target lambda: {args.lambda_value:.6f}")
+        if should_enable_uma_merge_experts(args):
+            print("UMA MOE merge: enabled")
+            if ghost_model is not None:
+                print("UMA MOE merge: using a second predictor for the ghost endpoint")
+        elif args.model_type is not None and args.model_type.strip().lower() == "uma":
+            print("UMA MOE merge: disabled")
+        print(f"use D3 correction: {args.use_d3}")
+        if args.use_d3:
+            print(f"D3 method: {args.d3_method}, damping: {args.d3_damping}")
+
+        calc = GhostTargetCorrectionCalculator(
+            model,
+            ghost_model=ghost_model,
+            lambda_array_name=args.lambda_array_name,
+            target_array_name=args.target_array_name,
+            epsilon=args.epsilon,
+            sigma=args.sigma,
+            alpha=args.alpha,
+            rc=args.rc,
+            ro=args.ro,
+            smooth=args.smooth,
+            use_d3=args.use_d3,
+            d3_method=args.d3_method,
+            d3_damping=args.d3_damping,
+        )
+        atoms.calc = calc
+
+        initial_energy = atoms.get_potential_energy()
+        initial_forces = atoms.get_forces()
+        print(f"initial corrected energy: {initial_energy:.12f} eV")
+        print(f"initial lambda=0 energy: {calc.last_real_endpoint_energy:.12f} eV")
+        print(f"initial lambda=1 energy: {calc.last_ghost_endpoint_energy:.12f} eV")
+        print(f"initial max|F|: {np.abs(initial_forces).max():.6f} eV/A")
+        print(
+            f"initial lambda mask: {lambda_mask_to_string(np.asarray(atoms.arrays[args.lambda_array_name], dtype=np.float64))}"
         )
 
-    dynamics.attach(trajectory.write, interval=args.log_interval)
-    dynamics.attach(log_step, interval=args.log_interval)
+        if args.init_velocities:
+            MaxwellBoltzmannDistribution(
+                atoms,
+                temperature_K=args.temperature,
+                rng=np.random.default_rng(args.seed),
+            )
+            Stationary(atoms)
+            print(
+                f"initialized velocities at {args.temperature:.3f} K with seed={args.seed}"
+            )
+        else:
+            print("initial velocities not assigned")
 
-    print(
-        f"running ghost-target MD: steps={args.steps}, timestep_fs={args.timestep_fs}, "
-        f"temperature_K={args.temperature}"
-    )
-
-    start_time = time.time()
-    dynamics.run(args.steps)
-    trajectory.close()
-    end_time = time.time()
-    print(f"MD simulation completed in {end_time - start_time:.2f} seconds")
-    if args.steps > 0:
-        print(
-            f"Average MD step time: {(end_time - start_time) / args.steps:.2f} seconds"
+        dynamics = Langevin(
+            atoms,
+            timestep=args.timestep_fs * units.fs,
+            temperature_K=args.temperature,
+            friction=args.friction_fs_inv / units.fs,
+            fixcm=False,
         )
-    # ns_per_day = 86400 / ((end_time - start_time) *
-    #                       (1e6 / args.timestep_fs * args.steps))
 
-    # print(f"Speed in ns per day: {ns_per_day:.6f} ns/day")
+        if trajectory_path.exists():
+            trajectory_path.unlink()
 
-    write(final_structure_path, atoms)
-    print(f"trajectory written to {trajectory_path}")
-    print(f"final structure written to {final_structure_path}")
+        def record_step() -> None:
+            step = dynamics.nsteps
+            time_fs = step * args.timestep_fs
+            energy = atoms.get_potential_energy()
+            forces = atoms.get_forces()
+            temperature = atoms.get_temperature()
+            lambda0_energy = calc.last_real_endpoint_energy
+            lambda1_energy = calc.last_ghost_endpoint_energy
+            lambda_mask_current = np.asarray(
+                atoms.arrays[args.lambda_array_name], dtype=np.float64
+            )
+            max_force = float(np.abs(forces).max())
 
-    traj = read(trajectory_path, index=":")
-    write(trajectory_path, traj)
+            frame = atoms.copy()
+            annotate_frame_metadata(
+                frame,
+                step=step,
+                time_fs=time_fs,
+                temperature=temperature,
+                total_energy=energy,
+                lambda0_energy=lambda0_energy,
+                lambda1_energy=lambda1_energy,
+                lambda_array_name=args.lambda_array_name,
+            )
+            write(
+                trajectory_path,
+                frame,
+                append=True,
+                format="extxyz",
+            )
+            print(
+                format_step_log(
+                    step=step,
+                    time_fs=time_fs,
+                    temperature=temperature,
+                    total_energy=energy,
+                    lambda0_energy=lambda0_energy,
+                    lambda1_energy=lambda1_energy,
+                    lambda_mask=lambda_mask_current,
+                    max_force=max_force,
+                )
+            )
+
+        dynamics.attach(record_step, interval=args.log_interval)
+
+        print(
+            f"running ghost-target MD: steps={args.steps}, timestep_fs={args.timestep_fs}, "
+            f"temperature_K={args.temperature}"
+        )
+
+        start_time = time.time()
+        dynamics.run(args.steps)
+        end_time = time.time()
+        print(f"MD simulation completed in {end_time - start_time:.2f} seconds")
+        if args.steps > 0:
+            print(
+                f"Average MD step time: {(end_time - start_time) / args.steps:.2f} seconds"
+            )
+
+        final_energy = atoms.get_potential_energy()
+        final_temperature = atoms.get_temperature()
+        final_frame = atoms.copy()
+        annotate_frame_metadata(
+            final_frame,
+            step=dynamics.nsteps,
+            time_fs=dynamics.nsteps * args.timestep_fs,
+            temperature=final_temperature,
+            total_energy=final_energy,
+            lambda0_energy=calc.last_real_endpoint_energy,
+            lambda1_energy=calc.last_ghost_endpoint_energy,
+            lambda_array_name=args.lambda_array_name,
+        )
+        write(final_structure_path, final_frame)
+        print(f"trajectory written to {trajectory_path}")
+        print(f"log written to {log_path}")
+        print(f"final structure written to {final_structure_path}")
 
 
 def parse_args() -> argparse.Namespace:
