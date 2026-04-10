@@ -162,7 +162,7 @@ class AutoSplitDataModuleConfig(DataModuleBaseConfig):
 
         # Get indices for each split
         train_indices = indices[:train_len]
-        validation_indices = indices[train_len : train_len + validation_len]
+        validation_indices = indices[train_len: train_len + validation_len]
         # Create the training and validation datasets.
         train_dataset = SplitDataset(dataset, train_indices)
         validation_dataset = SplitDataset(dataset, validation_indices)
@@ -180,8 +180,10 @@ DataModuleConfig = TypeAliasType(
 
 
 class MatterTuneDataModule(LightningDataModule):
-    hparams: DataModuleConfig  # pyright: ignore[reportIncompatibleMethodOverride]
-    hparams_initial: DataModuleConfig  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyright: ignore[reportIncompatibleMethodOverride]
+    hparams: DataModuleConfig
+    # pyright: ignore[reportIncompatibleMethodOverride]
+    hparams_initial: DataModuleConfig
 
     @override
     def __init__(self, hparams: DataModuleConfig | Mapping[str, Any]):

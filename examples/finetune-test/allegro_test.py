@@ -15,7 +15,6 @@ from mattertune.backbones import NequIPBackboneModule
 logging.basicConfig(level=logging.ERROR)
 
 
-
 def main(args_dict: dict):
     def hparams():
         hparams = MC.MatterTunerConfig.draft()
@@ -36,7 +35,7 @@ def main(args_dict: dict):
             patience=5,
             min_lr=1e-8,
         )
-        
+
         # Add model properties
         hparams.model.properties = []
         energy = MC.EnergyPropertyConfig(
@@ -52,7 +51,7 @@ def main(args_dict: dict):
         )
         hparams.model.properties.append(stress)
 
-        ## Data Hyperparameters
+        # Data Hyperparameters
         hparams.data = MC.ManualSplitDataModuleConfig.draft()
         hparams.data.train = MC.XYZDatasetConfig.draft()
         hparams.data.train.src = "./data/Li_electrode_finetune_small.xyz"
@@ -61,17 +60,17 @@ def main(args_dict: dict):
         hparams.data.batch_size = args_dict["batch_size"]
         hparams.data.pin_memory = False
 
-        ## Add Normalization for Energy
+        # Add Normalization for Energy
         hparams.model.normalizers = {
             "energy": [
                 MC.PerAtomNormalizerConfig(),
             ]
         }
-        
-        ## Configure EMA
+
+        # Configure EMA
         hparams.trainer.ema = MC.EMAConfig(decay=0.99)
 
-        ## Trainer Hyperparameters
+        # Trainer Hyperparameters
         hparams.trainer = MC.TrainerConfig.draft()
         hparams.trainer.max_epochs = 20
         hparams.trainer.accelerator = "gpu"
@@ -101,7 +100,7 @@ def main(args_dict: dict):
         # Configure Logger
         hparams.trainer.loggers = [
             WandbLoggerConfig(
-                project="MatterTune-UsageTest", 
+                project="MatterTune-UsageTest",
                 name="NequIP",
             )
         ]
@@ -116,22 +115,22 @@ def main(args_dict: dict):
 
     mt_config = hparams()
     model, trainer = MatterTuner(mt_config).tune()
-    
-    
-    ## Perform Evaluation
+
+    # Perform Evaluation
     from ase.io import read
     from ase import Atoms
     import numpy as np
     import torch
     import wandb
     from tqdm import tqdm
-    
+
     ckpt_path = "./checkpoints/Allegro-OAM-best.ckpt"
     model = NequIPBackboneModule.load_from_checkpoint(ckpt_path)
-    
-    val_atoms_list:list[Atoms] = read("./data/Li_electrode_test_small.xyz", ":") # type: ignore
+
+    val_atoms_list: list[Atoms] = read(
+        "./data/Li_electrode_test_small.xyz", ":")  # type: ignore
     calc = model.ase_calculator(
-        device = f"cuda:{args_dict['devices'][0]}"
+        device=f"cuda:{args_dict['devices'][0]}"
     )
     energies_per_atom = []
     forces = []
@@ -144,31 +143,34 @@ def main(args_dict: dict):
         forces.extend(np.array(atoms.get_forces()).tolist())
         stresses.extend(np.array(atoms.get_stress(voigt=False)).tolist())
         atoms.set_calculator(calc)
-        pred_energies_per_atom.append(atoms.get_potential_energy() / len(atoms))
+        pred_energies_per_atom.append(
+            atoms.get_potential_energy() / len(atoms))
         pred_forces.extend(np.array(atoms.get_forces()).tolist())
         pred_stresses.extend(np.array(atoms.get_stress(voigt=False)).tolist())
-        
-    e_mae = torch.nn.L1Loss()(torch.tensor(energies_per_atom), torch.tensor(pred_energies_per_atom))
+
+    e_mae = torch.nn.L1Loss()(torch.tensor(energies_per_atom),
+                              torch.tensor(pred_energies_per_atom))
     f_mae = torch.nn.L1Loss()(torch.tensor(forces), torch.tensor(pred_forces))
     s_mae = torch.nn.L1Loss()(torch.tensor(stresses), torch.tensor(pred_stresses))
-    
+
     rich.print(f"Energy MAE: {e_mae} eV/atom")
     rich.print(f"Forces MAE: {f_mae} eV/Ang")
     rich.print(f"Stresses MAE: {s_mae} eV/Ang^3")
-    
-    ## Mixture of Experts (MoE) Inference Example
+
+    # Mixture of Experts (MoE) Inference Example
     from ase.md.langevin import Langevin
     from ase.io import read
     from ase import Atoms
     import time
-    
+
     ckpt_path = "./checkpoints/Allegro-OAM-best.ckpt"
     model = NequIPBackboneModule.load_from_checkpoint(ckpt_path)
-    
-    ### before merging MoE
-    atoms: Atoms = read("./data/Li_electrode_test_small.xyz", index=0) # type: ignore
+
+    # before merging MoE
+    atoms: Atoms = read("./data/Li_electrode_test_small.xyz",
+                        index=0)  # type: ignore
     calc = model.ase_calculator(
-        device = f"cuda:{args_dict['devices'][0]}"
+        device=f"cuda:{args_dict['devices'][0]}"
     )
     atoms.set_calculator(calc)
     dyn = Langevin(
@@ -178,11 +180,10 @@ def main(args_dict: dict):
         friction=0.02,
     )
     time1 = time.time()
-    dyn.run(1000) # 1000 steps
+    dyn.run(1000)  # 1000 steps
     time2 = time.time()
     rich.print(f"Inference Speed: {(time2 - time1)/1000} seconds/step")
-    
-    
+
 
 if __name__ == "__main__":
     import argparse

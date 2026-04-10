@@ -7,7 +7,10 @@ import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 
+from mattertune.alchemical import EnergyForcePrediction
+from mattertune.alchemical import interpolate_energy_forces
 from mattertune.pretrained import PretrainedModel
+from mattertune.corrections import ghost_target_d3_correction
 from mattertune.corrections import soft_core_lj_correction
 
 
@@ -68,6 +71,7 @@ class GhostTargetCorrectionCalculator(Calculator):
         self,
         model: PretrainedModel,
         *,
+        ghost_model: PretrainedModel | None = None,
         lambda_mask: Sequence[float] | np.ndarray | None = None,
         target_mask: Sequence[bool] | np.ndarray | None = None,
         lambda_array_name: str = "alchemical_lambda",
@@ -78,14 +82,27 @@ class GhostTargetCorrectionCalculator(Calculator):
         rc: float | None = None,
         ro: float | None = None,
         smooth: bool = True,
+        use_d3: bool = False,
+        d3_method: str = "pbe",
+        d3_damping: str = "d3bj",
     ):
         super().__init__()
         if "energy" not in model.implemented_properties:
             raise ValueError("The wrapped pretrained model must implement `energy`.")
         if "forces" not in model.implemented_properties:
             raise ValueError("The wrapped pretrained model must implement `forces`.")
+        if ghost_model is not None:
+            if "energy" not in ghost_model.implemented_properties:
+                raise ValueError(
+                    "The ghost-endpoint pretrained model must implement `energy`."
+                )
+            if "forces" not in ghost_model.implemented_properties:
+                raise ValueError(
+                    "The ghost-endpoint pretrained model must implement `forces`."
+                )
 
         self._model = model
+        self._ghost_model = ghost_model
         self._fixed_lambda_mask = None if lambda_mask is None else np.asarray(
             lambda_mask, dtype=np.float64)
         self._fixed_target_mask = None if target_mask is None else np.asarray(
@@ -99,6 +116,11 @@ class GhostTargetCorrectionCalculator(Calculator):
             "rc": rc,
             "ro": ro,
             "smooth": smooth,
+        }
+        self._use_d3 = use_d3
+        self._d3_kwargs = {
+            "method": d3_method,
+            "damping": d3_damping,
         }
         self.implemented_properties = ["energy", "forces", "free_energy"]
 
@@ -169,16 +191,19 @@ class GhostTargetCorrectionCalculator(Calculator):
         *,
         target_mask: np.ndarray,
         ghost_targets: bool,
-    ) -> tuple[float, np.ndarray]:
+    ) -> EnergyForcePrediction:
         natoms = len(full_atoms)
         full_forces = np.zeros((natoms, 3), dtype=np.float64)
         base_energy = 0.0
+        endpoint_model = (
+            self._ghost_model if ghost_targets and self._ghost_model is not None else self._model
+        )
 
         if ghost_targets:
             keep_mask = ~target_mask
             if np.any(keep_mask):
                 reduced_atoms = _slice_atoms(full_atoms, keep_mask)
-                base_prediction = self._model.predict_one(
+                base_prediction = endpoint_model.predict_one(
                     reduced_atoms,
                     properties=["energy", "forces"],
                 )
@@ -194,15 +219,35 @@ class GhostTargetCorrectionCalculator(Calculator):
                 target_mask=target_mask,
                 **self._correction_kwargs,
             )
-            return base_energy + correction_energy, full_forces + correction_forces
+            endpoint = EnergyForcePrediction(
+                energy=base_energy + correction_energy,
+                forces=full_forces + correction_forces,
+            )
+        else:
+            base_prediction = endpoint_model.predict_one(
+                _copy_atoms(full_atoms),
+                properties=["energy", "forces"],
+            )
+            base_energy = _scalar_energy(base_prediction["energy"])
+            full_forces[:] = np.asarray(base_prediction["forces"], dtype=np.float64)
+            endpoint = EnergyForcePrediction(
+                energy=base_energy,
+                forces=full_forces,
+            )
 
-        base_prediction = self._model.predict_one(
-            _copy_atoms(full_atoms),
-            properties=["energy", "forces"],
-        )
-        base_energy = _scalar_energy(base_prediction["energy"])
-        full_forces[:] = np.asarray(base_prediction["forces"], dtype=np.float64)
-        return base_energy, full_forces
+        if self._use_d3:
+            d3_energy, d3_forces = ghost_target_d3_correction(
+                full_atoms,
+                1.0 if ghost_targets else 0.0,
+                target_mask=target_mask,
+                **self._d3_kwargs,
+            )
+            endpoint = EnergyForcePrediction(
+                energy=endpoint.energy + d3_energy,
+                forces=endpoint.forces + d3_forces,
+            )
+
+        return endpoint
 
     def calculate(
         self,
@@ -235,36 +280,39 @@ class GhostTargetCorrectionCalculator(Calculator):
             )
 
         if not np.any(target_mask) or target_lambda <= 1e-8:
-            total_energy, total_forces = self._predict_endpoint(
+            endpoint = self._predict_endpoint(
                 full_atoms,
                 target_mask=target_mask,
                 ghost_targets=False,
             )
         elif target_lambda >= 1.0 - 1e-8:
-            total_energy, total_forces = self._predict_endpoint(
+            endpoint = self._predict_endpoint(
                 full_atoms,
                 target_mask=target_mask,
                 ghost_targets=True,
             )
         else:
-            energy_real, forces_real = self._predict_endpoint(
+            real_endpoint = self._predict_endpoint(
                 full_atoms,
                 target_mask=target_mask,
                 ghost_targets=False,
             )
-            energy_ghost, forces_ghost = self._predict_endpoint(
+            ghost_endpoint = self._predict_endpoint(
                 full_atoms,
                 target_mask=target_mask,
                 ghost_targets=True,
             )
-            total_energy = (1.0 - target_lambda) * energy_real + target_lambda * energy_ghost
-            total_forces = (1.0 - target_lambda) * forces_real + target_lambda * forces_ghost
+            endpoint = interpolate_energy_forces(
+                real_endpoint,
+                ghost_endpoint,
+                target_lambda,
+            )
 
         if "energy" in requested or "free_energy" in requested:
-            self.results["energy"] = float(total_energy)
-            self.results["free_energy"] = float(total_energy)
+            self.results["energy"] = float(endpoint.energy)
+            self.results["free_energy"] = float(endpoint.energy)
         if "forces" in requested:
-            self.results["forces"] = total_forces
+            self.results["forces"] = endpoint.forces
 
 
 __all__ = ["GhostTargetCorrectionCalculator"]

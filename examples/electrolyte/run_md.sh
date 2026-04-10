@@ -7,9 +7,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 MODEL_FAMILY="${1:-uma}"
-LAMBDA_VALUE="${2:-1.0}"
-DEVICE="${3:-cpu}"
-STEPS="${4:-1000}"
+LAMBDA_VALUE="${2:-0.25}"
+DEVICE="${3:-cuda}"
+STEPS="${4:-100}"
+USE_D3="${5:-1}"
+INIT_VELOCITIES="${6:-0}"
+D3_METHOD="${7:-pbe}"
+D3_DAMPING="${8:-d3bj}"
+USE_UMA_MERGE_EXPERTS="${9:-1}"
 
 case "${MODEL_FAMILY}" in
   uma)
@@ -31,7 +36,20 @@ esac
 
 conda activate "${CONDA_ENV}"
 
+export CUDA_VISIBLE_DEVICES=3
+
 cd "${REPO_ROOT}"
+
+EXTRA_RUNTIME_ARGS=()
+if [[ "${USE_D3}" == "1" ]]; then
+  EXTRA_RUNTIME_ARGS+=(--use-d3 --d3-method "${D3_METHOD}" --d3-damping "${D3_DAMPING}")
+fi
+if [[ "${INIT_VELOCITIES}" == "1" ]]; then
+  EXTRA_RUNTIME_ARGS+=(--init-velocities)
+fi
+if [[ "${MODEL_FAMILY}" == "uma" && "${USE_UMA_MERGE_EXPERTS}" == "0" ]]; then
+  EXTRA_RUNTIME_ARGS+=(--no-uma-merge-experts)
+fi
 
 PYTHONPATH=src python examples/electrolyte/md.py \
   --model-type "${MODEL_FAMILY}" \
@@ -52,6 +70,7 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --steps "${STEPS}" \
   --log-interval 10 \
   --seed 7 \
-  --output-dir "examples/electrolyte/outputs/${MODEL_FAMILY}_lambda_${LAMBDA_VALUE}" \
+  "${EXTRA_RUNTIME_ARGS[@]}" \
+  --output-dir "examples/electrolyte/outputs/${MODEL_FAMILY}_lambda_${LAMBDA_VALUE}_d3_${USE_D3}_merge_${USE_UMA_MERGE_EXPERTS}" \
   --trajectory-name "md.xyz" \
   --final-structure-name "final.xyz"

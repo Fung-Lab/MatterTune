@@ -1,4 +1,4 @@
 from __future__ import annotations
 
+from .ghost_d3 import ghost_target_d3_correction as ghost_target_d3_correction
 from .soft_core_lj import soft_core_lj_correction as soft_core_lj_correction
-

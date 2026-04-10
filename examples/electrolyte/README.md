@@ -9,6 +9,12 @@ The calculator in [`ghost_target_calculator.py`](./ghost_target_calculator.py) i
 1. A pretrained MatterTune foundation model
 2. A repulsive soft-core LJ correction from `mattertune.corrections.soft_core_lj_correction(...)`
 
+The MD driver in [`md.py`](./md.py) can also add an optional third contribution:
+
+3. A D3 dispersion correction through the Python package `dftd3`
+
+For UMA specifically, the MD driver now also enables fairchem's MOE expert merging by default.
+
 The motivation is the following:
 
 - The alchemical target identity is stored separately from the lambda values.
@@ -41,7 +47,18 @@ In short, the total calculator is:
 
 where the ghost-target endpoint itself is
 
-`ghost endpoint = reduced-system foundation model + target-environment soft-core correction`
+`ghost endpoint = reduced-system foundation model + target-environment soft-core correction + ghost-aware D3(reduced system)`
+
+and the real endpoint is
+
+`real endpoint = full-system foundation model + ghost-aware D3(full system)`
+
+For UMA, these two endpoints can have different fixed compositions. Because fairchem's merged-MOE predictor is composition-specific, the MD driver uses:
+
+- one UMA predictor for the real endpoint
+- and, only when `0 < lambda < 1`, a second UMA predictor for the ghost endpoint
+
+This lets each endpoint merge experts against its own fixed composition without conflicting with the other endpoint.
 
 ## Files
 
@@ -68,6 +85,17 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --steps 10
 ```
 
+Run the same setup with initialized velocities:
+
+```bash
+cd MatterTune
+PYTHONPATH=src python examples/electrolyte/md.py \
+  --model-type mattersim \
+  --device cpu \
+  --steps 10 \
+  --init-velocities
+```
+
 For UMA, you must also pass a task name:
 
 ```bash
@@ -79,24 +107,69 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --steps 10
 ```
 
+To run MD from a MatterTune fine-tuned checkpoint instead of a pretrained model:
+
+```bash
+cd MatterTune
+PYTHONPATH=src python examples/electrolyte/md.py \
+  --ckpt-path examples/electrolyte/checkpoints/MatterSim-v1.0.0-1M-best.ckpt \
+  --device cpu \
+  --steps 10
+```
+
+To add D3, install the Python package first:
+
+```bash
+pip install dftd3
+```
+
+Then run:
+
+```bash
+cd MatterTune
+PYTHONPATH=src python examples/electrolyte/md.py \
+  --model-type mattersim \
+  --device cpu \
+  --steps 10 \
+  --use-d3 \
+  --d3-method pbe \
+  --d3-damping d3bj
+```
+
 The helper script [`run_md.sh`](./run_md.sh) wraps the two tested model families:
 
 ```bash
 cd MatterTune/examples/electrolyte
 bash run_md.sh uma 0.25 cpu 10
 bash run_md.sh orb 1.0 cpu 10
+bash run_md.sh uma 0.25 cpu 10 1 1 pbe d3bj
+bash run_md.sh uma 0.25 cpu 10 0 0 pbe d3bj 0
 ```
+
+The helper script arguments are:
+
+- `$1`: model family, `uma` or `orb`
+- `$2`: target lambda
+- `$3`: device
+- `$4`: MD steps
+- `$5`: use D3, `0` or `1`
+- `$6`: initialize velocities, `0` or `1`
+- `$7`: D3 method, default `pbe`
+- `$8`: D3 damping, default `d3bj`
+- `$9`: whether to enable UMA MOE expert merging, `0` or `1`, default `1`
 
 ## Required MD Configuration
 
-To run MD with this calculator, you need to specify four groups of parameters.
+To run MD with this calculator, you need to specify six groups of parameters.
 
 ### 1. Pretrained model parameters
 
 - `--model-type`: foundation model family, such as `mattersim`, `orb`, `mace`, `nequip`, `allegro`, or `uma`
 - `--model-name`: optional specific pretrained checkpoint name; if omitted, MatterTune uses the family default
+- `--ckpt-path`: optional MatterTune fine-tuned checkpoint path; if provided, `md.py` loads this checkpoint instead of a pretrained model
 - `--task-name`: required for UMA checkpoints because UMA is task-specific
 - `--device`: inference device, for example `cpu` or `cuda:0`
+- `--no-uma-merge-experts`: disable fairchem UMA MOE expert merging during MD; by default it is enabled for UMA models
 
 ### 2. Structure and ghost-target selection
 
@@ -131,9 +204,30 @@ Typical meaning:
 - `alpha` controls how soft the short-range core is.
 - `rc` and `ro` control where the correction is turned off and how gradually it decays to zero.
 
-### 4. MD control parameters
+### 4. Optional D3 dispersion parameters
+
+- `--use-d3`: turn on the additional D3 correction
+- `--d3-method`: method label passed to `dftd3.ase.DFTD3`, default `pbe`
+- `--d3-damping`: damping label passed to `dftd3.ase.DFTD3`, default `d3bj`
+
+Important note:
+
+- This path uses the Python package `dftd3`, not ASE's external `dftd3` wrapper.
+- You need to install it yourself, for example with `pip install dftd3`.
+- The current implementation is ghost-aware: at `lambda = 0`, D3 is evaluated on the full structure; at `lambda = 1`, D3 is evaluated on the reduced structure with target atoms removed; and intermediate `lambda` uses the same endpoint interpolation rule as the foundation-model contribution.
+
+### 5. Optional UMA MOE merge
+
+- UMA checkpoints use fairchem's MOE backbone.
+- In MD, once the endpoint composition is fixed, fairchem can merge the active experts for faster repeated predictions.
+- `md.py` enables this by default for UMA through `merge_mole=True`.
+- If `0 < lambda < 1`, the real and ghost endpoints use separate UMA predictors, because their compositions differ.
+- Use `--no-uma-merge-experts` if you want to disable this behavior.
+
+### 6. MD control parameters
 
 - `--temperature`: target temperature in K
+- `--init-velocities`: initialize Maxwell-Boltzmann velocities before MD; if omitted, MD starts with zero velocities
 - `--timestep-fs`: MD timestep in fs
 - `--friction-fs-inv`: Langevin friction in `1/fs`
 - `--steps`: number of MD steps
@@ -150,9 +244,13 @@ At minimum, you should decide:
 1. Which pretrained model to use
 2. Which atom(s) should be ghost targets
 3. The soft-core correction scale (`epsilon`, `sigma`, `alpha`, `rc`, `ro`)
-4. The MD thermostat and timestep settings
+4. Whether you want the additional D3 correction
+5. Whether to keep UMA MOE expert merging enabled
+6. Whether you want to initialize velocities
+7. The MD thermostat and timestep settings
 
 If you only want a first smoke test, the defaults are enough except for `--model-type`.
+If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is enough and you do not need `--model-type`.
 
 ## Notes
 
@@ -185,3 +283,16 @@ Measured `lambda = 1` target-force norm:
 - ORB `orb-v3-conservative-inf-omat`: `1.66e-3 eV/A`
 
 The identical `lambda = 1` target-force norm in these two tests is also expected: at the ghost endpoint, the target force comes only from the shared soft-core correction, not from the foundation model.
+
+D3 status:
+
+- The `md.py` interface and `run_md.sh` wrapper now support the Python package `dftd3`.
+- The D3 contribution is now implemented as a ghost-aware correction utility under `src/mattertune/corrections`, using `dftd3.ase.DFTD3`.
+- It was validated with a temporary local `dftd3` install on small test systems: `lambda = 1` gives zero target D3 force, and intermediate `lambda` matches the explicit endpoint interpolation exactly.
+
+UMA merge status:
+
+- The current MD path now enables fairchem UMA MOE expert merging by default.
+- This is not done by the generic pretrained UMA loader in `src/mattertune/pretrained.py`, which still uses fairchem's general-purpose inference defaults.
+- In the MD example, expert merging is handled at the example layer so that the real and ghost endpoints can use separate merged predictors when needed.
+- This merged-MOE MD path was smoke-tested in `uma-elec` on `LiH2O.xyz` for `lambda = 0`, `0.25`, and `1.0`.

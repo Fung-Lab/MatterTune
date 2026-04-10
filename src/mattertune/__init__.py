@@ -7,6 +7,8 @@ from .pretrained import PretrainedModel as PretrainedModel
 from .pretrained import available_pretrained_models as available_pretrained_models
 from .registry import backbone_registry as backbone_registry
 from .registry import data_registry as data_registry
+from . import alchemical as alchemical
+from . import corrections as corrections
 
 try:
     from . import configs as configs

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import time
+import copy
 
 import ase.units as units
 import numpy as np
@@ -13,6 +15,18 @@ from ase.md.langevin import Langevin
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
 
 from mattertune import load_pretrained_model
+from mattertune.backbones import (
+    EqV2BackboneModule,
+    JMPBackboneModule,
+    MACEBackboneModule,
+    MatterSimM3GNetBackboneModule,
+    M3GNetBackboneModule,
+    NequIPBackboneModule,
+    ORBBackboneModule,
+    UMABackboneModule,
+)
+from mattertune.finetune.base import FinetuneModuleBase
+from mattertune.pretrained import PretrainedModel
 
 from ghost_target_calculator import GhostTargetCorrectionCalculator
 
@@ -66,20 +80,121 @@ def build_lambda_mask(
     return lambda_mask
 
 
-def main(args: argparse.Namespace) -> None:
-    atoms = load_atoms(args.structure)
-    target_indices = parse_target_indices(args.target_indices, len(atoms))
-    target_mask = build_target_mask(len(atoms), target_indices)
-    lambda_mask = build_lambda_mask(len(atoms), target_indices, args.lambda_value)
-    atoms.arrays[args.lambda_array_name] = lambda_mask
-    atoms.arrays[args.target_array_name] = target_mask
+def should_enable_uma_merge_experts(args: argparse.Namespace) -> bool:
+    return (
+        args.model_type is not None
+        and args.model_type.strip().lower() == "uma"
+        and args.uma_merge_experts
+    )
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+
+class ASECalculatorBackedModel:
+    def __init__(
+        self,
+        *,
+        family: str,
+        model_name: str,
+        device: str,
+        calculator,
+    ):
+        self.family = family
+        self.model_name = model_name
+        self.device = device
+        self._calculator = calculator
+        self.implemented_properties = tuple(
+            getattr(calculator, "implemented_properties", [])
+        )
+
+    def predict_one(
+        self,
+        atoms: Atoms,
+        properties: list[str] | None = None,
+    ) -> dict[str, object]:
+        requested = list(
+            self.implemented_properties) if properties is None else properties
+        atoms_copy = copy.deepcopy(atoms)
+        self._calculator.calculate(
+            atoms_copy,
+            properties=requested,
+            system_changes=["positions", "numbers", "cell",
+                            "pbc", "initial_charges", "initial_magmoms"],
+        )
+        return copy.deepcopy(self._calculator.results)
+
+
+def _checkpoint_module_class(backbone_name: str):
+    mapping = {
+        "mattersim": MatterSimM3GNetBackboneModule,
+        "orb": ORBBackboneModule,
+        "mace": MACEBackboneModule,
+        "uma": UMABackboneModule,
+        "eqv2": EqV2BackboneModule,
+        "jmp": JMPBackboneModule,
+        "m3gnet": M3GNetBackboneModule,
+        "nequip": NequIPBackboneModule,
+        "allegro": NequIPBackboneModule,
+    }
+    try:
+        return mapping[backbone_name]
+    except KeyError as exc:
+        supported = ", ".join(sorted(mapping))
+        raise ValueError(
+            f"Unsupported finetuned checkpoint backbone `{backbone_name}`. "
+            f"Supported values are: {supported}."
+        ) from exc
+
+
+def load_finetuned_model_from_checkpoint(
+    ckpt_path: str,
+    *,
+    device: str,
+):
+    import torch
+
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+    hparams = ckpt.get("hyper_parameters", {})
+    backbone_name = hparams.get("name")
+    if backbone_name is None:
+        raise ValueError(
+            f"Could not determine backbone name from checkpoint `{ckpt_path}`."
+        )
+
+    module_cls = _checkpoint_module_class(str(backbone_name))
+    module: FinetuneModuleBase = module_cls.load_from_checkpoint(
+        checkpoint_path=ckpt_path,
+        map_location="cpu",
+    )
+    calculator = module.ase_calculator(device=device)
+    return ASECalculatorBackedModel(
+        family=str(backbone_name),
+        model_name=Path(ckpt_path).stem,
+        device=device,
+        calculator=calculator,
+    )
+
+
+def load_md_models(
+    args: argparse.Namespace,
+) -> tuple[PretrainedModel | ASECalculatorBackedModel, PretrainedModel | ASECalculatorBackedModel | None]:
+    if args.ckpt_path is not None:
+        model = load_finetuned_model_from_checkpoint(
+            args.ckpt_path,
+            device=args.device,
+        )
+        return model, None
 
     load_kwargs: dict[str, object] = {}
     if args.task_name is not None:
         load_kwargs["task_name"] = args.task_name
+
+    if should_enable_uma_merge_experts(args):
+        from fairchem.core.units.mlip_unit.api.inference import (
+            inference_settings_default,
+        )
+
+        inference_settings = inference_settings_default()
+        inference_settings.merge_mole = True
+        load_kwargs["inference_settings"] = inference_settings
 
     model = load_pretrained_model(
         args.model_type,
@@ -87,14 +202,50 @@ def main(args: argparse.Namespace) -> None:
         device=args.device,
         **load_kwargs,
     )
+
+    ghost_model = None
+    if should_enable_uma_merge_experts(args) and 1e-8 < args.lambda_value < 1.0 - 1e-8:
+        ghost_model = load_pretrained_model(
+            args.model_type,
+            args.model_name,
+            device=args.device,
+            **load_kwargs,
+        )
+
+    return model, ghost_model
+
+
+def main(args: argparse.Namespace) -> None:
+    atoms = load_atoms(args.structure)
+    target_indices = parse_target_indices(args.target_indices, len(atoms))
+    target_mask = build_target_mask(len(atoms), target_indices)
+    lambda_mask = build_lambda_mask(
+        len(atoms), target_indices, args.lambda_value)
+    atoms.arrays[args.lambda_array_name] = lambda_mask
+    atoms.arrays[args.target_array_name] = target_mask
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    model, ghost_model = load_md_models(args)
     print(
         f"loaded model: family={model.family}, name={model.model_name}, device={model.device}"
     )
     print(f"target indices: {target_indices}")
     print(f"target lambda: {args.lambda_value:.6f}")
+    if should_enable_uma_merge_experts(args):
+        print("UMA MOE merge: enabled")
+        if ghost_model is not None:
+            print("UMA MOE merge: using a second predictor for the ghost endpoint")
+    elif args.model_type is not None and args.model_type.strip().lower() == "uma":
+        print("UMA MOE merge: disabled")
+    print(f"use D3 correction: {args.use_d3}")
+    if args.use_d3:
+        print(f"D3 method: {args.d3_method}, damping: {args.d3_damping}")
 
     calc = GhostTargetCorrectionCalculator(
         model,
+        ghost_model=ghost_model,
         lambda_array_name=args.lambda_array_name,
         target_array_name=args.target_array_name,
         epsilon=args.epsilon,
@@ -103,6 +254,9 @@ def main(args: argparse.Namespace) -> None:
         rc=args.rc,
         ro=args.ro,
         smooth=args.smooth,
+        use_d3=args.use_d3,
+        d3_method=args.d3_method,
+        d3_damping=args.d3_damping,
     )
     atoms.calc = calc
 
@@ -111,12 +265,17 @@ def main(args: argparse.Namespace) -> None:
     print(f"initial corrected energy: {initial_energy:.12f} eV")
     print(f"initial max|F|: {np.abs(initial_forces).max():.6f} eV/A")
 
-    MaxwellBoltzmannDistribution(
-        atoms,
-        temperature_K=args.temperature,
-        rng=np.random.default_rng(args.seed),
-    )
-    Stationary(atoms)
+    if args.init_velocities:
+        MaxwellBoltzmannDistribution(
+            atoms,
+            temperature_K=args.temperature,
+            rng=np.random.default_rng(args.seed),
+        )
+        Stationary(atoms)
+        print(
+            f"initialized velocities at {args.temperature:.3f} K with seed={args.seed}")
+    else:
+        print("initial velocities not assigned")
 
     dynamics = Langevin(
         atoms,
@@ -147,8 +306,20 @@ def main(args: argparse.Namespace) -> None:
         f"running ghost-target MD: steps={args.steps}, timestep_fs={args.timestep_fs}, "
         f"temperature_K={args.temperature}"
     )
+
+    start_time = time.time()
     dynamics.run(args.steps)
     trajectory.close()
+    end_time = time.time()
+    print(f"MD simulation completed in {end_time - start_time:.2f} seconds")
+    if args.steps > 0:
+        print(
+            f"Average MD step time: {(end_time - start_time) / args.steps:.2f} seconds"
+        )
+    # ns_per_day = 86400 / ((end_time - start_time) *
+    #                       (1e6 / args.timestep_fs * args.steps))
+
+    # print(f"Speed in ns per day: {ns_per_day:.6f} ns/day")
 
     write(final_structure_path, atoms)
     print(f"trajectory written to {trajectory_path}")
@@ -164,10 +335,36 @@ def parse_args() -> argparse.Namespace:
         description="Run MD with a pretrained model plus ghost-target excluded-volume correction.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--model-type", required=True)
+    parser.add_argument("--model-type", default=None)
     parser.add_argument("--model-name", default=None)
+    parser.add_argument(
+        "--ckpt-path",
+        default=None,
+        help="Optional MatterTune finetuned checkpoint path. If provided, md.py loads this checkpoint instead of a pretrained model.",
+    )
     parser.add_argument("--task-name", default=None)
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--no-uma-merge-experts",
+        action="store_false",
+        dest="uma_merge_experts",
+        help="Disable UMA MOE expert merging during MD. By default it is enabled for UMA models.",
+    )
+    parser.add_argument(
+        "--use-d3",
+        action="store_true",
+        help="Add a Python-package DFT-D3 dispersion correction on top of the ghost-target calculator.",
+    )
+    parser.add_argument(
+        "--d3-method",
+        default="pbe",
+        help="Method label passed to the Python DFTD3 calculator, for example `pbe`.",
+    )
+    parser.add_argument(
+        "--d3-damping",
+        default="d3bj",
+        help="Damping mode passed to the Python DFTD3 calculator, for example `d3bj`.",
+    )
     parser.add_argument("--structure", default=None)
     parser.add_argument(
         "--target-indices",
@@ -194,7 +391,13 @@ def parse_args() -> argparse.Namespace:
         help="Disable the smooth cutoff for the ghost-target correction.",
     )
     parser.set_defaults(smooth=True)
+    parser.set_defaults(uma_merge_experts=True)
     parser.add_argument("--temperature", type=float, default=300.0)
+    parser.add_argument(
+        "--init-velocities",
+        action="store_true",
+        help="Initialize Maxwell-Boltzmann velocities before MD. Disabled by default.",
+    )
     parser.add_argument("--timestep-fs", type=float, default=1.0)
     parser.add_argument("--friction-fs-inv", type=float, default=0.02)
     parser.add_argument("--steps", type=int, default=10)
@@ -203,7 +406,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(default_output_dir))
     parser.add_argument("--trajectory-name", default="ghost_md.xyz")
     parser.add_argument("--final-structure-name", default="ghost_final.extxyz")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.ckpt_path is None and args.model_type is None:
+        parser.error("Either --model-type or --ckpt-path must be provided.")
+    return args
 
 
 if __name__ == "__main__":
