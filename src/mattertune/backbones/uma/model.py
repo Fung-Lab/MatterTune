@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import importlib.util
 import logging
 from pathlib import Path
@@ -109,8 +110,11 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
                 backbone=self.backbone,
                 wrap_property=False,
             )
-            head.regress_forces = f_conservative
-            head.regress_stress = s_conservative
+            # fairchem-core now exposes regress_forces/regress_stress as read-only
+            # properties backed by a mutable regress_config object.
+            head.regress_config = copy.deepcopy(head.regress_config)
+            head.regress_config.forces = f_conservative
+            head.regress_config.stress = s_conservative
             self.output_heads["efs"] = head
         # for other properties, we can use the specific heads
         for prop in self.hparams.properties:
@@ -155,6 +159,7 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
         if mode == "predict":
             self.eval()
         emb: dict[str, torch.Tensor] = self.backbone(batch)
+        target_dtype = batch["pos"].dtype  # type: ignore[index]
 
         output_pred: dict[str, torch.Tensor] = {}
         for name, head in self.output_heads.items():
@@ -163,8 +168,9 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
 
         predicted_properties: dict[str, torch.Tensor] = {}
         for prop in self.hparams.properties:
-            predicted_properties[prop.name] = output_pred[HARDCODED_NAMES[type(
-                prop)]]
+            predicted_properties[prop.name] = output_pred[
+                HARDCODED_NAMES[type(prop)]
+            ].to(dtype=target_dtype)
 
         if mode == "predict":
             self.train()
