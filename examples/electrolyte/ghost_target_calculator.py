@@ -58,12 +58,20 @@ def _scalar_energy(value: object) -> float:
     return float(np.asarray(value, dtype=np.float64).reshape(-1)[0])
 
 
+def _force_norms(forces: np.ndarray, target_mask: np.ndarray) -> dict[str, float]:
+    return {
+        "target_force_norm_eVA": float(np.linalg.norm(forces[target_mask])),
+        "environment_force_norm_eVA": float(np.linalg.norm(forces[~target_mask])),
+        "max_force_eVA": float(np.max(np.abs(forces))) if forces.size else 0.0,
+    }
+
+
 class GhostTargetCorrectionCalculator(Calculator):
     """Interpolate between real-target and fully-ghost target endpoints.
 
     Calculator-level lambda semantics:
     - lambda = 0: the selected target atoms are fully real and remain in the model input
-    - lambda = 1: the selected target atoms are fully ghost and are deleted from the model input
+    - lambda = 1: the selected target atoms are evaluated on the configured ghost endpoint
     - 0 < lambda < 1: interpolate linearly between those two endpoint predictions
     """
 
@@ -82,6 +90,7 @@ class GhostTargetCorrectionCalculator(Calculator):
         rc: float | None = None,
         ro: float | None = None,
         smooth: bool = True,
+        ghost_endpoint_mode: str = "delete",
         use_d3: bool = False,
         d3_method: str = "pbe",
         d3_damping: str = "d3bj",
@@ -117,6 +126,11 @@ class GhostTargetCorrectionCalculator(Calculator):
             "ro": ro,
             "smooth": smooth,
         }
+        if ghost_endpoint_mode not in {"delete", "dummy"}:
+            raise ValueError(
+                "ghost_endpoint_mode must be either `delete` or `dummy`."
+            )
+        self._ghost_endpoint_mode = ghost_endpoint_mode
         self._use_d3 = use_d3
         self._d3_kwargs = {
             "method": d3_method,
@@ -124,6 +138,8 @@ class GhostTargetCorrectionCalculator(Calculator):
         }
         self._last_real_endpoint_energy: float | None = None
         self._last_ghost_endpoint_energy: float | None = None
+        self._last_real_endpoint_details: dict[str, object] | None = None
+        self._last_ghost_endpoint_details: dict[str, object] | None = None
         self.implemented_properties = ["energy", "forces", "free_energy"]
 
     @property
@@ -133,6 +149,21 @@ class GhostTargetCorrectionCalculator(Calculator):
     @property
     def last_ghost_endpoint_energy(self) -> float | None:
         return self._last_ghost_endpoint_energy
+
+    @property
+    def last_real_endpoint_details(self) -> dict[str, object] | None:
+        return copy.deepcopy(self._last_real_endpoint_details)
+
+    @property
+    def last_ghost_endpoint_details(self) -> dict[str, object] | None:
+        return copy.deepcopy(self._last_ghost_endpoint_details)
+
+    @property
+    def last_ghost_endpoint_lj_energy(self) -> float | None:
+        if self._last_ghost_endpoint_details is None:
+            return None
+        value = self._last_ghost_endpoint_details.get("lj_energy_eV")
+        return None if value is None else float(value)
 
     def check_state(self, atoms, tol=1e-15):
         system_changes = super().check_state(atoms, tol=tol)
@@ -205,23 +236,50 @@ class GhostTargetCorrectionCalculator(Calculator):
         natoms = len(full_atoms)
         full_forces = np.zeros((natoms, 3), dtype=np.float64)
         base_energy = 0.0
+        base_debug: dict[str, object] = {}
         endpoint_model = (
             self._ghost_model if ghost_targets and self._ghost_model is not None else self._model
         )
 
         if ghost_targets:
-            keep_mask = ~target_mask
-            if np.any(keep_mask):
-                reduced_atoms = _slice_atoms(full_atoms, keep_mask)
-                base_prediction = endpoint_model.predict_one(
-                    reduced_atoms,
+            use_dummy_endpoint = (
+                self._ghost_endpoint_mode == "dummy"
+                and bool(getattr(endpoint_model, "supports_dummy_endpoint", lambda: False)())
+            )
+            if self._ghost_endpoint_mode == "dummy" and not use_dummy_endpoint:
+                raise ValueError(
+                    "ghost_endpoint_mode=`dummy` requires a model that implements "
+                    "`predict_dummy_endpoint(...)`. This is currently available only "
+                    "for pretrained MACE models."
+                )
+
+            if use_dummy_endpoint:
+                base_prediction = endpoint_model.predict_dummy_endpoint(
+                    _copy_atoms(full_atoms),
+                    target_mask=target_mask,
                     properties=["energy", "forces"],
                 )
+                base_debug = copy.deepcopy(
+                    base_prediction.get("dummy_debug", {})
+                )
                 base_energy = _scalar_energy(base_prediction["energy"])
-                full_forces[keep_mask] = np.asarray(
+                full_forces[:] = np.asarray(
                     base_prediction["forces"],
                     dtype=np.float64,
                 )
+            else:
+                keep_mask = ~target_mask
+                if np.any(keep_mask):
+                    reduced_atoms = _slice_atoms(full_atoms, keep_mask)
+                    base_prediction = endpoint_model.predict_one(
+                        reduced_atoms,
+                        properties=["energy", "forces"],
+                    )
+                    base_energy = _scalar_energy(base_prediction["energy"])
+                    full_forces[keep_mask] = np.asarray(
+                        base_prediction["forces"],
+                        dtype=np.float64,
+                    )
 
             correction_energy, correction_forces = soft_core_lj_correction(
                 full_atoms,
@@ -232,6 +290,21 @@ class GhostTargetCorrectionCalculator(Calculator):
                 energy=base_energy + correction_energy,
                 forces=full_forces + correction_forces,
             )
+            endpoint_details = {
+                "mode": self._ghost_endpoint_mode,
+                "base_energy_eV": float(base_energy),
+                "lj_energy_eV": float(correction_energy),
+                "d3_energy_eV": 0.0,
+                "total_energy_eV": float(endpoint.energy),
+                "base_force_metrics": _force_norms(full_forces, target_mask),
+                "lj_force_metrics": _force_norms(correction_forces, target_mask),
+                "total_force_metrics": _force_norms(endpoint.forces, target_mask),
+                "target_atom_count": int(target_mask.sum()),
+                "model_family": endpoint_model.family,
+                "model_name": endpoint_model.model_name,
+            }
+            if base_debug:
+                endpoint_details["dummy_debug"] = base_debug
         else:
             base_prediction = endpoint_model.predict_one(
                 _copy_atoms(full_atoms),
@@ -243,6 +316,21 @@ class GhostTargetCorrectionCalculator(Calculator):
                 energy=base_energy,
                 forces=full_forces,
             )
+            endpoint_details = {
+                "mode": "real",
+                "base_energy_eV": float(base_energy),
+                "lj_energy_eV": 0.0,
+                "d3_energy_eV": 0.0,
+                "total_energy_eV": float(endpoint.energy),
+                "base_force_metrics": _force_norms(full_forces, target_mask),
+                "lj_force_metrics": _force_norms(
+                    np.zeros_like(full_forces), target_mask
+                ),
+                "total_force_metrics": _force_norms(endpoint.forces, target_mask),
+                "target_atom_count": int(target_mask.sum()),
+                "model_family": endpoint_model.family,
+                "model_name": endpoint_model.model_name,
+            }
 
         if self._use_d3:
             d3_energy, d3_forces = ghost_target_d3_correction(
@@ -255,6 +343,17 @@ class GhostTargetCorrectionCalculator(Calculator):
                 energy=endpoint.energy + d3_energy,
                 forces=endpoint.forces + d3_forces,
             )
+            endpoint_details["d3_energy_eV"] = float(d3_energy)
+            endpoint_details["d3_force_metrics"] = _force_norms(d3_forces, target_mask)
+            endpoint_details["total_energy_eV"] = float(endpoint.energy)
+            endpoint_details["total_force_metrics"] = _force_norms(
+                endpoint.forces, target_mask
+            )
+
+        if ghost_targets:
+            self._last_ghost_endpoint_details = endpoint_details
+        else:
+            self._last_real_endpoint_details = endpoint_details
 
         return endpoint
 

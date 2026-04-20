@@ -20,9 +20,9 @@ The motivation is the following:
 - The alchemical target identity is stored separately from the lambda values.
 - `lambda = 0` means the selected target atoms are fully real.
 - `lambda = 1` means the selected target atoms are fully ghost-like.
-- For the foundation model, fully ghost target atoms are treated as if they do not exist.
-- Therefore, for the `lambda = 1` endpoint, all selected target atoms are deleted from the input `Atoms`.
-- After the model returns forces on the reduced system, the missing force rows are padded back with zeros.
+- By default, the foundation-model ghost endpoint deletes the target atoms from the model input.
+- For pretrained MACE models, you can choose a `dummy` ghost endpoint that keeps the target atom in the graph but removes its real MACE interactions.
+- The `delete` path pads the missing force rows back with zeros after running the reduced system.
 - The total `lambda = 1` endpoint still includes the ghost-endpoint LJ correction, so the target atom's total force is generally not zero unless the correction is disabled.
 
 For intermediate `0 < lambda < 1`, the example calculator uses a simple linear interpolation between the two endpoint predictions:
@@ -54,6 +54,10 @@ In short, the total calculator is:
 where the ghost-target endpoint itself is
 
 `ghost endpoint = reduced-system foundation model + target-environment LJ correction + ghost-aware D3(reduced system)`
+
+or, for pretrained MACE with `--ghost-endpoint-mode dummy`,
+
+`ghost endpoint = dummy-target MACE endpoint + target-environment LJ correction + ghost-aware D3(reduced system)`
 
 and the real endpoint is
 
@@ -113,6 +117,32 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --steps 10
 ```
 
+To try the MACE-only dummy ghost endpoint:
+
+```bash
+cd MatterTune
+PYTHONPATH=src python examples/electrolyte/md.py \
+  --model-type mace \
+  --device cpu \
+  --ghost-endpoint-mode dummy \
+  --steps 10
+```
+
+MD runs can optionally write a per-step diagnostics file with
+`--diagnostics-name ghost_diagnostics.jsonl`. It is disabled by default.
+
+By default, the MD log prints one compact line per recorded step with:
+
+- `time_fs`
+- `temp`
+- `mixed_energy`
+- `lambda0_energy`
+- `lambda1_energy`
+- `ghost_lj`
+
+This is usually enough for production runs, while the JSONL diagnostics file is
+more useful for debugging endpoint construction details.
+
 To run MD from a MatterTune fine-tuned checkpoint instead of a pretrained model:
 
 ```bash
@@ -152,6 +182,18 @@ bash run_md.sh uma 0.25 cpu 10 1 1 pbe d3bj
 bash run_md.sh uma 0.25 cpu 10 0 0 pbe d3bj 0
 ```
 
+`run_md.sh` currently uses the same LJ defaults as `md.py`:
+
+- `epsilon = 0.00694`
+- `sigma = 2.337`
+- `alpha = 0.5`
+- `rc = 3.0`
+- `ro = 1.5`
+- `smooth = True`
+
+It currently wraps only the `uma` and `orb` examples. For pretrained MACE with
+`--ghost-endpoint-mode dummy`, run [`md.py`](./md.py) directly.
+
 The helper script arguments are:
 
 - `$1`: model family, `uma` or `orb`
@@ -184,13 +226,14 @@ To run MD with this calculator, you need to specify six groups of parameters.
 - `--lambda-array-name`: name of the `atoms.arrays[...]` field that stores the per-atom lambda values; the example default is `alchemical_lambda`
 - `--target-array-name`: name of the `atoms.arrays[...]` field that stores the explicit alchemical target mask
 - `--lambda-value`: ghost fraction assigned to the selected target atoms
+- `--ghost-endpoint-mode`: `delete` for the current reduced-system ghost endpoint, or `dummy` for the MACE dummy-atom ghost endpoint
 
 Important note:
 
 - Non-target environment atoms should keep `lambda = 0`.
 - Selected target atoms share one common lambda value in this example implementation.
 - `lambda = 0` means "keep this target atom in the foundation-model input".
-- `lambda = 1` means "delete this target atom from the foundation-model input and treat it as a fully ghost target".
+- `lambda = 1` means "evaluate the ghost endpoint for this target atom". By default this deletes the target atom from the foundation-model input; with pretrained MACE plus `--ghost-endpoint-mode dummy`, the target atom stays in the graph but its real model interactions are masked out.
 - Intermediate `0 < lambda < 1` means "linearly interpolate between those two endpoint predictions".
 - At `lambda = 1`, the foundation-model contribution on the target atom is zero, but the total target force can still be nonzero because the ghost-endpoint LJ correction remains active.
 
@@ -242,6 +285,7 @@ Important note:
 - `--output-dir`: directory for output files
 - `--trajectory-name`: ASE trajectory filename
 - `--final-structure-name`: final structure filename
+- `--diagnostics-name`: optional JSONL filename for endpoint diagnostics; disabled by default
 
 ## Choosing Parameters
 
@@ -262,33 +306,50 @@ If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is eno
 
 - The continuity check script is useful whenever you change `epsilon`, `sigma`, `rc`, or `ro`. The current LJ implementation keeps `alpha` only for backward-compatible argument parsing.
 - The corrected calculator only exposes `energy`, `forces`, and `free_energy`.
+- The new `--ghost-endpoint-mode dummy` path is implemented only for pretrained MACE models.
+- The pretrained-MACE dummy path was smoke-tested locally in this repository.
 - This example implementation lives under `examples/` on purpose. It is a demonstration layer on top of MatterTune's pretrained-model interface, not yet a formal package API.
 
 ## Validation
 
-The current implementation was tested on `examples/electrolyte/data/LiH2O.xyz` with target atom `0`, `epsilon=1.0`, `sigma=1.0`, `alpha=0.5`, `rc=3.0`, `ro=1.5`, and `smooth=True`.
+The current implementation was tested on `examples/electrolyte/data/LiH2O.xyz`
+with target atom `0`, `epsilon=0.00694`, `sigma=2.337`, `alpha=0.5`,
+`rc=3.0`, `ro=1.5`, and `smooth=True`.
 
 Tested models:
 
 - `uma-s-1p1` in `uma-elec`
 - `orb-v3-conservative-inf-omat` in `orb-elec`
+- pretrained MACE `small` on CPU with `--ghost-endpoint-mode dummy`
 
 Observed behavior:
 
 - `lambda = 1` target force is not zero in the total calculator output. This is expected here, because the target-environment LJ correction is still present at the ghost endpoint.
-- For both tested models, `lambda = 0.25` matches the explicit linear interpolation between the `lambda = 0` and `lambda = 1` endpoint predictions to numerical precision.
+- Across these tests, `lambda = 0.25` matches the explicit linear interpolation between the `lambda = 0` and `lambda = 1` endpoint predictions to numerical precision.
 
 Measured interpolation residuals:
 
 - UMA `uma-s-1p1`: `|E(0.25) - [0.75 E(0) + 0.25 E(1)]| = 2.92e-7 eV`, `max|F(0.25) - [0.75 F(0) + 0.25 F(1)]| = 1.16e-6 eV/A`
 - ORB `orb-v3-conservative-inf-omat`: energy residual `0.0 eV`, force residual `7.38e-7 eV/A`
+- MACE `small` dummy endpoint: energy residual `0.0 eV`, force residual `3.13e-7 eV/A`
 
 Measured `lambda = 1` target-force norm:
 
 - UMA `uma-s-1p1`: `1.66e-3 eV/A`
 - ORB `orb-v3-conservative-inf-omat`: `1.66e-3 eV/A`
+- MACE `small` dummy endpoint: base-model target-force norm `0.0 eV/A`; the
+  total target force remains nonzero because the ghost-endpoint LJ correction is
+  still active
 
-The identical `lambda = 1` target-force norm in these two tests is also expected: at the ghost endpoint, the target force comes only from the shared LJ correction, not from the foundation model.
+The identical `lambda = 1` target-force norm in the UMA and ORB tests is also expected: at the ghost endpoint, the target force comes only from the shared LJ correction, not from the foundation model.
+
+Additional dummy-endpoint checks for pretrained MACE:
+
+- target-connected graph edges were removed in the ghost endpoint
+- the target `node_energy` contribution was removed explicitly before summing the ghost-endpoint base energy
+- the target model-force norm at the dummy endpoint was `0.0 eV/A`
+- a finite-difference check on the dummy endpoint matched the target-force
+  component to within about `2e-6 eV/A` on `LiH2O.xyz`
 
 D3 status:
 
