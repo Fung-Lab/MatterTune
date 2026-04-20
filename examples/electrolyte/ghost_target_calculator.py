@@ -225,7 +225,6 @@ class GhostTargetCorrectionCalculator(Calculator):
 
             correction_energy, correction_forces = soft_core_lj_correction(
                 full_atoms,
-                0.0,
                 target_mask=target_mask,
                 **self._correction_kwargs,
             )

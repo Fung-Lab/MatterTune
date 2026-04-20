@@ -7,7 +7,7 @@ This folder contains an example calculator for a simple alchemical / ghost-ion w
 The calculator in [`ghost_target_calculator.py`](./ghost_target_calculator.py) is composed of two parts:
 
 1. A pretrained MatterTune foundation model
-2. A repulsive soft-core LJ correction from `mattertune.corrections.soft_core_lj_correction(...)`
+2. A target-environment Lennard-Jones correction from `mattertune.corrections.soft_core_lj_correction(...)`
 
 The MD driver in [`md.py`](./md.py) can also add an optional third contribution:
 
@@ -23,7 +23,7 @@ The motivation is the following:
 - For the foundation model, fully ghost target atoms are treated as if they do not exist.
 - Therefore, for the `lambda = 1` endpoint, all selected target atoms are deleted from the input `Atoms`.
 - After the model returns forces on the reduced system, the missing force rows are padded back with zeros.
-- The total `lambda = 1` endpoint still includes the soft-core correction, so the target atom's total force is generally not zero unless the correction is disabled.
+- The total `lambda = 1` endpoint still includes the ghost-endpoint LJ correction, so the target atom's total force is generally not zero unless the correction is disabled.
 
 For intermediate `0 < lambda < 1`, the example calculator uses a simple linear interpolation between the two endpoint predictions:
 
@@ -33,13 +33,19 @@ For intermediate `0 < lambda < 1`, the example calculator uses a simple linear i
 
 If we only did that deletion step, the ghost target could overlap with the environment because the base model no longer provides short-range exclusion for those target-environment pairs.
 
-To avoid that, the calculator adds a repulsive soft-core LJ correction:
+To avoid that, the calculator adds a Lennard-Jones correction only at the fully ghost endpoint:
 
 - It acts only on target-environment pairs.
 - It does not act on environment-environment pairs.
 - It does not act on target-target pairs.
 - It is derived from an explicit potential energy expression, so energy and forces remain consistent.
 - By default, the correction uses `smooth=True` so that the target can cross the cutoff without an energy or force jump.
+- The pair potential uses the classical 12-6 form
+
+`V_LJ(r) = 4 * epsilon * ((sigma / r)^12 - (sigma / r)^6)`
+
+- The real endpoint does not include this LJ term.
+- Intermediate `0 < lambda < 1` does not evaluate a separate lambda-dependent LJ term. Instead, the mixed PES is built by interpolating the real and ghost endpoint totals.
 
 In short, the total calculator is:
 
@@ -47,7 +53,7 @@ In short, the total calculator is:
 
 where the ghost-target endpoint itself is
 
-`ghost endpoint = reduced-system foundation model + target-environment soft-core correction + ghost-aware D3(reduced system)`
+`ghost endpoint = reduced-system foundation model + target-environment LJ correction + ghost-aware D3(reduced system)`
 
 and the real endpoint is
 
@@ -63,7 +69,7 @@ This lets each endpoint merge experts against its own fixed composition without 
 ## Files
 
 - [`ghost_target_calculator.py`](./ghost_target_calculator.py): the corrected ASE calculator
-- [`check_soft_core_continuity.py`](./check_soft_core_continuity.py): checks smooth-cutoff continuity and compares forces against finite-difference energy gradients
+- [`check_soft_core_continuity.py`](./check_soft_core_continuity.py): checks smooth-cutoff continuity and compares LJ forces against finite-difference energy gradients
 - [`md.py`](./md.py): runs MD with the corrected calculator
 
 ## Quick Start
@@ -186,22 +192,22 @@ Important note:
 - `lambda = 0` means "keep this target atom in the foundation-model input".
 - `lambda = 1` means "delete this target atom from the foundation-model input and treat it as a fully ghost target".
 - Intermediate `0 < lambda < 1` means "linearly interpolate between those two endpoint predictions".
-- At `lambda = 1`, the foundation-model contribution on the target atom is zero, but the total target force can still be nonzero because the soft-core correction remains active.
+- At `lambda = 1`, the foundation-model contribution on the target atom is zero, but the total target force can still be nonzero because the ghost-endpoint LJ correction remains active.
 
-### 3. Soft-core correction parameters
+### 3. LJ correction parameters
 
-- `--epsilon`: overall strength of the repulsive correction
-- `--sigma`: length scale of the correction
-- `--alpha`: soft-core denominator parameter
+- `--epsilon`: overall strength of the LJ correction
+- `--sigma`: length scale of the LJ correction
+- `--alpha`: kept for backward compatibility in the current example interface; it is not used by the present ghost-endpoint LJ implementation
 - `--rc`: cutoff radius of the correction
 - `--ro`: onset radius for the smooth cutoff
 - `--no-smooth`: disable smooth cutoff handling; by default the example uses `smooth=True`
 
 Typical meaning:
 
-- Larger `epsilon` gives a stronger excluded-volume wall.
-- Larger `sigma` makes the repulsive wall effective at longer distance.
-- `alpha` controls how soft the short-range core is.
+- Larger `epsilon` increases the overall LJ interaction strength.
+- Larger `sigma` shifts the LJ length scale outward.
+- `alpha` is currently ignored by the implemented LJ correction and is retained only to avoid breaking existing example command lines.
 - `rc` and `ro` control where the correction is turned off and how gradually it decays to zero.
 
 ### 4. Optional D3 dispersion parameters
@@ -243,7 +249,7 @@ At minimum, you should decide:
 
 1. Which pretrained model to use
 2. Which atom(s) should be ghost targets
-3. The soft-core correction scale (`epsilon`, `sigma`, `alpha`, `rc`, `ro`)
+3. The ghost-endpoint LJ correction scale (`epsilon`, `sigma`, `alpha`, `rc`, `ro`)
 4. Whether you want the additional D3 correction
 5. Whether to keep UMA MOE expert merging enabled
 6. Whether you want to initialize velocities
@@ -254,7 +260,7 @@ If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is eno
 
 ## Notes
 
-- The continuity check script is useful whenever you change `epsilon`, `sigma`, `alpha`, `rc`, or `ro`.
+- The continuity check script is useful whenever you change `epsilon`, `sigma`, `rc`, or `ro`. The current LJ implementation keeps `alpha` only for backward-compatible argument parsing.
 - The corrected calculator only exposes `energy`, `forces`, and `free_energy`.
 - This example implementation lives under `examples/` on purpose. It is a demonstration layer on top of MatterTune's pretrained-model interface, not yet a formal package API.
 
@@ -269,7 +275,7 @@ Tested models:
 
 Observed behavior:
 
-- `lambda = 1` target force is not zero in the total calculator output. This is expected here, because the target-environment soft-core correction is still present at the ghost endpoint.
+- `lambda = 1` target force is not zero in the total calculator output. This is expected here, because the target-environment LJ correction is still present at the ghost endpoint.
 - For both tested models, `lambda = 0.25` matches the explicit linear interpolation between the `lambda = 0` and `lambda = 1` endpoint predictions to numerical precision.
 
 Measured interpolation residuals:
@@ -282,7 +288,7 @@ Measured `lambda = 1` target-force norm:
 - UMA `uma-s-1p1`: `1.66e-3 eV/A`
 - ORB `orb-v3-conservative-inf-omat`: `1.66e-3 eV/A`
 
-The identical `lambda = 1` target-force norm in these two tests is also expected: at the ghost endpoint, the target force comes only from the shared soft-core correction, not from the foundation model.
+The identical `lambda = 1` target-force norm in these two tests is also expected: at the ghost endpoint, the target force comes only from the shared LJ correction, not from the foundation model.
 
 D3 status:
 

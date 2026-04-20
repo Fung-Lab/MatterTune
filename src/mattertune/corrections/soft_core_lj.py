@@ -39,58 +39,29 @@ def _resolve_target_mask(
     return mask
 
 
-def _resolve_target_lambdas(
-    target_lambda: float | Sequence[float] | NDArray[np.floating],
-    natoms: int,
-) -> NDArray[np.float64]:
-    if np.isscalar(target_lambda):
-        lambda_array = np.full(natoms, float(target_lambda), dtype=np.float64)
-    else:
-        lambda_array = np.asarray(target_lambda, dtype=np.float64)
-        if lambda_array.shape != (natoms,):
-            raise ValueError(
-                f"Expected target_lambda with shape ({natoms},), got {lambda_array.shape}."
-            )
-
-    if np.any(lambda_array < 0.0) or np.any(lambda_array > 1.0):
-        raise ValueError(
-            "All target lambda values must lie in the closed interval [0, 1]."
-        )
-    return lambda_array
-
-
 def _repulsive_soft_core_pair_energy(
     r2: NDArray[np.float64],
-    pair_lambda: NDArray[np.float64],
     *,
     epsilon: float,
     sigma: float,
-    alpha: float,
 ) -> NDArray[np.float64]:
     reduced_r6 = (r2 / sigma**2) ** 3
-    denominator = alpha * pair_lambda + reduced_r6
-    coupling = 1.0 - pair_lambda
-    return 4.0 * epsilon * coupling / denominator**2
+    return 4.0 * epsilon * (1.0 / reduced_r6**2 - 1.0 / reduced_r6)
 
 
 def _repulsive_soft_core_pair_force_scalar(
     r2: NDArray[np.float64],
-    pair_lambda: NDArray[np.float64],
     *,
     epsilon: float,
     sigma: float,
-    alpha: float,
 ) -> NDArray[np.float64]:
     """Return the ASE-style scalar prefactor so that F_ij = scalar * d_ij."""
     reduced_r6 = (r2 / sigma**2) ** 3
-    denominator = alpha * pair_lambda + reduced_r6
-    coupling = 1.0 - pair_lambda
-    return -48.0 * epsilon * coupling * reduced_r6 / (denominator**3 * r2)
+    return 24.0 * epsilon * (-2.0 / reduced_r6**2 + 1.0 / reduced_r6) / r2
 
 
 def soft_core_lj_correction(
     atoms: Atoms,
-    target_lambda: float | Sequence[float] | NDArray[np.floating],
     *,
     target_index: int | None = None,
     target_mask: Sequence[bool] | NDArray[np.bool_] | None = None,
@@ -103,23 +74,22 @@ def soft_core_lj_correction(
 ) -> tuple[float, NDArray[np.float64]]:
     """Compute a target-specific repulsive soft-core LJ correction.
 
-    This correction is designed for ghost-like alchemical reference states:
-    it acts only on pairs containing one explicitly selected target atom and
-    one non-target environment atom. Environment-environment pairs and
-    target-target pairs are left unchanged.
+    This correction is designed for ghost-like reference states: it acts only
+    on pairs containing one explicitly selected target atom and one non-target
+    environment atom. Environment-environment pairs and target-target pairs
+    are left unchanged.
 
-    The pair potential is a purely repulsive soft-core wall,
+    The pair potential uses the classical 12-6 Lennard-Jones form,
 
-    ``V_sc^rep(r; lambda) = 4 * epsilon * (1 - lambda) / D^2``
+    ``V_LJ(r) = 4 * epsilon * ((sigma / r)^12 - (sigma / r)^6)``.
 
-    with
+    In the electrolyte example workflow, this correction is attached only to
+    the fully ghost endpoint. Intermediate lambda values do not evaluate a
+    separate lambda-dependent LJ term; they inherit this contribution only
+    through endpoint interpolation.
 
-    ``D = alpha * lambda + (r / sigma)^6``.
-
-    Therefore:
-
-    - ``lambda = 1`` turns the correction off.
-    - ``lambda = 0`` leaves a purely repulsive excluded-volume wall.
+    ``alpha`` is retained in the public signature for backward compatibility
+    with existing example scripts, but it is not used in this ghost-only form.
 
     The implementation follows ASE ``LennardJones`` conventions for
     neighbor-list construction, pair-energy partitioning, and cutoff handling.
@@ -135,8 +105,6 @@ def soft_core_lj_correction(
     )
     if not np.any(resolved_target_mask):
         return 0.0, np.zeros((natoms, 3), dtype=np.float64)
-
-    lambda_array = _resolve_target_lambdas(target_lambda, natoms)
 
     if rc is None:
         rc = 3.0 * sigma
@@ -168,28 +136,18 @@ def soft_core_lj_correction(
         if not np.any(target_environment_mask):
             continue
 
-        active_neighbors = neighbors[target_environment_mask]
         distance_vectors = distance_vectors[target_environment_mask]
         r2 = r2[target_environment_mask]
 
-        if ii_is_target:
-            pair_lambda = lambda_array[ii] * np.ones_like(r2, dtype=np.float64)
-        else:
-            pair_lambda = lambda_array[active_neighbors]
-
         pairwise_energies = _repulsive_soft_core_pair_energy(
             r2,
-            pair_lambda,
             epsilon=epsilon,
             sigma=sigma,
-            alpha=alpha,
         )
         pairwise_forces = _repulsive_soft_core_pair_force_scalar(
             r2,
-            pair_lambda,
             epsilon=epsilon,
             sigma=sigma,
-            alpha=alpha,
         )
 
         if smooth:
@@ -202,10 +160,8 @@ def soft_core_lj_correction(
         else:
             pairwise_energies -= _repulsive_soft_core_pair_energy(
                 np.full_like(r2, rc2, dtype=np.float64),
-                pair_lambda,
                 epsilon=epsilon,
                 sigma=sigma,
-                alpha=alpha,
             )
 
         pairwise_forces = pairwise_forces[:, np.newaxis] * distance_vectors
@@ -249,7 +205,6 @@ if __name__ == "__main__":
 
     zero_energy, zero_forces = soft_core_lj_correction(
         triad,
-        0.0,
         epsilon=epsilon,
         sigma=sigma,
         alpha=alpha,
@@ -270,33 +225,8 @@ if __name__ == "__main__":
         message="No selected target atoms should give zero correction forces.",
     )
 
-    fully_coupled_energy, fully_coupled_forces = soft_core_lj_correction(
-        triad,
-        1.0,
-        target_index=0,
-        epsilon=epsilon,
-        sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
-        smooth=False,
-    )
-    _assert_allclose(
-        fully_coupled_energy,
-        0.0,
-        atol=0.0,
-        message="lambda=1 should turn the correction off for the target atom.",
-    )
-    _assert_allclose(
-        fully_coupled_forces,
-        np.zeros((3, 3), dtype=np.float64),
-        atol=0.0,
-        message="lambda=1 should give zero correction forces.",
-    )
-
     target_only_energy, target_only_forces = soft_core_lj_correction(
         triad,
-        0.0,
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
@@ -308,16 +238,12 @@ if __name__ == "__main__":
     target_distances2 = np.array([1.1**2, 2.0**2], dtype=np.float64)
     expected_pair_energies = _repulsive_soft_core_pair_energy(
         target_distances2,
-        np.zeros(2, dtype=np.float64),
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
     ) - _repulsive_soft_core_pair_energy(
         np.full(2, rc**2, dtype=np.float64),
-        np.zeros(2, dtype=np.float64),
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
     )
     _assert_allclose(
         target_only_energy,
@@ -334,7 +260,6 @@ if __name__ == "__main__":
     )
     overlap_energy, overlap_forces = soft_core_lj_correction(
         overlap_atoms,
-        0.0,
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
@@ -350,7 +275,6 @@ if __name__ == "__main__":
 
     all_targets_energy, all_targets_forces = soft_core_lj_correction(
         overlap_atoms,
-        0.0,
         target_mask=[True, True],
         epsilon=epsilon,
         sigma=sigma,
@@ -387,7 +311,6 @@ if __name__ == "__main__":
 
     smooth_energy, smooth_forces = soft_core_lj_correction(
         overlap_atoms,
-        0.3,
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
