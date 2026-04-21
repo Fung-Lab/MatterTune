@@ -257,9 +257,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_type", type=str,
                         default="MatterSim-v1.0.0-1M")
-    parser.add_argument("--task_name", type=str, default="omat")
-    parser.add_argument("--orb_radius", type=float, default=6.0)
-    parser.add_argument("--orb_max_num_neighbors", type=int, default=120)
+    parser.add_argument("--task_name", type=str,
+                        default="omat")  # only for UMA
+    parser.add_argument("--orb_radius", type=float,
+                        default=6.0)  # only for ORB
+    parser.add_argument("--orb_max_num_neighbors",
+                        type=int, default=120)  # only for ORB
     parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--devices", nargs="+", default=["0", "1", "2"])
