@@ -1,18 +1,24 @@
 from __future__ import annotations
 
-import logging
+import rich
 import os
 from pathlib import Path
-
+from ase import Atoms
+from ase.io import read
+import numpy as np
+import torch
 from lightning.pytorch.strategies import DDPStrategy
 
 import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
+from mattertune.main import load_finetuned_checkpoint
+
+import matplotlib.pyplot as plt
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
 DATASET_PATH = Path(
-    "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/Li-system-train-ase.xyz")
+    "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-train-ase-eVA.xyz")
 ENERGY_REFERENCE_PATH = EXAMPLE_DIR / "data" / \
     "Li-system-train-ase-energy_reference.json"
 CHECKPOINT_DIR = EXAMPLE_DIR / "checkpoints"
@@ -42,10 +48,12 @@ def infer_model_family(model_type: str) -> str:
         return "uma"
     if lowered.startswith("orb"):
         return "orb"
+    if lowered.startswith("mace"):
+        return "mace"
 
     raise ValueError(
         f"Unsupported model type `{model_type}`. "
-        "Expected a MatterSim, UMA, or ORB pretrained model name."
+        "Expected a MatterSim, UMA, ORB, or MACE pretrained model name."
     )
 
 
@@ -56,6 +64,9 @@ def configure_model(hparams, args_dict: dict):
     if model_family == "mattersim":
         hparams.model = MC.MatterSimBackboneConfig.draft()
         hparams.model.graph_convertor = MC.MatterSimGraphConvertorConfig.draft()
+        hparams.model.pretrained_model = model_type
+    elif model_family == "mace":
+        hparams.model = MC.MACEBackboneConfig.draft()
         hparams.model.pretrained_model = model_type
     elif model_family == "uma":
         hparams.model = MC.UMABackboneConfig.draft()
@@ -127,7 +138,7 @@ def build_config(args_dict: dict):
 
     # Trainer Hyperparameters
     hparams.trainer = MC.TrainerConfig.draft()
-    hparams.trainer.max_epochs = 2000
+    hparams.trainer.max_epochs = 10
     hparams.trainer.accelerator = "gpu"
     hparams.trainer.devices = args_dict["devices"]
     if len(args_dict["devices"]) > 1:
@@ -178,6 +189,67 @@ def main(args_dict: dict):
     mt_config = build_config(args_dict)
     model, trainer = MatterTuner(mt_config).tune()
 
+    best_ckpt_path = trainer.checkpoint_callback.best_model_path
+    model = load_finetuned_checkpoint(best_ckpt_path)
+    calc = model.ase_calculator(
+        device=f"cuda:{args_dict['devices'][0]}"
+    )
+
+    test_atoms_list: list[Atoms] = read(
+        "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-test-ase-eVA.xyz", ":")  # type: ignore
+
+    energy_gt_list = []
+    energy_pred_list = []
+    forces_gt_list = []
+    forces_pred_list = []
+    natoms_list = []
+    for atoms in test_atoms_list:
+        natoms_list.append(len(atoms))
+        energy_gt_list.append(atoms.get_potential_energy())
+        forces_gt_list.append(atoms.get_forces())
+        atoms.set_calculator(calc)
+        energy_pred_list.append(atoms.get_potential_energy())
+        forces_pred_list.append(atoms.get_forces())
+
+    energy_gt_list = np.array(energy_gt_list)
+    energy_pred_list = np.array(energy_pred_list)
+    forces_gt_list = np.vstack(forces_gt_list)
+    forces_pred_list = np.vstack(forces_pred_list)
+
+    e_per_atom_gt_list = energy_gt_list / natoms_list
+    e_per_atom_pred_list = energy_pred_list / natoms_list
+
+    e_mae = torch.nn.L1Loss()(torch.tensor(e_per_atom_gt_list),
+                              torch.tensor(e_per_atom_pred_list))
+    f_mae = torch.nn.L1Loss()(torch.tensor(forces_gt_list),
+                              torch.tensor(forces_pred_list))
+    e_rmse = torch.sqrt(torch.nn.MSELoss()(torch.tensor(
+        e_per_atom_gt_list), torch.tensor(e_per_atom_pred_list)))
+    f_rmse = torch.sqrt(torch.nn.MSELoss()(torch.tensor(
+        forces_gt_list), torch.tensor(forces_pred_list)))
+    rich.print(f"Energy MAE: {e_mae} eV/atom")
+    rich.print(f"Forces MAE: {f_mae} eV/Ang")
+    rich.print(f"Energy RMSE: {e_rmse} eV/atom")
+    rich.print(f"Forces RMSE: {f_rmse} eV/Ang")
+
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.scatter(energy_gt_list, energy_pred_list)
+    plt.plot(plt.xlim(), plt.ylim(), transform=plt.transAxes,
+             linestyle="-", color="k", alpha=0.7)
+    plt.xlabel("True Energy (eV)")
+    plt.ylabel("Predicted Energy (eV)")
+    plt.title("Potential Energy")
+    plt.subplot(1, 2, 2)
+    plt.scatter(forces_gt_list, forces_pred_list)
+    plt.plot(plt.xlim(), plt.ylim(), transform=plt.transAxes,
+             linestyle="-", color="k", alpha=0.7)
+    plt.xlabel("True Forces (eV/Ang)")
+    plt.ylabel("Predicted Forces (eV/Ang)")
+    plt.title("Forces")
+    plt.savefig("electrolyte_parity_plot.png")
+    plt.close()
+
 
 if __name__ == "__main__":
     import argparse
@@ -188,9 +260,9 @@ if __name__ == "__main__":
     parser.add_argument("--task_name", type=str, default="omat")
     parser.add_argument("--orb_radius", type=float, default=6.0)
     parser.add_argument("--orb_max_num_neighbors", type=int, default=120)
-    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--devices", nargs="+", default=["0", "1", "2", "3"])
+    parser.add_argument("--devices", nargs="+", default=["0", "1", "2"])
     args = parser.parse_args()
     args_dict = vars(args)
     args_dict["devices"] = normalize_devices(args_dict["devices"])
