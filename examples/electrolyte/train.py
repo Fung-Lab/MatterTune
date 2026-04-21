@@ -17,8 +17,6 @@ from mattertune.main import load_finetuned_checkpoint
 import matplotlib.pyplot as plt
 
 EXAMPLE_DIR = Path(__file__).resolve().parent
-DATASET_PATH = Path(
-    "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-train-ase-eVA.xyz")
 ENERGY_REFERENCE_PATH = EXAMPLE_DIR / "data" / \
     "Li-system-train-ase-energy_reference.json"
 CHECKPOINT_DIR = EXAMPLE_DIR / "checkpoints"
@@ -119,7 +117,7 @@ def build_config(args_dict: dict):
     # Data Hyperparameters
     hparams.data = MC.AutoSplitDataModuleConfig.draft()
     hparams.data.dataset = MC.XYZDatasetConfig.draft()
-    hparams.data.dataset.src = str(DATASET_PATH)
+    hparams.data.dataset.src = args_dict["train_file"]
     hparams.data.train_split = 0.9
     hparams.data.shuffle = True
     hparams.data.shuffle_seed = 42
@@ -138,7 +136,7 @@ def build_config(args_dict: dict):
 
     # Trainer Hyperparameters
     hparams.trainer = MC.TrainerConfig.draft()
-    hparams.trainer.max_epochs = 10
+    hparams.trainer.max_epochs = args_dict["max_epochs"]
     hparams.trainer.accelerator = "gpu"
     hparams.trainer.devices = args_dict["devices"]
     if len(args_dict["devices"]) > 1:
@@ -196,8 +194,7 @@ def main(args_dict: dict):
     )
 
     test_atoms_list: list[Atoms] = read(
-        "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-test-ase-eVA.xyz", ":")  # type: ignore
-
+        args_dict["test_file"], ":")  # type: ignore
     energy_gt_list = []
     energy_pred_list = []
     forces_gt_list = []
@@ -266,6 +263,11 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--devices", nargs="+", default=["0", "1", "2"])
+    parser.add_argument("--train_file", type=str,
+                        default="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-train-ase-eVA.xyz")
+    parser.add_argument("--test_file", type=str,
+                        default="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-test-ase-eVA.xyz")
+    parser.add_argument("--max_epochs", type=int, default=2000)
     args = parser.parse_args()
     args_dict = vars(args)
     args_dict["devices"] = normalize_devices(args_dict["devices"])
