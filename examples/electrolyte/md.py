@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import sys
 import time
 from contextlib import contextmanager
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import ase.units as units
 import numpy as np
+import torch
 from ase import Atoms
 from ase.build import bulk
 from ase.io import read, write
@@ -28,6 +30,7 @@ from mattertune.backbones import (
 )
 from mattertune.finetune.base import FinetuneModuleBase
 from mattertune.pretrained import PretrainedModel
+from mattertune.util import optional_import_error_message
 
 from ghost_target_calculator import GhostTargetCorrectionCalculator
 
@@ -83,6 +86,7 @@ def annotate_frame_metadata(
     total_energy: float,
     lambda0_energy: float | None,
     lambda1_energy: float | None,
+    ghost_lj_energy: float | None,
     lambda_array_name: str,
 ):
     atoms.info["md_step"] = int(step)
@@ -95,6 +99,8 @@ def annotate_frame_metadata(
     if lambda1_energy is not None:
         atoms.info["lambda1_energy_eV"] = float(lambda1_energy)
         atoms.info["final_pes_energy_eV"] = float(lambda1_energy)
+    if ghost_lj_energy is not None:
+        atoms.info["ghost_lj_energy_eV"] = float(ghost_lj_energy)
     atoms.arrays[lambda_array_name] = np.asarray(
         atoms.arrays[lambda_array_name], dtype=np.float64
     ).copy()
@@ -108,20 +114,71 @@ def format_step_log(
     total_energy: float,
     lambda0_energy: float | None,
     lambda1_energy: float | None,
-    lambda_mask: np.ndarray,
-    max_force: float,
+    ghost_lj_energy: float | None,
 ) -> str:
     lambda0_str = "nan" if lambda0_energy is None else f"{lambda0_energy: .12f}"
     lambda1_str = "nan" if lambda1_energy is None else f"{lambda1_energy: .12f}"
+    ghost_lj_str = "nan" if ghost_lj_energy is None else f"{ghost_lj_energy: .12f}"
     return (
         f"step={step:5d} time_fs={time_fs:9.3f} "
         f"temp={temperature:8.3f} K "
-        f"energy={total_energy: .12f} eV "
+        f"mixed_energy={total_energy: .12f} eV "
         f"lambda0_energy={lambda0_str} eV "
         f"lambda1_energy={lambda1_str} eV "
-        f"max|F|={max_force:.6f} "
-        f"lambda={lambda_mask_to_string(lambda_mask)}"
+        f"ghost_lj={ghost_lj_str} eV"
     )
+
+
+def _json_ready(value):
+    if isinstance(value, dict):
+        return {str(key): _json_ready(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def write_diagnostics_record(
+    diagnostics_path: Path | None,
+    *,
+    model_family: str,
+    model_name: str,
+    ghost_endpoint_mode: str,
+    step: int,
+    time_fs: float,
+    lambda_mask: np.ndarray,
+    total_energy: float,
+    lambda0_energy: float | None,
+    lambda1_energy: float | None,
+    calculator: GhostTargetCorrectionCalculator,
+):
+    if diagnostics_path is None:
+        return
+
+    payload = {
+        "model_family": model_family,
+        "model_name": model_name,
+        "ghost_endpoint_mode": ghost_endpoint_mode,
+        "step": int(step),
+        "time_fs": float(time_fs),
+        "lambda_mask": np.asarray(lambda_mask, dtype=np.float64),
+        "total_energy_eV": float(total_energy),
+        "lambda0_energy_eV": None if lambda0_energy is None else float(lambda0_energy),
+        "lambda1_energy_eV": None if lambda1_energy is None else float(lambda1_energy),
+        "endpoint_gap_eV": (
+            None
+            if lambda0_energy is None or lambda1_energy is None
+            else float(lambda1_energy - lambda0_energy)
+        ),
+        "real_endpoint": calculator.last_real_endpoint_details,
+        "ghost_endpoint": calculator.last_ghost_endpoint_details,
+    }
+    diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
+    with diagnostics_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(_json_ready(payload), ensure_ascii=True) + "\n")
 
 
 def build_default_atoms() -> Atoms:
@@ -197,6 +254,9 @@ class ASECalculatorBackedModel:
         self.implemented_properties = tuple(
             getattr(calculator, "implemented_properties", [])
         )
+
+    def supports_dummy_endpoint(self) -> bool:
+        return False
 
     def predict_one(
         self,
@@ -322,23 +382,19 @@ def main(args: argparse.Namespace) -> None:
     trajectory_path = output_dir / args.trajectory_name
     final_structure_path = output_dir / args.final_structure_name
     log_path = trajectory_path.with_suffix(".txt")
+    diagnostics_path = (
+        None
+        if args.diagnostics_name is None
+        else output_dir / args.diagnostics_name
+    )
 
     with tee_output(log_path):
         model, ghost_model = load_md_models(args)
         print(
-            f"loaded model: family={model.family}, name={model.model_name}, device={model.device}"
+            f"model={model.family}:{model.model_name} device={model.device} "
+            f"target_indices={target_indices} lambda={args.lambda_value:.6f} "
+            f"ghost_mode={args.ghost_endpoint_mode} use_d3={args.use_d3}"
         )
-        print(f"target indices: {target_indices}")
-        print(f"target lambda: {args.lambda_value:.6f}")
-        if should_enable_uma_merge_experts(args):
-            print("UMA MOE merge: enabled")
-            if ghost_model is not None:
-                print("UMA MOE merge: using a second predictor for the ghost endpoint")
-        elif args.model_type is not None and args.model_type.strip().lower() == "uma":
-            print("UMA MOE merge: disabled")
-        print(f"use D3 correction: {args.use_d3}")
-        if args.use_d3:
-            print(f"D3 method: {args.d3_method}, damping: {args.d3_damping}")
 
         calc = GhostTargetCorrectionCalculator(
             model,
@@ -351,21 +407,15 @@ def main(args: argparse.Namespace) -> None:
             rc=args.rc,
             ro=args.ro,
             smooth=args.smooth,
+            ghost_endpoint_mode=args.ghost_endpoint_mode,
             use_d3=args.use_d3,
             d3_method=args.d3_method,
             d3_damping=args.d3_damping,
         )
         atoms.calc = calc
 
-        initial_energy = atoms.get_potential_energy()
-        initial_forces = atoms.get_forces()
-        print(f"initial corrected energy: {initial_energy:.12f} eV")
-        print(f"initial lambda=0 energy: {calc.last_real_endpoint_energy:.12f} eV")
-        print(f"initial lambda=1 energy: {calc.last_ghost_endpoint_energy:.12f} eV")
-        print(f"initial max|F|: {np.abs(initial_forces).max():.6f} eV/A")
-        print(
-            f"initial lambda mask: {lambda_mask_to_string(np.asarray(atoms.arrays[args.lambda_array_name], dtype=np.float64))}"
-        )
+        _ = atoms.get_potential_energy()
+        _ = atoms.get_forces()
 
         if args.init_velocities:
             MaxwellBoltzmannDistribution(
@@ -390,19 +440,17 @@ def main(args: argparse.Namespace) -> None:
 
         if trajectory_path.exists():
             trajectory_path.unlink()
+        if diagnostics_path is not None and diagnostics_path.exists():
+            diagnostics_path.unlink()
 
         def record_step() -> None:
             step = dynamics.nsteps
             time_fs = step * args.timestep_fs
             energy = atoms.get_potential_energy()
-            forces = atoms.get_forces()
             temperature = atoms.get_temperature()
             lambda0_energy = calc.last_real_endpoint_energy
             lambda1_energy = calc.last_ghost_endpoint_energy
-            lambda_mask_current = np.asarray(
-                atoms.arrays[args.lambda_array_name], dtype=np.float64
-            )
-            max_force = float(np.abs(forces).max())
+            ghost_lj_energy = calc.last_ghost_endpoint_lj_energy
 
             frame = atoms.copy()
             annotate_frame_metadata(
@@ -413,6 +461,7 @@ def main(args: argparse.Namespace) -> None:
                 total_energy=energy,
                 lambda0_energy=lambda0_energy,
                 lambda1_energy=lambda1_energy,
+                ghost_lj_energy=ghost_lj_energy,
                 lambda_array_name=args.lambda_array_name,
             )
             write(
@@ -429,9 +478,23 @@ def main(args: argparse.Namespace) -> None:
                     total_energy=energy,
                     lambda0_energy=lambda0_energy,
                     lambda1_energy=lambda1_energy,
-                    lambda_mask=lambda_mask_current,
-                    max_force=max_force,
+                    ghost_lj_energy=ghost_lj_energy,
                 )
+            )
+            write_diagnostics_record(
+                diagnostics_path,
+                model_family=model.family,
+                model_name=model.model_name,
+                ghost_endpoint_mode=args.ghost_endpoint_mode,
+                step=step,
+                time_fs=time_fs,
+                lambda_mask=np.asarray(
+                    atoms.arrays[args.lambda_array_name], dtype=np.float64
+                ),
+                total_energy=energy,
+                lambda0_energy=lambda0_energy,
+                lambda1_energy=lambda1_energy,
+                calculator=calc,
             )
 
         dynamics.attach(record_step, interval=args.log_interval)
@@ -461,11 +524,14 @@ def main(args: argparse.Namespace) -> None:
             total_energy=final_energy,
             lambda0_energy=calc.last_real_endpoint_energy,
             lambda1_energy=calc.last_ghost_endpoint_energy,
+            ghost_lj_energy=calc.last_ghost_endpoint_lj_energy,
             lambda_array_name=args.lambda_array_name,
         )
         write(final_structure_path, final_frame)
         print(f"trajectory written to {trajectory_path}")
         print(f"log written to {log_path}")
+        if diagnostics_path is not None:
+            print(f"diagnostics written to {diagnostics_path}")
         print(f"final structure written to {final_structure_path}")
 
 
@@ -519,8 +585,8 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
         help="Ghost fraction for the selected target atoms: 0 = fully real, 1 = fully ghost.",
     )
-    parser.add_argument("--epsilon", type=float, default=1.0)
-    parser.add_argument("--sigma", type=float, default=1.0)
+    parser.add_argument("--epsilon", type=float, default=0.00694)
+    parser.add_argument("--sigma", type=float, default=2.337)
     parser.add_argument("--alpha", type=float, default=0.5)
     parser.add_argument("--rc", type=float, default=3.0)
     parser.add_argument("--ro", type=float, default=1.5)
@@ -529,6 +595,12 @@ def parse_args() -> argparse.Namespace:
         action="store_false",
         dest="smooth",
         help="Disable the smooth cutoff for the ghost-target correction.",
+    )
+    parser.add_argument(
+        "--ghost-endpoint-mode",
+        choices=("delete", "dummy"),
+        default="delete",
+        help="How to construct the ghost endpoint. `dummy` currently supports pretrained MACE models.",
     )
     parser.set_defaults(smooth=True)
     parser.set_defaults(uma_merge_experts=True)
@@ -546,7 +618,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(default_output_dir))
     parser.add_argument("--trajectory-name", default="ghost_md.xyz")
     parser.add_argument("--final-structure-name", default="ghost_final.extxyz")
+    parser.add_argument(
+        "--diagnostics-name",
+        default="",
+        help="Optional JSONL file for per-step endpoint diagnostics. Set to an empty string to disable.",
+    )
     args = parser.parse_args()
+    if args.diagnostics_name == "":
+        args.diagnostics_name = None
     if args.ckpt_path is None and args.model_type is None:
         parser.error("Either --model-type or --ckpt-path must be provided.")
     return args

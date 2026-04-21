@@ -59,8 +59,8 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --structure "examples/electrolyte/data/LiH2O.xyz" \
   --target-indices "0" \
   --lambda-value "${LAMBDA_VALUE}" \
-  --epsilon 1.0 \
-  --sigma 1.0 \
+  --epsilon 0.00694 \
+  --sigma 2.337 \
   --alpha 0.5 \
   --rc 3.0 \
   --ro 1.5 \

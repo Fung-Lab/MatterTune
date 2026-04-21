@@ -12,7 +12,6 @@ from mattertune.corrections import soft_core_lj_correction
 def evaluate_pair_energy_and_force(
     distance: float,
     *,
-    target_lambda: float,
     epsilon: float,
     sigma: float,
     alpha: float,
@@ -27,7 +26,6 @@ def evaluate_pair_energy_and_force(
     )
     energy, forces = soft_core_lj_correction(
         atoms,
-        target_lambda,
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
@@ -43,7 +41,6 @@ def finite_difference_force(
     distance: float,
     *,
     step: float,
-    target_lambda: float,
     epsilon: float,
     sigma: float,
     alpha: float,
@@ -52,7 +49,6 @@ def finite_difference_force(
 ) -> float:
     energy_plus, _ = evaluate_pair_energy_and_force(
         distance + step,
-        target_lambda=target_lambda,
         epsilon=epsilon,
         sigma=sigma,
         alpha=alpha,
@@ -61,7 +57,6 @@ def finite_difference_force(
     )
     energy_minus, _ = evaluate_pair_energy_and_force(
         distance - step,
-        target_lambda=target_lambda,
         epsilon=epsilon,
         sigma=sigma,
         alpha=alpha,
@@ -93,7 +88,6 @@ def main(args: argparse.Namespace) -> None:
     for distance in sample_distances:
         energy, force_x = evaluate_pair_energy_and_force(
             distance,
-            target_lambda=args.target_lambda,
             epsilon=args.epsilon,
             sigma=args.sigma,
             alpha=args.alpha,
@@ -131,7 +125,6 @@ def main(args: argparse.Namespace) -> None:
     for distance in np.linspace(args.ro + 0.1, args.rc - 0.05, args.num_gradient_points):
         energy, force_x = evaluate_pair_energy_and_force(
             distance,
-            target_lambda=args.target_lambda,
             epsilon=args.epsilon,
             sigma=args.sigma,
             alpha=args.alpha,
@@ -141,7 +134,6 @@ def main(args: argparse.Namespace) -> None:
         fd_force_x = finite_difference_force(
             distance,
             step=args.fd_step,
-            target_lambda=args.target_lambda,
             epsilon=args.epsilon,
             sigma=args.sigma,
             alpha=args.alpha,
@@ -186,7 +178,6 @@ def parse_args() -> argparse.Namespace:
         description="Check smooth-cutoff continuity and force/energy consistency for the target correction.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--target-lambda", type=float, default=0.0)
     parser.add_argument("--epsilon", type=float, default=1.0)
     parser.add_argument("--sigma", type=float, default=1.0)
     parser.add_argument("--alpha", type=float, default=0.5)
