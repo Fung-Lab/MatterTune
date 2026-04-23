@@ -1,0 +1,130 @@
+#!/bin/bash
+#PBS -N umlp_train
+#PBS -q v1_a100
+#PBS -l select=1:ncpus=1:mpiprocs=1:ngpus=1:mem=200gb:gpu_type=A100
+#PBS -l walltime=24:00:00
+#PBS -j oe
+
+set -euo pipefail
+
+source /gpfs/home/cming/xitan/software/anaconda3/etc/profile.d/conda.sh
+conda activate mace-elec
+
+module load CUDA/12.1.1
+
+MODEL_TYPE="mace-medium-omat-0"
+ENV_NAME="mace-elec"
+
+TRAIN_FILE="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/input_train/train.xyz"
+TEST_FILE="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/input_train/test.xyz"
+ENERGY_REFERENCE="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/input_train/train-energy_reference.json"
+
+CHECKPOINT_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/output_train/mace/checkpoints"
+LOG_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/output_train/mace/logs"
+
+DEVICES="0"
+BATCH_SIZE="12"
+LR="1e-4"
+MAX_EPOCHS="10"
+TRAIN_SPLIT="0.9"
+ACCELERATOR="gpu"
+EVAL_DEVICE=""
+LOGGER="wandb-offline"
+WANDB_PROJECT="MatterTune-Electrolyte"
+WANDB_NAME=""
+SKIP_EVAL="0"
+
+MATTERTUNE_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/software/MatterTune-Elec"
+EXAMPLE_DIR="${MATTERTUNE_DIR}/examples/electrolyte"
+
+echo "==================== CHECK INPUTS ===================="
+echo "MODEL_TYPE       = ${MODEL_TYPE}"
+echo "ENV_NAME         = ${ENV_NAME}"
+echo "TRAIN_FILE       = ${TRAIN_FILE}"
+echo "TEST_FILE        = ${TEST_FILE}"
+echo "ENERGY_REFERENCE = ${ENERGY_REFERENCE}"
+echo "CHECKPOINT_DIR   = ${CHECKPOINT_DIR}"
+echo "LOG_DIR          = ${LOG_DIR}"
+echo "MATTERTUNE_DIR   = ${MATTERTUNE_DIR}"
+echo "EXAMPLE_DIR      = ${EXAMPLE_DIR}"
+echo "======================================================"
+
+if [[ ! -d "${MATTERTUNE_DIR}" ]]; then
+  echo "MatterTune directory not found: ${MATTERTUNE_DIR}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${EXAMPLE_DIR}/train.py" ]]; then
+  echo "train.py not found: ${EXAMPLE_DIR}/train.py" >&2
+  exit 1
+fi
+
+if [[ ! -f "${TRAIN_FILE}" ]]; then
+  echo "Training data not found: ${TRAIN_FILE}" >&2
+  echo "Files in $(dirname "${TRAIN_FILE}"):" >&2
+  ls -lh "$(dirname "${TRAIN_FILE}")" >&2 || true
+  exit 1
+fi
+
+if [[ "${SKIP_EVAL}" != "1" && ! -f "${TEST_FILE}" ]]; then
+  echo "Test data not found: ${TEST_FILE}" >&2
+  echo "Files in $(dirname "${TEST_FILE}"):" >&2
+  ls -lh "$(dirname "${TEST_FILE}")" >&2 || true
+  exit 1
+fi
+
+if [[ ! -f "${ENERGY_REFERENCE}" ]]; then
+  echo "Energy reference not found: ${ENERGY_REFERENCE}" >&2
+  echo "Files in $(dirname "${ENERGY_REFERENCE}"):" >&2
+  ls -lh "$(dirname "${ENERGY_REFERENCE}")" >&2 || true
+  exit 1
+fi
+
+mkdir -p "${CHECKPOINT_DIR}" "${LOG_DIR}"
+
+if [[ "${LOGGER}" == "wandb-offline" ]]; then
+  export WANDB_MODE=offline
+fi
+
+CONDA_BASE="$(conda info --base)"
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
+conda activate "${ENV_NAME}"
+
+cd "${MATTERTUNE_DIR}"
+export PYTHONPATH="${MATTERTUNE_DIR}/src:${PYTHONPATH:-}"
+
+CMD=(
+  python "${EXAMPLE_DIR}/train.py"
+  --model_type "${MODEL_TYPE}"
+  --train_file "${TRAIN_FILE}"
+  --test_file "${TEST_FILE}"
+  --energy_reference "${ENERGY_REFERENCE}"
+  --checkpoint_dir "${CHECKPOINT_DIR}"
+  --log_dir "${LOG_DIR}"
+  --batch_size "${BATCH_SIZE}"
+  --lr "${LR}"
+  --max_epochs "${MAX_EPOCHS}"
+  --train_split "${TRAIN_SPLIT}"
+  --accelerator "${ACCELERATOR}"
+  --devices "${DEVICES}"
+  --logger "${LOGGER}"
+  --wandb_project "${WANDB_PROJECT}"
+)
+
+if [[ -n "${WANDB_NAME}" ]]; then
+  CMD+=(--wandb_name "${WANDB_NAME}")
+fi
+
+if [[ -n "${EVAL_DEVICE}" ]]; then
+  CMD+=(--eval_device "${EVAL_DEVICE}")
+fi
+
+if [[ "${SKIP_EVAL}" == "1" ]]; then
+  CMD+=(--skip_eval)
+fi
+
+echo "Running command:"
+printf ' %q' "${CMD[@]}"
+echo
+
+"${CMD[@]}"

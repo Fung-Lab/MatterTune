@@ -19,7 +19,7 @@ from mattertune.main import load_finetuned_checkpoint
 #     device=f"cuda:0"
 # )
 
-ft_model_name = "./checkpoints/uma-s-1p1-best.ckpt"
+ft_model_name = "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/mace-medium-omat-0-best.ckpt"
 ft_model = load_finetuned_checkpoint(ft_model_name)
 
 
@@ -75,10 +75,12 @@ ft_model = load_finetuned_checkpoint(ft_model_name)
 # plt.close()
 
 calc = ft_model.ase_calculator(
-    device=f"cuda:0"
+    device=f"cuda:3"
 )
 val_atoms_list: list[Atoms] = read(
-    "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/Li-system-train-ase.xyz", ":")  # type: ignore
+    "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/test.xyz", ":")  # type: ignore
+random_indices = np.random.choice(len(val_atoms_list), 1000, replace=False)
+val_atoms_list = [val_atoms_list[i] for i in random_indices]
 gt_energies_per_atom = []
 gt_forces = []
 pred_energies_per_atom = []

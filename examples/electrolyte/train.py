@@ -8,7 +8,7 @@ from ase.io import read
 import numpy as np
 import torch
 from lightning.pytorch.strategies import DDPStrategy
-
+import wandb
 import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
@@ -97,7 +97,7 @@ def build_config(args_dict: dict):
     )
     hparams.model.lr_scheduler = MC.ReduceOnPlateauConfig(
         mode="min",
-        monitor="val/total_loss",
+        monitor=args_dict["monitor"],
         factor=0.8,
         patience=5,
         min_lr=1e-8,
@@ -106,11 +106,11 @@ def build_config(args_dict: dict):
     # Add model properties
     hparams.model.properties = []
     energy = MC.EnergyPropertyConfig(
-        loss=MC.MSELossConfig(), loss_coefficient=1.0
+        loss=MC.MSELossConfig(), loss_coefficient=args_dict["e_loss_weight"]
     )
     hparams.model.properties.append(energy)
     forces = MC.ForcesPropertyConfig(
-        loss=MC.MSELossConfig(), conservative=True, loss_coefficient=1.0
+        loss=MC.MSELossConfig(), conservative=True, loss_coefficient=args_dict["f_loss_weight"]
     )
     hparams.model.properties.append(forces)
 
@@ -125,13 +125,15 @@ def build_config(args_dict: dict):
     hparams.data.pin_memory = False
 
     # Add Normalization for Energy
+    energy_normalizer = [
+        MC.PerAtomReferencingNormalizerConfig(
+            per_atom_references=ENERGY_REFERENCE_PATH
+        ),
+    ]
+    if args_dict["per_atom_energy_normalize"]:
+        energy_normalizer.append(MC.PerAtomNormalizerConfig())
     hparams.model.normalizers = {
-        "energy": [
-            MC.PerAtomReferencingNormalizerConfig(
-                per_atom_references=ENERGY_REFERENCE_PATH
-            ),
-            # MC.PerAtomNormalizerConfig(),
-        ]
+        "energy": energy_normalizer
     }
 
     # Trainer Hyperparameters
@@ -142,7 +144,7 @@ def build_config(args_dict: dict):
     if len(args_dict["devices"]) > 1:
         hparams.trainer.strategy = DDPStrategy()
     hparams.trainer.gradient_clip_algorithm = "norm"
-    hparams.trainer.gradient_clip_val = 1.0
+    hparams.trainer.gradient_clip_val = 2.0
     hparams.trainer.precision = "32"
 
     # Configure EMA
@@ -150,7 +152,7 @@ def build_config(args_dict: dict):
 
     # Configure Early Stopping
     hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
-        monitor="val/total_loss", patience=50, mode="min", min_delta=1e-4
+        monitor=args_dict["monitor"], patience=args_dict["patience"], mode="min", min_delta=1e-5
     )
 
     # Configure Model Checkpoint
@@ -160,7 +162,7 @@ def build_config(args_dict: dict):
     if ckpt_path.exists():
         os.remove(ckpt_path)
     hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
-        monitor="val/total_loss",
+        monitor=args_dict["monitor"],
         dirpath=str(CHECKPOINT_DIR),
         filename=ckpt_name,
         save_top_k=1,
@@ -267,7 +269,12 @@ if __name__ == "__main__":
                         default="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-train-ase-eVA.xyz")
     parser.add_argument("--test_file", type=str,
                         default="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-test-ase-eVA.xyz")
-    parser.add_argument("--max_epochs", type=int, default=2000)
+    parser.add_argument("--max_epochs", type=int, default=5000)
+    parser.add_argument("--per_atom_energy_normalize", action="store_true")
+    parser.add_argument("--e_loss_weight", type=float, default=1.0)
+    parser.add_argument("--f_loss_weight", type=float, default=1.0)
+    parser.add_argument("--monitor", type=str, default="val/forces_mae")
+    parser.add_argument("--patience", type=int, default=200)
     args = parser.parse_args()
     args_dict = vars(args)
     args_dict["devices"] = normalize_devices(args_dict["devices"])
