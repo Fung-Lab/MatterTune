@@ -29,9 +29,11 @@ MAX_EPOCHS="10"
 TRAIN_SPLIT="0.9"
 ACCELERATOR="gpu"
 EVAL_DEVICE=""
-LOGGER="wandb-offline"
+LOGGER="wandb"
 WANDB_PROJECT="MatterTune-Electrolyte"
-WANDB_NAME=""
+# Run name: YYYYMMDD-HHMM + model id (override by exporting WANDB_NAME before qsub)
+RUN_STAMP="$(date +%Y%m%d-%H%M)"
+WANDB_NAME="${WANDB_NAME:-${RUN_STAMP}-${MODEL_TYPE}}"
 SKIP_EVAL="0"
 
 MATTERTUNE_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/software/MatterTune-Elec"
@@ -47,6 +49,9 @@ echo "CHECKPOINT_DIR   = ${CHECKPOINT_DIR}"
 echo "LOG_DIR          = ${LOG_DIR}"
 echo "MATTERTUNE_DIR   = ${MATTERTUNE_DIR}"
 echo "EXAMPLE_DIR      = ${EXAMPLE_DIR}"
+echo "LOGGER           = ${LOGGER}"
+echo "WANDB_PROJECT    = ${WANDB_PROJECT}"
+echo "WANDB_NAME       = ${WANDB_NAME}"
 echo "======================================================"
 
 if [[ ! -d "${MATTERTUNE_DIR}" ]]; then
@@ -82,13 +87,23 @@ fi
 
 mkdir -p "${CHECKPOINT_DIR}" "${LOG_DIR}"
 
-if [[ "${LOGGER}" == "wandb-offline" ]]; then
-  export WANDB_MODE=offline
-fi
-
 CONDA_BASE="$(conda info --base)"
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate "${ENV_NAME}"
+
+if [[ "${LOGGER}" == "wandb" ]]; then
+  # Online runs: authenticate via environment (never commit keys to this script).
+  # Prefer: qsub -v WANDB_API_KEY=... runcase_train.job
+  # Or one-time: printf '%s' 'your_key' > ~/.wandb_secret && chmod 600 ~/.wandb_secret
+  if [[ -z "${WANDB_API_KEY:-}" && -f "${HOME}/.wandb_secret" ]]; then
+    export WANDB_API_KEY="$(tr -d '[:space:]' < "${HOME}/.wandb_secret")"
+  fi
+  if [[ -z "${WANDB_API_KEY:-}" ]]; then
+    echo "WANDB_API_KEY is not set. Export it, use qsub -v WANDB_API_KEY=..., or add ${HOME}/.wandb_secret (chmod 600)." >&2
+    exit 1
+  fi
+  export WANDB_MODE=online
+fi
 
 cd "${MATTERTUNE_DIR}"
 export PYTHONPATH="${MATTERTUNE_DIR}/src:${PYTHONPATH:-}"
