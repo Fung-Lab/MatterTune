@@ -106,11 +106,12 @@ def build_config(args_dict: dict):
     # Add model properties
     hparams.model.properties = []
     energy = MC.EnergyPropertyConfig(
-        loss=MC.MSELossConfig(), loss_coefficient=args_dict["e_loss_weight"]
+        loss=MC.HuberLossConfig(delta=0.1), loss_coefficient=args_dict["e_loss_weight"]
     )
     hparams.model.properties.append(energy)
     forces = MC.ForcesPropertyConfig(
-        loss=MC.MSELossConfig(), conservative=True, loss_coefficient=args_dict["f_loss_weight"]
+        loss=MC.HuberLossConfig(delta=0.1),
+        loss_coefficient=args_dict["f_loss_weight"], conservative=True
     )
     hparams.model.properties.append(forces)
 
