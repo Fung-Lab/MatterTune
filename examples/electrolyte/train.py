@@ -288,23 +288,51 @@ def main(args_dict: dict):
     rich.print(f"Energy RMSE: {e_rmse} eV/atom")
     rich.print(f"Forces RMSE: {f_rmse} eV/Ang")
 
-    plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
-    plt.scatter(energy_gt_list, energy_pred_list)
-    plt.plot(plt.xlim(), plt.ylim(), transform=plt.transAxes,
-             linestyle="-", color="k", alpha=0.7)
-    plt.xlabel("True Energy (eV)")
-    plt.ylabel("Predicted Energy (eV)")
-    plt.title("Potential Energy")
-    plt.subplot(1, 2, 2)
-    plt.scatter(forces_gt_list, forces_pred_list)
-    plt.plot(plt.xlim(), plt.ylim(), transform=plt.transAxes,
-             linestyle="-", color="k", alpha=0.7)
-    plt.xlabel("True Forces (eV/Ang)")
-    plt.ylabel("Predicted Forces (eV/Ang)")
-    plt.title("Forces")
-    plt.savefig("electrolyte_parity_plot.png")
-    plt.close()
+    energy_gt = np.asarray(energy_gt_list).reshape(-1)
+    energy_pred = np.asarray(energy_pred_list).reshape(-1)
+
+    forces_gt = np.asarray(forces_gt_list).reshape(-1)
+    forces_pred = np.asarray(forces_pred_list).reshape(-1)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+    # -------------------------
+    # Energy parity plot
+    # -------------------------
+    ax = axes[0]
+    ax.scatter(energy_gt, energy_pred, s=10, alpha=0.6)
+
+    emin = min(energy_gt.min(), energy_pred.min())
+    emax = max(energy_gt.max(), energy_pred.max())
+    ax.plot([emin, emax], [emin, emax], linestyle="-", color="k", alpha=0.7)
+
+    ax.set_xlim(emin, emax)
+    ax.set_ylim(emin, emax)
+    ax.set_xlabel("True Energy (eV)")
+    ax.set_ylabel("Predicted Energy (eV)")
+    ax.set_title("Potential Energy")
+    ax.set_aspect("equal", adjustable="box")
+
+    # -------------------------
+    # Force parity plot
+    # -------------------------
+    ax = axes[1]
+    ax.scatter(forces_gt, forces_pred, s=2, alpha=0.3)
+
+    fmin = min(forces_gt.min(), forces_pred.min())
+    fmax = max(forces_gt.max(), forces_pred.max())
+    ax.plot([fmin, fmax], [fmin, fmax], linestyle="-", color="k", alpha=0.7)
+
+    ax.set_xlim(fmin, fmax)
+    ax.set_ylim(fmin, fmax)
+    ax.set_xlabel("True Forces (eV/Ang)")
+    ax.set_ylabel("Predicted Forces (eV/Ang)")
+    ax.set_title("Forces")
+    ax.set_aspect("equal", adjustable="box")
+
+    plt.tight_layout()
+    plt.savefig("./parity_plot.png", dpi=300)
+    plt.close(fig)
 
 
 if __name__ == "__main__":
@@ -329,7 +357,8 @@ if __name__ == "__main__":
                         default="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/all-test-ase-eVA.xyz")
     parser.add_argument("--energy_reference", type=str,
                         default=str(ENERGY_REFERENCE_PATH))
-    parser.add_argument("--checkpoint_dir", type=str, default=str(CHECKPOINT_DIR))
+    parser.add_argument("--checkpoint_dir", type=str,
+                        default=str(CHECKPOINT_DIR))
     parser.add_argument("--log_dir", type=str,
                         default=str(EXAMPLE_DIR / "logs"))
     parser.add_argument("--train_split", type=float, default=0.9)
