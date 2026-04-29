@@ -19,7 +19,7 @@ from mattertune.main import load_finetuned_checkpoint
 #     device=f"cuda:0"
 # )
 
-ft_model_name = "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/mace-medium-omat-0-best.ckpt"
+ft_model_name = "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/local_runs/20260425-224420-mattersim/checkpoints/MatterSim-v1.0.0-1M-best.ckpt"
 ft_model = load_finetuned_checkpoint(ft_model_name)
 
 
@@ -75,14 +75,16 @@ ft_model = load_finetuned_checkpoint(ft_model_name)
 # plt.close()
 
 calc = ft_model.ase_calculator(
-    device=f"cuda:3"
+    device=f"cuda:1"
 )
 val_atoms_list: list[Atoms] = read(
     "/net/csefiles/coc-fung-cluster/lingyu/electrolyte/test.xyz", ":")  # type: ignore
 random_indices = np.random.choice(len(val_atoms_list), 1000, replace=False)
 val_atoms_list = [val_atoms_list[i] for i in random_indices]
+gt_energies = []
 gt_energies_per_atom = []
 gt_forces = []
+pred_energies = []
 pred_energies_per_atom = []
 pred_forces = []
 for atoms in tqdm(val_atoms_list):
@@ -96,6 +98,8 @@ for atoms in tqdm(val_atoms_list):
     gt_forces.extend(np.array(gt_f).tolist())
     pred_energies_per_atom.append(pred_e / n)
     pred_forces.extend(np.array(pred_f).tolist())
+    gt_energies.append(gt_e)
+    pred_energies.append(pred_e)
 
 e_mae = torch.nn.L1Loss()(torch.tensor(gt_energies_per_atom),
                           torch.tensor(pred_energies_per_atom))
@@ -111,10 +115,10 @@ rich.print(f"Forces RMSE: {f_rmse} eV/Ang")
 
 plt.figure(figsize=(10, 5))
 plt.subplot(1, 2, 1)
-plt.scatter(gt_energies_per_atom, pred_energies_per_atom)
-plt.xlabel("True Energy (eV/atom)")
-plt.ylabel("Predicted Energy (eV/atom)")
-plt.title("Energy MAE: {e_mae} eV/atom")
+plt.scatter(gt_energies, pred_energies)
+plt.xlabel("True Energy (eV/structure)")
+plt.ylabel("Predicted Energy (eV/structure)")
+plt.title("Energy MAE: {e_mae} eV/structure")
 plt.plot([0, 1], [0, 1], transform=plt.gca().transAxes,
          linestyle="-", color="k", alpha=0.7)
 plt.subplot(1, 2, 2)

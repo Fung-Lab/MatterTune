@@ -1,42 +1,49 @@
 #!/bin/bash
 #PBS -N umlp_train
 #PBS -q v1_a100
-#PBS -l select=1:ncpus=1:mpiprocs=1:ngpus=1:mem=200gb:gpu_type=A100
+#PBS -l select=1:ncpus=4:mpiprocs=1:ngpus=4:mem=200gb:gpu_type=A100
 #PBS -l walltime=24:00:00
 #PBS -j oe
 
 set -euo pipefail
 
-source /gpfs/home/cming/xitan/software/anaconda3/etc/profile.d/conda.sh
+source /net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh
 conda activate mace-elec
 
 module load CUDA/12.1.1
 
-MODEL_TYPE="mace-medium-omat-0"
+MODEL_TYPE="mace-medium"
 ENV_NAME="mace-elec"
 
-TRAIN_FILE="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/input_train/train.xyz"
-TEST_FILE="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/input_train/test.xyz"
-ENERGY_REFERENCE="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/input_train/train-energy_reference.json"
+TRAIN_FILE="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/train.xyz"
+TEST_FILE="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/test.xyz"
+ENERGY_REFERENCE="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/train-mace-residual-energy_reference.json"
 
-CHECKPOINT_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/output_train/mace/checkpoints"
-LOG_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/output_train/mace/logs"
+RUN_STAMP="$(date +%Y%m%d-%H%M%S)"
+RUN_NAME="${RUN_NAME:-${RUN_STAMP}-mace-residual-ref-f10}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-/net/csefiles/coc-fung-cluster/lingyu/electrolyte/local_runs}"
+CHECKPOINT_DIR="${OUTPUT_ROOT}/${RUN_NAME}/checkpoints"
+LOG_DIR="${OUTPUT_ROOT}/${RUN_NAME}/logs"
 
-DEVICES="0"
-BATCH_SIZE="12"
+DEVICES="0,1,3"
+BATCH_SIZE="6"
 LR="1e-4"
 MAX_EPOCHS="5000"
 TRAIN_SPLIT="0.9"
+E_LOSS_WEIGHT="1.0"
+F_LOSS_WEIGHT="10.0"
+MONITOR="val/total_loss"
+PATIENCE="200"
+PER_ATOM_ENERGY_NORMALIZE="0"
 ACCELERATOR="gpu"
 EVAL_DEVICE=""
 LOGGER="wandb"
 WANDB_PROJECT="MatterTune-Electrolyte"
 # Run name: YYYYMMDD-HHMM + model id (override by exporting WANDB_NAME before qsub)
-RUN_STAMP="$(date +%Y%m%d-%H%M)"
-WANDB_NAME="${WANDB_NAME:-${RUN_STAMP}-${MODEL_TYPE}}"
+WANDB_NAME="${WANDB_NAME:-${RUN_NAME}}"
 SKIP_EVAL="0"
 
-MATTERTUNE_DIR="/gpfs/home/cming/xitan/works/uMLP/run_pretrain/software/MatterTune-Elec"
+MATTERTUNE_DIR="/nethome/lkong88/workspace/Electrolyte/MatterTune"
 EXAMPLE_DIR="${MATTERTUNE_DIR}/examples/electrolyte"
 
 echo "==================== CHECK INPUTS ===================="
@@ -49,6 +56,10 @@ echo "CHECKPOINT_DIR   = ${CHECKPOINT_DIR}"
 echo "LOG_DIR          = ${LOG_DIR}"
 echo "MATTERTUNE_DIR   = ${MATTERTUNE_DIR}"
 echo "EXAMPLE_DIR      = ${EXAMPLE_DIR}"
+echo "E_LOSS_WEIGHT   = ${E_LOSS_WEIGHT}"
+echo "F_LOSS_WEIGHT   = ${F_LOSS_WEIGHT}"
+echo "MONITOR         = ${MONITOR}"
+echo "PER_ATOM_ENERGY_NORMALIZE = ${PER_ATOM_ENERGY_NORMALIZE}"
 echo "LOGGER           = ${LOGGER}"
 echo "WANDB_PROJECT    = ${WANDB_PROJECT}"
 echo "WANDB_NAME       = ${WANDB_NAME}"
@@ -120,6 +131,10 @@ CMD=(
   --lr "${LR}"
   --max_epochs "${MAX_EPOCHS}"
   --train_split "${TRAIN_SPLIT}"
+  --e_loss_weight "${E_LOSS_WEIGHT}"
+  --f_loss_weight "${F_LOSS_WEIGHT}"
+  --monitor "${MONITOR}"
+  --patience "${PATIENCE}"
   --accelerator "${ACCELERATOR}"
   --devices "${DEVICES}"
   --logger "${LOGGER}"
@@ -136,6 +151,10 @@ fi
 
 if [[ "${SKIP_EVAL}" == "1" ]]; then
   CMD+=(--skip_eval)
+fi
+
+if [[ "${PER_ATOM_ENERGY_NORMALIZE}" == "1" ]]; then
+  CMD+=(--per_atom_energy_normalize)
 fi
 
 echo "Running command:"

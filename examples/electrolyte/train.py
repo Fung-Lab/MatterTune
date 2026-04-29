@@ -10,8 +10,6 @@ import rich
 import torch
 from ase import Atoms
 from ase.io import read
-from lightning.pytorch.strategies import DDPStrategy
-
 import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
@@ -81,6 +79,21 @@ def infer_model_family(model_type: str) -> str:
     )
 
 
+def patch_torch_load_for_mace_checkpoint() -> None:
+    """Allow current MACE checkpoints to load under PyTorch's weights_only default."""
+    if getattr(torch.load, "_mattertune_mace_checkpoint_compat", False):
+        return
+
+    original_load = torch.load
+
+    def load_compat(*args, **kwargs):
+        kwargs.setdefault("weights_only", False)
+        return original_load(*args, **kwargs)
+
+    load_compat._mattertune_mace_checkpoint_compat = True
+    torch.load = load_compat
+
+
 def configure_model(hparams, args_dict: dict):
     model_type = args_dict["model_type"]
     model_family = infer_model_family(model_type)
@@ -90,6 +103,7 @@ def configure_model(hparams, args_dict: dict):
         hparams.model.graph_convertor = MC.MatterSimGraphConvertorConfig.draft()
         hparams.model.pretrained_model = model_type
     elif model_family == "mace":
+        patch_torch_load_for_mace_checkpoint()
         hparams.model = MC.MACEBackboneConfig.draft()
         hparams.model.pretrained_model = model_type
     elif model_family == "uma":
@@ -150,6 +164,7 @@ def build_config(args_dict: dict):
     hparams.data.shuffle_seed = 42
     hparams.data.batch_size = args_dict["batch_size"]
     hparams.data.pin_memory = False
+    hparams.data.num_workers = args_dict["num_workers"]
 
     # Add Normalization for Energy
     energy_normalizer = [
@@ -169,7 +184,9 @@ def build_config(args_dict: dict):
     hparams.trainer.accelerator = args_dict["accelerator"]
     hparams.trainer.devices = args_dict["devices"]
     if len(args_dict["devices"]) > 1:
-        hparams.trainer.strategy = DDPStrategy()
+        # Use string so MatterTunerConfig can JSON-serialize (e.g. wandb init config);
+        # DDPStrategy() is not serializable.
+        hparams.trainer.strategy = "ddp"
     hparams.trainer.gradient_clip_algorithm = "norm"
     hparams.trainer.gradient_clip_val = 2.0
     hparams.trainer.precision = "32"
@@ -231,9 +248,14 @@ def build_config(args_dict: dict):
         )
 
     # Additional trainer settings
-    hparams.trainer.additional_trainer_kwargs = {
+    additional_trainer_kwargs = {
         "inference_mode": False,
     }
+    if args_dict["limit_train_batches"] is not None:
+        additional_trainer_kwargs["limit_train_batches"] = args_dict["limit_train_batches"]
+    if args_dict["limit_val_batches"] is not None:
+        additional_trainer_kwargs["limit_val_batches"] = args_dict["limit_val_batches"]
+    hparams.trainer.additional_trainer_kwargs = additional_trainer_kwargs
 
     return hparams.finalize(strict=False)
 
@@ -348,6 +370,7 @@ if __name__ == "__main__":
     parser.add_argument("--orb_max_num_neighbors",
                         type=int, default=120)  # only for ORB
     parser.add_argument("--batch_size", type=int, default=12)
+    parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--devices", nargs="+", default=["0", "1", "2"])
     parser.add_argument("--accelerator", type=str, default="gpu")
@@ -381,6 +404,8 @@ if __name__ == "__main__":
     parser.add_argument("--f_loss_weight", type=float, default=1.0)
     parser.add_argument("--monitor", type=str, default="val/forces_mae")
     parser.add_argument("--patience", type=int, default=200)
+    parser.add_argument("--limit_train_batches", type=int, default=None)
+    parser.add_argument("--limit_val_batches", type=int, default=None)
     args = parser.parse_args()
     args_dict = vars(args)
     args_dict["devices"] = normalize_devices(args_dict["devices"])
