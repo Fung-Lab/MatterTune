@@ -285,6 +285,7 @@ class MatterTuner:
 
 def load_finetuned_checkpoint(
     ckpt_path: str,
+    map_location: Any | None = None,
     **kwargs: Any,
 ):
     """
@@ -303,7 +304,12 @@ def load_finetuned_checkpoint(
         UMABackboneModule,
     )
 
-    ckpt_dict = torch.load(ckpt_path, weights_only=False)
+    torch_load_kwargs: dict[str, Any] = {}
+    if map_location is not None:
+        torch_load_kwargs["map_location"] = map_location
+        kwargs.setdefault("map_location", map_location)
+
+    ckpt_dict = torch.load(ckpt_path, weights_only=False, **torch_load_kwargs)
     name = ckpt_dict.get("hyper_parameters", {}).get("name", None)
     if name is None:
         raise ValueError(
