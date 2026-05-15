@@ -25,7 +25,9 @@ DEVICE="${DEVICE:-cuda:0}"
 STEPS="${STEPS:-100000}"
 TEMPERATURE="${TEMPERATURE:-298}"
 TIMESTEP_FS="${TIMESTEP_FS:-0.50}"
-LOG_INTERVAL="${LOG_INTERVAL:-200}"
+LOG_INTERVAL="${LOG_INTERVAL:-1}"
+TRAJECTORY_INTERVAL="${TRAJECTORY_INTERVAL:-100}"
+DIAGNOSTICS_INTERVAL="${DIAGNOSTICS_INTERVAL:-${TRAJECTORY_INTERVAL}}"
 SIGMA="${SIGMA:-2.337}"
 EPSILON="${EPSILON:-0.00694}"
 ALPHA="${ALPHA:-0.5}"
@@ -86,6 +88,12 @@ print(f"{steps * timestep_fs / 1000.0:.6f}")
 PY
 )
 SAVED_FRAME_INTERVAL_FS=$(python - <<PY
+log_interval = int("${TRAJECTORY_INTERVAL}")
+timestep_fs = float("${TIMESTEP_FS}")
+print(f"{log_interval * timestep_fs:.6f}")
+PY
+)
+ENERGY_LOG_INTERVAL_FS=$(python - <<PY
 log_interval = int("${LOG_INTERVAL}")
 timestep_fs = float("${TIMESTEP_FS}")
 print(f"{log_interval * timestep_fs:.6f}")
@@ -126,6 +134,9 @@ friction_fs_inv=${FRICTION_FS_INV}
 seed=${SEED}
 init_velocities=${INIT_VELOCITIES}
 log_interval_steps=${LOG_INTERVAL}
+energy_log_interval_fs=${ENERGY_LOG_INTERVAL_FS}
+trajectory_interval_steps=${TRAJECTORY_INTERVAL}
+diagnostics_interval_steps=${DIAGNOSTICS_INTERVAL}
 saved_frame_interval_fs=${SAVED_FRAME_INTERVAL_FS}
 
 softcore_sigma_angstrom=${SIGMA}
@@ -138,6 +149,7 @@ smooth_cutoff=true
 
 trajectory=${OUT_DIR}/md_lambda_${LAMBDA_VALUE}.xyz
 trajectory_log=${OUT_DIR}/md_lambda_${LAMBDA_VALUE}.txt
+energy_log=${OUT_DIR}/energy_lambda_${LAMBDA_VALUE}.csv
 diagnostics=${OUT_DIR}/diagnostics_lambda_${LAMBDA_VALUE}.jsonl
 final_structure=${OUT_DIR}/final_lambda_${LAMBDA_VALUE}.extxyz
 diagnostics_note=lambda1_energy_eV includes the soft-core LJ correction; ghost_endpoint.base_energy_eV is the deleted-endpoint MLIP energy comparable to AIMD E_F.
@@ -157,6 +169,8 @@ echo "  timestep_fs     = ${TIMESTEP_FS}"
 echo "  total_time_ps   = ${TOTAL_TIME_PS}"
 echo "  temperature_K   = ${TEMPERATURE}"
 echo "  log_interval    = ${LOG_INTERVAL}"
+echo "  traj_interval   = ${TRAJECTORY_INTERVAL}"
+echo "  diag_interval   = ${DIAGNOSTICS_INTERVAL}"
 
 PYTHONPATH=src python examples/electrolyte/md.py \
   --ckpt-path "${CKPT_PATH}" \
@@ -169,6 +183,8 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --timestep-fs "${TIMESTEP_FS}" \
   --friction-fs-inv "${FRICTION_FS_INV}" \
   --log-interval "${LOG_INTERVAL}" \
+  --trajectory-interval "${TRAJECTORY_INTERVAL}" \
+  --diagnostics-interval "${DIAGNOSTICS_INTERVAL}" \
   --sigma "${SIGMA}" \
   --epsilon "${EPSILON}" \
   --alpha "${ALPHA}" \
@@ -177,6 +193,7 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --seed "${SEED}" \
   --output-dir "${OUT_DIR}" \
   --trajectory-name "md_lambda_${LAMBDA_VALUE}.xyz" \
+  --energy-log-name "energy_lambda_${LAMBDA_VALUE}.csv" \
   --final-structure-name "final_lambda_${LAMBDA_VALUE}.extxyz" \
   --diagnostics-name "diagnostics_lambda_${LAMBDA_VALUE}.jsonl" \
   "${EXTRA_ARGS[@]}"

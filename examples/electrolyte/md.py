@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import csv
 import json
 import sys
 import time
@@ -86,6 +87,7 @@ def annotate_frame_metadata(
     total_energy: float,
     lambda0_energy: float | None,
     lambda1_energy: float | None,
+    lambda1_base_energy: float | None,
     ghost_lj_energy: float | None,
     lambda_array_name: str,
 ):
@@ -99,6 +101,9 @@ def annotate_frame_metadata(
     if lambda1_energy is not None:
         atoms.info["lambda1_energy_eV"] = float(lambda1_energy)
         atoms.info["final_pes_energy_eV"] = float(lambda1_energy)
+    if lambda1_base_energy is not None:
+        atoms.info["lambda1_base_energy_eV"] = float(lambda1_base_energy)
+        atoms.info["final_pes_energy_without_lj_eV"] = float(lambda1_base_energy)
     if ghost_lj_energy is not None:
         atoms.info["ghost_lj_energy_eV"] = float(ghost_lj_energy)
     atoms.arrays[lambda_array_name] = np.asarray(
@@ -114,10 +119,14 @@ def format_step_log(
     total_energy: float,
     lambda0_energy: float | None,
     lambda1_energy: float | None,
+    lambda1_base_energy: float | None,
     ghost_lj_energy: float | None,
 ) -> str:
     lambda0_str = "nan" if lambda0_energy is None else f"{lambda0_energy: .12f}"
     lambda1_str = "nan" if lambda1_energy is None else f"{lambda1_energy: .12f}"
+    lambda1_base_str = (
+        "nan" if lambda1_base_energy is None else f"{lambda1_base_energy: .12f}"
+    )
     ghost_lj_str = "nan" if ghost_lj_energy is None else f"{ghost_lj_energy: .12f}"
     return (
         f"step={step:5d} time_fs={time_fs:9.3f} "
@@ -125,7 +134,82 @@ def format_step_log(
         f"mixed_energy={total_energy: .12f} eV "
         f"lambda0_energy={lambda0_str} eV "
         f"lambda1_energy={lambda1_str} eV "
+        f"lambda1_base={lambda1_base_str} eV "
         f"ghost_lj={ghost_lj_str} eV"
+    )
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def get_ghost_base_energy(
+    *,
+    lambda1_energy: float | None,
+    ghost_lj_energy: float | None,
+    calculator: GhostTargetCorrectionCalculator,
+) -> float | None:
+    details = calculator.last_ghost_endpoint_details
+    if details is not None and details.get("base_energy_eV") is not None:
+        return float(details["base_energy_eV"])
+    if lambda1_energy is not None and ghost_lj_energy is not None:
+        return float(lambda1_energy - ghost_lj_energy)
+    return None
+
+
+ENERGY_LOG_FIELDS = [
+    "step",
+    "time_fs",
+    "time_ps",
+    "temperature_K",
+    "mixed_energy_eV",
+    "E_I_eV",
+    "E_F_with_LJ_eV",
+    "E_F_without_LJ_eV",
+    "E_LJ_eV",
+    "deltaE_with_LJ_eV",
+    "deltaE_without_LJ_eV",
+]
+
+
+def write_energy_log_row(
+    writer: csv.DictWriter,
+    *,
+    step: int,
+    time_fs: float,
+    temperature: float,
+    total_energy: float,
+    lambda0_energy: float | None,
+    lambda1_energy: float | None,
+    lambda1_base_energy: float | None,
+    ghost_lj_energy: float | None,
+) -> None:
+    delta_with_lj = (
+        None
+        if lambda0_energy is None or lambda1_energy is None
+        else lambda1_energy - lambda0_energy
+    )
+    delta_without_lj = (
+        None
+        if lambda0_energy is None or lambda1_base_energy is None
+        else lambda1_base_energy - lambda0_energy
+    )
+    writer.writerow(
+        {
+            "step": int(step),
+            "time_fs": float(time_fs),
+            "time_ps": float(time_fs / 1000.0),
+            "temperature_K": float(temperature),
+            "mixed_energy_eV": float(total_energy),
+            "E_I_eV": _optional_float(lambda0_energy),
+            "E_F_with_LJ_eV": _optional_float(lambda1_energy),
+            "E_F_without_LJ_eV": _optional_float(lambda1_base_energy),
+            "E_LJ_eV": _optional_float(ghost_lj_energy),
+            "deltaE_with_LJ_eV": _optional_float(delta_with_lj),
+            "deltaE_without_LJ_eV": _optional_float(delta_without_lj),
+        }
     )
 
 
@@ -387,6 +471,11 @@ def main(args: argparse.Namespace) -> None:
         if args.diagnostics_name is None
         else output_dir / args.diagnostics_name
     )
+    energy_log_path = (
+        None
+        if args.energy_log_name is None
+        else output_dir / args.energy_log_name
+    )
 
     with tee_output(log_path):
         model, ghost_model = load_md_models(args)
@@ -442,26 +531,68 @@ def main(args: argparse.Namespace) -> None:
             trajectory_path.unlink()
         if diagnostics_path is not None and diagnostics_path.exists():
             diagnostics_path.unlink()
+        if energy_log_path is not None and energy_log_path.exists():
+            energy_log_path.unlink()
 
-        def record_step() -> None:
+        step_cache: dict[str, object] = {"step": None, "values": None}
+
+        def collect_step_values() -> dict[str, float | int | None]:
             step = dynamics.nsteps
+            if step_cache["step"] == step and step_cache["values"] is not None:
+                return step_cache["values"]  # type: ignore[return-value]
+
             time_fs = step * args.timestep_fs
             energy = atoms.get_potential_energy()
             temperature = atoms.get_temperature()
             lambda0_energy = calc.last_real_endpoint_energy
             lambda1_energy = calc.last_ghost_endpoint_energy
             ghost_lj_energy = calc.last_ghost_endpoint_lj_energy
+            lambda1_base_energy = get_ghost_base_energy(
+                lambda1_energy=lambda1_energy,
+                ghost_lj_energy=ghost_lj_energy,
+                calculator=calc,
+            )
 
+            values: dict[str, float | int | None] = {
+                "step": int(step),
+                "time_fs": float(time_fs),
+                "temperature": float(temperature),
+                "total_energy": float(energy),
+                "lambda0_energy": lambda0_energy,
+                "lambda1_energy": lambda1_energy,
+                "lambda1_base_energy": lambda1_base_energy,
+                "ghost_lj_energy": ghost_lj_energy,
+            }
+            step_cache["step"] = step
+            step_cache["values"] = values
+            return values
+
+        energy_log_handle = None
+        energy_log_writer = None
+        if energy_log_path is not None:
+            energy_log_path.parent.mkdir(parents=True, exist_ok=True)
+            energy_log_handle = energy_log_path.open(
+                "w", encoding="utf-8", newline=""
+            )
+            energy_log_writer = csv.DictWriter(
+                energy_log_handle,
+                fieldnames=ENERGY_LOG_FIELDS,
+            )
+            energy_log_writer.writeheader()
+
+        def record_trajectory_step() -> None:
+            values = collect_step_values()
             frame = atoms.copy()
             annotate_frame_metadata(
                 frame,
-                step=step,
-                time_fs=time_fs,
-                temperature=temperature,
-                total_energy=energy,
-                lambda0_energy=lambda0_energy,
-                lambda1_energy=lambda1_energy,
-                ghost_lj_energy=ghost_lj_energy,
+                step=int(values["step"]),
+                time_fs=float(values["time_fs"]),
+                temperature=float(values["temperature"]),
+                total_energy=float(values["total_energy"]),
+                lambda0_energy=_optional_float(values["lambda0_energy"]),
+                lambda1_energy=_optional_float(values["lambda1_energy"]),
+                lambda1_base_energy=_optional_float(values["lambda1_base_energy"]),
+                ghost_lj_energy=_optional_float(values["ghost_lj_energy"]),
                 lambda_array_name=args.lambda_array_name,
             )
             write(
@@ -470,43 +601,73 @@ def main(args: argparse.Namespace) -> None:
                 append=True,
                 format="extxyz",
             )
+
+        def record_log_step() -> None:
+            values = collect_step_values()
             print(
                 format_step_log(
-                    step=step,
-                    time_fs=time_fs,
-                    temperature=temperature,
-                    total_energy=energy,
-                    lambda0_energy=lambda0_energy,
-                    lambda1_energy=lambda1_energy,
-                    ghost_lj_energy=ghost_lj_energy,
+                    step=int(values["step"]),
+                    time_fs=float(values["time_fs"]),
+                    temperature=float(values["temperature"]),
+                    total_energy=float(values["total_energy"]),
+                    lambda0_energy=_optional_float(values["lambda0_energy"]),
+                    lambda1_energy=_optional_float(values["lambda1_energy"]),
+                    lambda1_base_energy=_optional_float(values["lambda1_base_energy"]),
+                    ghost_lj_energy=_optional_float(values["ghost_lj_energy"]),
                 )
             )
+            if energy_log_writer is not None:
+                write_energy_log_row(
+                    energy_log_writer,
+                    step=int(values["step"]),
+                    time_fs=float(values["time_fs"]),
+                    temperature=float(values["temperature"]),
+                    total_energy=float(values["total_energy"]),
+                    lambda0_energy=_optional_float(values["lambda0_energy"]),
+                    lambda1_energy=_optional_float(values["lambda1_energy"]),
+                    lambda1_base_energy=_optional_float(values["lambda1_base_energy"]),
+                    ghost_lj_energy=_optional_float(values["ghost_lj_energy"]),
+                )
+                assert energy_log_handle is not None
+                energy_log_handle.flush()
+
+        def record_diagnostics_step() -> None:
+            values = collect_step_values()
             write_diagnostics_record(
                 diagnostics_path,
                 model_family=model.family,
                 model_name=model.model_name,
                 ghost_endpoint_mode=args.ghost_endpoint_mode,
-                step=step,
-                time_fs=time_fs,
+                step=int(values["step"]),
+                time_fs=float(values["time_fs"]),
                 lambda_mask=np.asarray(
                     atoms.arrays[args.lambda_array_name], dtype=np.float64
                 ),
-                total_energy=energy,
-                lambda0_energy=lambda0_energy,
-                lambda1_energy=lambda1_energy,
+                total_energy=float(values["total_energy"]),
+                lambda0_energy=_optional_float(values["lambda0_energy"]),
+                lambda1_energy=_optional_float(values["lambda1_energy"]),
                 calculator=calc,
             )
 
-        dynamics.attach(record_step, interval=args.log_interval)
+        dynamics.attach(record_log_step, interval=args.log_interval)
+        dynamics.attach(record_trajectory_step, interval=args.trajectory_interval)
+        if diagnostics_path is not None:
+            dynamics.attach(record_diagnostics_step, interval=args.diagnostics_interval)
 
         print(
             f"running ghost-target MD: steps={args.steps}, timestep_fs={args.timestep_fs}, "
-            f"temperature_K={args.temperature}"
+            f"temperature_K={args.temperature}, log_interval={args.log_interval}, "
+            f"trajectory_interval={args.trajectory_interval}, "
+            f"diagnostics_interval={args.diagnostics_interval}"
         )
 
-        start_time = time.time()
-        dynamics.run(args.steps)
-        end_time = time.time()
+        try:
+            start_time = time.time()
+            dynamics.run(args.steps)
+            end_time = time.time()
+        finally:
+            if energy_log_handle is not None:
+                energy_log_handle.close()
         print(f"MD simulation completed in {end_time - start_time:.2f} seconds")
         if args.steps > 0:
             print(
@@ -524,12 +685,19 @@ def main(args: argparse.Namespace) -> None:
             total_energy=final_energy,
             lambda0_energy=calc.last_real_endpoint_energy,
             lambda1_energy=calc.last_ghost_endpoint_energy,
+            lambda1_base_energy=get_ghost_base_energy(
+                lambda1_energy=calc.last_ghost_endpoint_energy,
+                ghost_lj_energy=calc.last_ghost_endpoint_lj_energy,
+                calculator=calc,
+            ),
             ghost_lj_energy=calc.last_ghost_endpoint_lj_energy,
             lambda_array_name=args.lambda_array_name,
         )
         write(final_structure_path, final_frame)
         print(f"trajectory written to {trajectory_path}")
         print(f"log written to {log_path}")
+        if energy_log_path is not None:
+            print(f"energy log written to {energy_log_path}")
         if diagnostics_path is not None:
             print(f"diagnostics written to {diagnostics_path}")
         print(f"final structure written to {final_structure_path}")
@@ -613,10 +781,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timestep-fs", type=float, default=1.0)
     parser.add_argument("--friction-fs-inv", type=float, default=0.02)
     parser.add_argument("--steps", type=int, default=10)
-    parser.add_argument("--log-interval", type=int, default=1)
+    parser.add_argument(
+        "--log-interval",
+        type=int,
+        default=1,
+        help="Interval, in MD steps, for stdout and compact energy CSV logging.",
+    )
+    parser.add_argument(
+        "--trajectory-interval",
+        type=int,
+        default=None,
+        help="Interval, in MD steps, for writing trajectory frames. Defaults to --log-interval.",
+    )
+    parser.add_argument(
+        "--diagnostics-interval",
+        type=int,
+        default=None,
+        help="Interval, in MD steps, for writing diagnostics JSONL records. Defaults to --log-interval.",
+    )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output-dir", default=str(default_output_dir))
     parser.add_argument("--trajectory-name", default="ghost_md.xyz")
+    parser.add_argument(
+        "--energy-log-name",
+        default="energy_log.csv",
+        help="Compact CSV file for logged energies. Set to an empty string to disable.",
+    )
     parser.add_argument("--final-structure-name", default="ghost_final.extxyz")
     parser.add_argument(
         "--diagnostics-name",
@@ -626,6 +816,18 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.diagnostics_name == "":
         args.diagnostics_name = None
+    if args.energy_log_name == "":
+        args.energy_log_name = None
+    if args.log_interval <= 0:
+        parser.error("--log-interval must be positive.")
+    if args.trajectory_interval is None:
+        args.trajectory_interval = args.log_interval
+    if args.diagnostics_interval is None:
+        args.diagnostics_interval = args.log_interval
+    if args.trajectory_interval <= 0:
+        parser.error("--trajectory-interval must be positive.")
+    if args.diagnostics_interval <= 0:
+        parser.error("--diagnostics-interval must be positive.")
     if args.ckpt_path is None and args.model_type is None:
         parser.error("Either --model-type or --ckpt-path must be provided.")
     return args
