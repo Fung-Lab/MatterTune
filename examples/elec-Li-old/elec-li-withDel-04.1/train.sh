@@ -7,35 +7,90 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DATA_ROOT="${DATA_ROOT:-/net/csefiles/coc-fung-cluster/lingyu/electrolyte}"
 
-CONDA_ENV="${CONDA_ENV:-mattersim-elec}"
-MODEL_NAME="${MODEL_NAME:-MatterSim-v1.0.0-1M}"
+MODEL_TYPE="${MODEL_TYPE:-orb}"
+case "${MODEL_TYPE}" in
+  mattersim)
+    DEFAULT_CONDA_ENV="mattersim-elec"
+    DEFAULT_MODEL_NAME="MatterSim-v1.0.0-1M"
+    ;;
+  orb)
+    DEFAULT_CONDA_ENV="orb-elec"
+    DEFAULT_MODEL_NAME="orbv3-omat-conservative-inf"
+    ;;
+  uma)
+    DEFAULT_CONDA_ENV="uma-elec"
+    DEFAULT_MODEL_NAME="uma-s1.1"
+    ;;
+  *)
+    echo "Unsupported MODEL_TYPE=${MODEL_TYPE}; expected mattersim, orb, or uma." >&2
+    exit 2
+    ;;
+esac
+CONDA_ENV="${CONDA_ENV:-${DEFAULT_CONDA_ENV}}"
+MODEL_NAME="${MODEL_NAME:-${DEFAULT_MODEL_NAME}}"
+TASK_NAME="${TASK_NAME:-omat}"
+GRAPH_RADIUS="${GRAPH_RADIUS:-6.0}"
+MAX_NUM_NEIGHBORS="${MAX_NUM_NEIGHBORS:-120}"
+if [[ -z "${ORB_EDGE_METHOD+x}" ]]; then
+  if [[ "${MODEL_TYPE}" == "orb" ]]; then
+    # ORB's upstream default, knn_alchemi, goes through nvalchemiops/Warp.
+    # Dataset featurization is CPU-only here, so scipy avoids noisy Warp CUDA
+    # context initialization warnings without changing the training objective.
+    ORB_EDGE_METHOD="knn_scipy"
+  else
+    ORB_EDGE_METHOD=""
+  fi
+fi
+MODEL_LABEL="${MODEL_TYPE}-${MODEL_NAME}"
+MODEL_LABEL="${MODEL_LABEL//\//_}"
+MODEL_LABEL="${MODEL_LABEL// /_}"
 TRAIN_FILE="${TRAIN_FILE:-${DATA_ROOT}/Li_system_train_with_del.xyz}"
 TEST_FILE="${TEST_FILE:-${DATA_ROOT}/Li_system_test_with_del.xyz}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-${DATA_ROOT}/local_runs/elec-Li-withDel-02}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-${DATA_ROOT}/local_runs/elec-li-withDel-04.1}"
 RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d-%H%M%S)}"
-RUN_NAME="${RUN_NAME:-${RUN_STAMP}-mattersim-withDel}"
+RUN_NAME="${RUN_NAME:-${RUN_STAMP}-${MODEL_LABEL}-withDel-04.1-first100-fw20-de05}"
 OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_ROOT}/${RUN_NAME}}"
+if [[ -z "${INIT_CHECKPOINT+x}" ]]; then
+  if [[ "${MODEL_TYPE}" == "mattersim" ]]; then
+    INIT_CHECKPOINT="/net/csefiles/coc-fung-cluster/lingyu/electrolyte/local_runs/elec-Li-withDel-02/20260512-parentSplit-02/checkpoints/MatterSim-v1.0.0-1M-withDel-best.ckpt"
+  else
+    INIT_CHECKPOINT=""
+  fi
+fi
 
 REFERENCE_MODEL="${REFERENCE_MODEL:-ridge}"
 RIDGE_ALPHA="${RIDGE_ALPHA:-1.0}"
-ENERGY_REFERENCE="${ENERGY_REFERENCE:-${OUTPUT_ROOT}/references/Li_system_train_with_del-${MODEL_NAME}-residual-${REFERENCE_MODEL}-alpha${RIDGE_ALPHA}.json}"
+if [[ -z "${REFERENCE_ENERGY_SOURCE+x}" ]]; then
+  case "${MODEL_TYPE}" in
+    orb|uma)
+      REFERENCE_ENERGY_SOURCE="training_head"
+      ;;
+    *)
+      REFERENCE_ENERGY_SOURCE="ase_pretrained"
+      ;;
+  esac
+fi
+REFERENCE_ROOT="${REFERENCE_ROOT:-${DATA_ROOT}/local_runs/elec-Li-withDel-02/references}"
+ENERGY_REFERENCE="${ENERGY_REFERENCE:-${REFERENCE_ROOT}/Li_system_train_with_del-${MODEL_LABEL}-${REFERENCE_ENERGY_SOURCE}-residual-${REFERENCE_MODEL}-alpha${RIDGE_ALPHA}.json}"
 REFIT_REFERENCE="${REFIT_REFERENCE:-0}"
 REFERENCE_DEVICE="${REFERENCE_DEVICE:-cuda:0}"
+REFERENCE_BATCH_SIZE="${REFERENCE_BATCH_SIZE:-${BATCH_SIZE:-2}}"
 
-DEVICES="${DEVICES:-0,1,2,3}"
+DEVICES="${DEVICES:-0,1,2,3,4,5}"
 DEVICES_CSV="${DEVICES// /,}"
-BATCH_SIZE="${BATCH_SIZE:-12}"
+BATCH_SIZE="${BATCH_SIZE:-2}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
-LR="${LR:-1e-4}"
+LR="${LR:-3e-5}"
 MAX_EPOCHS="${MAX_EPOCHS:-5000}"
 TRAIN_SPLIT="${TRAIN_SPLIT:-0.9}"
+MAX_PARENT_FRAME="${MAX_PARENT_FRAME:-100}"
 E_LOSS_WEIGHT="${E_LOSS_WEIGHT:-200.0}"
-F_LOSS_WEIGHT="${F_LOSS_WEIGHT:-1.0}"
+F_LOSS_WEIGHT="${F_LOSS_WEIGHT:-20.0}"
 DELTA_E_LOSS_WEIGHT="${DELTA_E_LOSS_WEIGHT:-1.0}"
 MONITOR="${MONITOR:-val/total_loss}"
 PATIENCE="${PATIENCE:-200}"
 LOGGER="${LOGGER:-wandb}"
-WANDB_PROJECT="${WANDB_PROJECT:-MatterTune-Electrolyte-Li-withDel-02}"
+WANDB_PROJECT="${WANDB_PROJECT:-MatterTune-Electrolyte-Li-withDel-04.1}"
 WANDB_NAME="${WANDB_NAME:-${RUN_NAME}}"
 WANDB_OFFLINE="${WANDB_OFFLINE:-0}"
 RESET_OUTPUT_HEADS="${RESET_OUTPUT_HEADS:-0}"
@@ -46,7 +101,8 @@ LIMIT_VAL_BATCHES="${LIMIT_VAL_BATCHES:-}"
 MAX_EVAL_STRUCTURES="${MAX_EVAL_STRUCTURES:-}"
 PAIR_MAPPING_FILE="${PAIR_MAPPING_FILE:-${REPO_ROOT}/examples/electrolyte/notes/li_delete_pair_mapping.csv}"
 PAIR_PARENT_SOURCES="${PAIR_PARENT_SOURCES:-train}"
-PAIR_TRAIN_FILE="${PAIR_TRAIN_FILE:-${OUTPUT_ROOT}/data/delta_pairs_train-parent_${PAIR_PARENT_SOURCES//,/+}.xyz}"
+PAIR_DATA_ROOT="${PAIR_DATA_ROOT:-${DATA_ROOT}/local_runs/elec-Li-withDel-02/data}"
+PAIR_TRAIN_FILE="${PAIR_TRAIN_FILE:-${PAIR_DATA_ROOT}/delta_pairs_train-parent_${PAIR_PARENT_SOURCES//,/+}.xyz}"
 
 for required_file in "${TRAIN_FILE}" "${TEST_FILE}"; do
   if [[ ! -f "${required_file}" ]]; then
@@ -54,6 +110,10 @@ for required_file in "${TRAIN_FILE}" "${TEST_FILE}"; do
     exit 1
   fi
 done
+if [[ -n "${INIT_CHECKPOINT}" && ! -f "${INIT_CHECKPOINT}" ]]; then
+  echo "Initial checkpoint not found: ${INIT_CHECKPOINT}" >&2
+  exit 1
+fi
 
 mkdir -p "${OUTPUT_DIR}" "$(dirname "${ENERGY_REFERENCE}")"
 
@@ -62,14 +122,23 @@ cd "${REPO_ROOT}"
 
 if [[ "${REFIT_REFERENCE}" == "1" || ! -f "${ENERGY_REFERENCE}" ]]; then
   REF_CMD=(
-    python examples/elec-Li-withDel-02/fit_residual_reference.py
+    python examples/elec-li-withDel-04.1/fit_residual_reference.py
     --xyz_path "${TRAIN_FILE}"
     --output "${ENERGY_REFERENCE}"
+    --model_type "${MODEL_TYPE}"
     --model_name "${MODEL_NAME}"
+    --task_name "${TASK_NAME}"
     --device "${REFERENCE_DEVICE}"
+    --reference_energy_source "${REFERENCE_ENERGY_SOURCE}"
+    --graph_radius "${GRAPH_RADIUS}"
+    --max_num_neighbors "${MAX_NUM_NEIGHBORS}"
+    --batch_size "${REFERENCE_BATCH_SIZE}"
     --reference_model "${REFERENCE_MODEL}"
     --ridge_alpha "${RIDGE_ALPHA}"
   )
+  if [[ -n "${ORB_EDGE_METHOD}" ]]; then
+    REF_CMD+=(--orb_edge_method "${ORB_EDGE_METHOD}")
+  fi
   echo "==================== FIT RESIDUAL REFERENCE ===================="
   printf ' %q' PYTHONPATH=src "${REF_CMD[@]}"
   echo
@@ -98,7 +167,7 @@ fi
 
 if [[ "${REBUILD_PAIR_TRAIN_FILE}" == "1" ]]; then
   PAIR_CMD=(
-    python examples/elec-Li-withDel-02/prepare_delta_pairs.py
+    python examples/elec-li-withDel-04.1/prepare_delta_pairs.py
     --mixed_train_file "${TRAIN_FILE}"
     --base_train_file "${DATA_ROOT}/Li_system_train.xyz"
     --base_test_file "${DATA_ROOT}/Li_system_test.xyz"
@@ -114,8 +183,12 @@ if [[ "${REBUILD_PAIR_TRAIN_FILE}" == "1" ]]; then
 fi
 
 TRAIN_CMD=(
-  python examples/elec-Li-withDel-02/train_delta.py
+  python examples/elec-li-withDel-04.1/train_delta.py
+  --model_type "${MODEL_TYPE}"
   --model_name "${MODEL_NAME}"
+  --task_name "${TASK_NAME}"
+  --graph_radius "${GRAPH_RADIUS}"
+  --max_num_neighbors "${MAX_NUM_NEIGHBORS}"
   --train_file "${TRAIN_FILE}"
   --pair_train_file "${PAIR_TRAIN_FILE}"
   --test_file "${TEST_FILE}"
@@ -127,6 +200,7 @@ TRAIN_CMD=(
   --lr "${LR}"
   --max_epochs "${MAX_EPOCHS}"
   --train_split "${TRAIN_SPLIT}"
+  --max_parent_frame "${MAX_PARENT_FRAME}"
   --e_loss_weight "${E_LOSS_WEIGHT}"
   --f_loss_weight "${F_LOSS_WEIGHT}"
   --delta_e_loss_weight "${DELTA_E_LOSS_WEIGHT}"
@@ -137,6 +211,12 @@ TRAIN_CMD=(
   --wandb_name "${WANDB_NAME}"
 )
 
+if [[ -n "${ORB_EDGE_METHOD}" ]]; then
+  TRAIN_CMD+=(--orb_edge_method "${ORB_EDGE_METHOD}")
+fi
+if [[ -n "${INIT_CHECKPOINT}" ]]; then
+  TRAIN_CMD+=(--init_checkpoint "${INIT_CHECKPOINT}")
+fi
 if [[ "${WANDB_OFFLINE}" == "1" ]]; then
   TRAIN_CMD+=(--wandb_offline)
 fi
@@ -161,14 +241,25 @@ fi
 
 TRAIN_CMD+=("$@")
 
-echo "==================== TRAIN MATTERSIM WITH DELETED LI ===================="
+echo "==================== TRAIN MLIP WITH DELETED LI ===================="
+echo "MODEL_TYPE       = ${MODEL_TYPE}"
+echo "MODEL_NAME       = ${MODEL_NAME}"
+echo "TASK_NAME        = ${TASK_NAME}"
 echo "TRAIN_FILE       = ${TRAIN_FILE}"
 echo "TEST_FILE        = ${TEST_FILE}"
 echo "ENERGY_REFERENCE = ${ENERGY_REFERENCE}"
+echo "REFERENCE_SOURCE = ${REFERENCE_ENERGY_SOURCE}"
 echo "OUTPUT_DIR       = ${OUTPUT_DIR}"
+echo "INIT_CHECKPOINT  = ${INIT_CHECKPOINT:-<none>}"
+echo "CONDA_ENV        = ${CONDA_ENV}"
 echo "PAIR_TRAIN_FILE  = ${PAIR_TRAIN_FILE}"
 echo "DEVICES          = ${DEVICES_CSV}"
+echo "LR               = ${LR}"
 echo "BATCH_SIZE       = ${BATCH_SIZE}"
+echo "MAX_PARENT_FRAME = ${MAX_PARENT_FRAME}"
+echo "GRAPH_RADIUS     = ${GRAPH_RADIUS}"
+echo "MAX_NEIGHBORS    = ${MAX_NUM_NEIGHBORS}"
+echo "ORB_EDGE_METHOD  = ${ORB_EDGE_METHOD:-<default>}"
 echo "E_LOSS_WEIGHT    = ${E_LOSS_WEIGHT}"
 echo "F_LOSS_WEIGHT    = ${F_LOSS_WEIGHT}"
 echo "DELTA_E_WEIGHT   = ${DELTA_E_LOSS_WEIGHT}"

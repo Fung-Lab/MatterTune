@@ -425,6 +425,16 @@ def _default_orb_model_name(available_names: Sequence[str]) -> str:
     return sorted(available_names)[0]
 
 
+def _normalize_orb_model_name(model_name: str) -> str:
+    normalized = model_name.replace("_", "-")
+    aliases = {
+        "orbv3-omat-conservative-inf": "orb-v3-conservative-inf-omat",
+        "orb-v3-omat-conservative-inf": "orb-v3-conservative-inf-omat",
+        "orbv3-conservative-inf-omat": "orb-v3-conservative-inf-omat",
+    }
+    return aliases.get(normalized.lower(), normalized)
+
+
 def _default_uma_model_name(available_names: Sequence[str]) -> str:
     preferred = ("uma-s-1p2", "uma-s-1p1", "uma-m-1p1")
     for candidate in preferred:
@@ -434,6 +444,19 @@ def _default_uma_model_name(available_names: Sequence[str]) -> str:
         if candidate.startswith("uma-"):
             return candidate
     raise RuntimeError("No UMA pretrained models are available.")
+
+
+def _normalize_uma_model_name(model_name: str) -> str:
+    normalized = model_name.replace("_", "-")
+    aliases = {
+        "uma-s1.1": "uma-s-1p1",
+        "uma-s-1.1": "uma-s-1p1",
+        "uma-s1p1": "uma-s-1p1",
+        "uma-s1.2": "uma-s-1p2",
+        "uma-s-1.2": "uma-s-1p2",
+        "uma-s1p2": "uma-s-1p2",
+    }
+    return aliases.get(normalized.lower(), normalized)
 
 
 def _resolve_nequip_package_path(model_name: str) -> str:
@@ -486,8 +509,11 @@ def _load_orb_pretrained(
         from orb_models.forcefield.inference.calculator import ORBCalculator
 
     available = tuple(pretrained.ORB_PRETRAINED_MODELS.keys())
-    resolved_name = model_name.replace(
-        "_", "-") if model_name is not None else _default_orb_model_name(available)
+    resolved_name = (
+        _normalize_orb_model_name(model_name)
+        if model_name is not None
+        else _default_orb_model_name(available)
+    )
     model_fn = pretrained.ORB_PRETRAINED_MODELS.get(resolved_name) or getattr(
         pretrained, resolved_name, None
     )
@@ -601,19 +627,24 @@ def _load_uma_pretrained(
     available = tuple(
         name for name in pretrained_mlip.available_models if name.startswith("uma-")
     )
-    resolved_name = model_name or _default_uma_model_name(available)
+    resolved_name = (
+        _normalize_uma_model_name(model_name)
+        if model_name is not None
+        else _default_uma_model_name(available)
+    )
     task_name = kwargs.pop("task_name", None)
     if task_name is None:
         raise ValueError(
             "UMA pretrained inference requires `task_name`, e.g. `omat`, `omol`, `oc20`, `odac`, or `omc`."
         )
 
+    fairchem_device = "cuda" if str(device).startswith("cuda") else str(device)
     calculator = FAIRChemCalculator.from_model_checkpoint(
         resolved_name,
         task_name=task_name,
         inference_settings=kwargs.pop("inference_settings", "default"),
         overrides=kwargs.pop("overrides", None),
-        device=device,
+        device=fairchem_device,
         workers=kwargs.pop("workers", 1),
     )
     return _NativeCalculatorBackedModel(

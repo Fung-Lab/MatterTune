@@ -36,10 +36,30 @@ class ORBSystemConfig(C.Config):
     """The radius for edge construction."""
     max_num_neighbors: int
     """The maximum number of neighbours each node can send messages to."""
+    edge_method: Literal[
+        "knn_brute_force",
+        "knn_scipy",
+        "knn_cuml_brute",
+        "knn_cuml_rbc",
+        "knn_alchemi",
+    ] | None = None
+    """Optional ORB edge-construction method.
+
+    The default ``None`` keeps ORB's upstream default. For CPU dataset
+    featurization, ``knn_scipy`` avoids nvalchemiops/Warp CUDA initialization.
+    """
 
     def _to_orb_system_config(self):
         with optional_import_error_message("orb_models"):
-            from orb_models.forcefield.atomic_system import SystemConfig  # type: ignore[reportMissingImports] # noqa
+            try:
+                from orb_models.forcefield.atomic_system import SystemConfig  # type: ignore[reportMissingImports] # noqa
+            except ModuleNotFoundError:
+                from orb_models.forcefield.forcefield_adapter import ForcefieldAtomsAdapter  # type: ignore[reportMissingImports] # noqa
+
+                return ForcefieldAtomsAdapter(
+                    radius=self.radius,
+                    max_num_neighbors=self.max_num_neighbors,
+                )
 
         return SystemConfig(
             radius=self.radius,
@@ -105,21 +125,41 @@ class ORBBackboneModule(
 
     def _create_output_head(self, prop: props.PropertyConfig, pretrained_model):
         with optional_import_error_message("orb_models"):
-            from orb_models.forcefield.forcefield_heads import (
-                ForceHead,
-                StressHead,
-            )
-            if self.hparams.using_partition:
-                from orb_models.forcefield.forcefield_heads import GraphHeadPoolAfter, EnergyHeadPoolAfter
-            else:
-                from orb_models.forcefield.forcefield_heads import EnergyHead, GraphHead
+            try:
+                from orb_models.forcefield.forcefield_heads import (
+                    ForceHead,
+                    StressHead,
+                )
+                if self.hparams.using_partition:
+                    from orb_models.forcefield.forcefield_heads import GraphHeadPoolAfter, EnergyHeadPoolAfter
+                    EnergyHead = None
+                    GraphHead = None
+                else:
+                    from orb_models.forcefield.forcefield_heads import EnergyHead, GraphHead
+                    EnergyHeadPoolAfter = None
+                    GraphHeadPoolAfter = None
+            except ModuleNotFoundError:
+                from orb_models.forcefield.models.forcefield_heads import (
+                    EnergyHead,
+                    ForceHead,
+                    StressHead,
+                )
+                EnergyHeadPoolAfter = None
+                GraphHead = None
+                GraphHeadPoolAfter = None
 
         match prop:
             case props.EnergyPropertyConfig():
                 if not self.hparams.reset_output_heads:
-                    return pretrained_model.graph_head
+                    if hasattr(pretrained_model, "graph_head"):
+                        return pretrained_model.graph_head
+                    if hasattr(pretrained_model, "heads") and "energy" in pretrained_model.heads:
+                        return pretrained_model.heads["energy"]
+                    raise ValueError("Pretrained ORB model does not expose an energy head.")
                 else:
                     if self.hparams.using_partition:
+                        if EnergyHeadPoolAfter is None:
+                            raise ValueError("This ORB version does not expose EnergyHeadPoolAfter.")
                         return EnergyHeadPoolAfter( # type: ignore[reportUnboundType] # noqa
                             latent_dim=256,
                             num_mlp_layers=1,
@@ -127,6 +167,8 @@ class ORBBackboneModule(
                             predict_atom_avg = False,
                         )
                     else:
+                        if EnergyHead is None:
+                            raise ValueError("This ORB version does not expose EnergyHead.")
                         return EnergyHead( # type: ignore[reportUnboundType] # noqa
                             latent_dim=256,
                             num_mlp_layers=1,
@@ -141,7 +183,11 @@ class ORBBackboneModule(
                     return None
                 else:
                     if not self.hparams.reset_output_heads:
-                        return pretrained_model.node_head
+                        if hasattr(pretrained_model, "node_head"):
+                            return pretrained_model.node_head
+                        if hasattr(pretrained_model, "heads") and "forces" in pretrained_model.heads:
+                            return pretrained_model.heads["forces"]
+                        raise ValueError("Pretrained ORB model does not expose a force head.")
                     else:
                         return ForceHead(
                             latent_dim=256,
@@ -157,7 +203,11 @@ class ORBBackboneModule(
                     return None
                 else:
                     if not self.hparams.reset_output_heads:
-                        return pretrained_model.stress_head
+                        if hasattr(pretrained_model, "stress_head"):
+                            return pretrained_model.stress_head
+                        if hasattr(pretrained_model, "heads") and "stress" in pretrained_model.heads:
+                            return pretrained_model.heads["stress"]
+                        raise ValueError("Pretrained ORB model does not expose a stress head.")
                     else:
                         return StressHead(
                             latent_dim=256,
@@ -176,6 +226,8 @@ class ORBBackboneModule(
                     )
                 else:
                     if self.hparams.using_partition:
+                        if GraphHeadPoolAfter is None:
+                            raise ValueError("This ORB version does not expose GraphHeadPoolAfter.")
                         return GraphHeadPoolAfter(  # type: ignore[reportUnboundType] # noqa
                             latent_dim=256,
                             num_mlp_layers=1,
@@ -188,6 +240,8 @@ class ORBBackboneModule(
                             node_aggregation=prop.reduction, # type: ignore
                         )
                     else:
+                        if GraphHead is None:
+                            raise ValueError("This ORB version does not expose GraphHead.")
                         return GraphHead(  # type: ignore[reportUnboundType] # noqa
                             latent_dim=256,
                             num_mlp_layers=1,
@@ -209,8 +263,12 @@ class ORBBackboneModule(
     def create_model(self):
         with optional_import_error_message("orb_models"):
             from orb_models.forcefield import pretrained
-            from orb_models.forcefield.direct_regressor import DirectForcefieldRegressor
-            from orb_models.forcefield.conservative_regressor import ConservativeForcefieldRegressor
+            try:
+                from orb_models.forcefield.direct_regressor import DirectForcefieldRegressor
+                from orb_models.forcefield.conservative_regressor import ConservativeForcefieldRegressor
+            except ModuleNotFoundError:
+                from orb_models.forcefield.models.direct_regressor import DirectForcefieldRegressor
+                from orb_models.forcefield.models.conservative_regressor import ConservativeForcefieldRegressor
 
         # Get the pre-trained backbone
         # Load the pre-trained model from the ORB package
@@ -224,6 +282,8 @@ class ORBBackboneModule(
             )
         # We load on CPU here as we don't have a device yet.
         pretrained_model = pretrained_model_fn(device="cpu", compile=False)
+        if isinstance(pretrained_model, tuple):
+            pretrained_model = pretrained_model[0]
         # This should never be None, but type checker doesn't know that so we need to check.
         assert pretrained_model is not None, "The pretrained model is not available"
 
@@ -259,10 +319,31 @@ class ORBBackboneModule(
         self.include_stress = False
         for prop in self.hparams.properties:
             head = self._create_output_head(prop, pretrained_model)
-            # assert head is not None, (
-            #     f"Find the head for the property {prop.name} is None"
-            # )
-            self.output_heads[prop.name] = head
+            if head is not None:
+                self.output_heads[prop.name] = head
+        self._freeze_unused_conservative_node_decoder()
+
+    def _freeze_unused_conservative_node_decoder(self):
+        if not self.conservative:
+            return
+        decoder = getattr(self.backbone, "_decoder", None)
+        node_fn = getattr(decoder, "node_fn", None)
+        if node_fn is None or not hasattr(node_fn, "parameters"):
+            return
+
+        frozen_tensors = 0
+        frozen_parameters = 0
+        for parameter in node_fn.parameters():
+            if parameter.requires_grad:
+                parameter.requires_grad_(False)
+                frozen_tensors += 1
+                frozen_parameters += parameter.numel()
+        if frozen_tensors:
+            log.info(
+                "Froze ORB backbone._decoder.node_fn "
+                f"({frozen_tensors} tensors, {frozen_parameters:,} parameters) "
+                "because conservative forces are computed from energy gradients."
+            )
 
     @override
     def trainable_parameters(self):
@@ -294,7 +375,10 @@ class ORBBackboneModule(
     @override
     def model_forward(self, batch, mode: str):
         with optional_import_error_message("orb_models"):
-            from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
+            try:
+                from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
+            except ModuleNotFoundError:
+                from orb_models.forcefield.models.forcefield_utils import compute_gradient_forces_and_stress
         
         # Run the backbone
         out = self.backbone(batch)
@@ -302,15 +386,9 @@ class ORBBackboneModule(
         
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
-        for name, head in self.output_heads.items():
-            assert (
-                prop := next(
-                    (p for p in self.hparams.properties if p.name == name), None
-                )
-            ) is not None, (
-                f"Property {name} not found in properties. "
-                "This should not happen, please report this."
-            )
+        for prop in self.hparams.properties:
+            name = prop.name
+            head = self.output_heads[name] if name in self.output_heads else None
             if head is not None:
                 res = head(node_features, batch)
                 if isinstance(res, torch.Tensor):
@@ -358,7 +436,10 @@ class ORBBackboneModule(
     @override
     def model_forward_partition(self, batch, mode: str, using_partition: bool = False):
         with optional_import_error_message("orb_models"):
-            from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
+            try:
+                from orb_models.forcefield.forcefield_utils import compute_gradient_forces_and_stress
+            except ModuleNotFoundError:
+                from orb_models.forcefield.models.forcefield_utils import compute_gradient_forces_and_stress
         
         # Run the backbone
         out = self.backbone(batch)
@@ -366,15 +447,9 @@ class ORBBackboneModule(
         
         # Feed the backbone output to the output heads
         predicted_properties: dict[str, torch.Tensor] = {}
-        for name, head in self.output_heads.items():
-            assert (
-                prop := next(
-                    (p for p in self.hparams.properties if p.name == name), None
-                )
-            ) is not None, (
-                f"Property {name} not found in properties. "
-                "This should not happen, please report this."
-            )
+        for prop in self.hparams.properties:
+            name = prop.name
+            head = self.output_heads[name] if name in self.output_heads else None
             if head is not None:
                 res = head(node_features, batch)
                 if isinstance(res, torch.Tensor):
@@ -439,9 +514,16 @@ class ORBBackboneModule(
     @override
     def collate_fn(self, data_list):
         with optional_import_error_message("orb_models"):
-            from orb_models.forcefield.base import batch_graphs  # type: ignore[reportMissingImports] # noqa
+            try:
+                from orb_models.forcefield.base import batch_graphs  # type: ignore[reportMissingImports] # noqa
 
-        return batch_graphs(data_list)
+                return batch_graphs(data_list)
+            except ModuleNotFoundError:
+                if hasattr(self.system_config, "batch"):
+                    return self.system_config.batch(data_list)
+                from orb_models.forcefield.forcefield_adapter import AtomGraphs  # type: ignore[reportMissingImports] # noqa
+
+                return AtomGraphs.batch(data_list)
 
     @override
     def gpu_batch_transform(self, batch):
@@ -470,7 +552,10 @@ class ORBBackboneModule(
     @override
     def atoms_to_data(self, atoms, has_labels):
         with optional_import_error_message("orb_models"):
-            from orb_models.forcefield import atomic_system  # type: ignore[reportMissingImports] # noqa
+            try:
+                from orb_models.forcefield import atomic_system  # type: ignore[reportMissingImports] # noqa
+            except ImportError:
+                atomic_system = None
 
         # This is the dataset transform; we can't use GPU here.
         # NOTE: the 0.5.5 version of `orb_models` has a bug in the `ase_atoms_to_atom_graphs`
@@ -479,15 +564,45 @@ class ORBBackboneModule(
         # when device="gpu" and num_workers>0, it will throw an error because it is not allowed to do CUDA lazy init in
         # a forked process. We have a patch to fix this, and we have a PR open to fix this upstream. But in 0.5.5 they
         # have not fixed it yet. Until that is merged, a solution is to set device="cpu"
-        atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
-            atoms,
-            system_config=self.system_config,
-            device=torch.device("cpu"),
-        )
+        if atomic_system is None:
+            atom_graphs = self.system_config.from_ase_atoms(
+                atoms,
+                device=torch.device("cpu"),
+                edge_method=self.hparams.system.edge_method,
+            )
+        else:
+            try:
+                atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
+                    atoms,
+                    system_config=self.system_config,
+                    device=torch.device("cpu"),
+                    edge_method=self.hparams.system.edge_method,
+                )
+            except TypeError as exc:
+                if self.hparams.system.edge_method is not None:
+                    raise TypeError(
+                        "Configured ORB edge_method="
+                        f"{self.hparams.system.edge_method!r}, but this orb_models "
+                        "atomic_system.ase_atoms_to_atom_graphs implementation does "
+                        "not accept edge_method."
+                    ) from exc
+                atom_graphs = atomic_system.ase_atoms_to_atom_graphs(
+                    atoms,
+                    system_config=self.system_config,
+                    device=torch.device("cpu"),
+                )
         
         if has_labels:
             if atom_graphs.system_targets is None:
-                atom_graphs = atom_graphs._replace(system_targets={})
+                if hasattr(atom_graphs, "_replace"):
+                    atom_graphs = atom_graphs._replace(system_targets={})
+                else:
+                    atom_graphs.system_targets = {}
+            if atom_graphs.node_targets is None:
+                if hasattr(atom_graphs, "_replace"):
+                    atom_graphs = atom_graphs._replace(node_targets={})
+                else:
+                    atom_graphs.node_targets = {}
 
             # Making the type checker happy
             assert atom_graphs.system_targets is not None
@@ -576,5 +691,3 @@ class ORBBackboneModule(
             self.backbone.num_message_passing_steps = min(
                 message_passing_steps, self.backbone.num_message_passing_steps
             )
-
-

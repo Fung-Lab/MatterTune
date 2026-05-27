@@ -32,6 +32,25 @@ HARDCODED_NAMES: dict[type[props.PropertyConfigBase], str] = {
 }
 
 
+def _unwrap_head_value(value: Any, canonical_name: str) -> torch.Tensor:
+    if isinstance(value, dict):
+        if canonical_name not in value:
+            raise KeyError(
+                f"UMA head output dictionary does not contain {canonical_name!r}; "
+                f"available keys are {sorted(value)}."
+            )
+        value = value[canonical_name]
+    if not isinstance(value, torch.Tensor):
+        raise TypeError(f"Expected UMA head output {canonical_name!r} to be a tensor, got {type(value)}.")
+    return value
+
+
+def _disable_activation_checkpointing(module: nn.Module) -> None:
+    for child in module.modules():
+        if hasattr(child, "activation_checkpoint_chunk_size"):
+            child.activation_checkpoint_chunk_size = None
+
+
 @backbone_registry.register
 class UMABackboneConfig(FinetuneModuleBaseConfig):
     name: Literal["uma"] = "uma"
@@ -78,6 +97,9 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
 
     @override
     def requires_disabled_inference_mode(self):
+        for prop in self.hparams.properties:
+            if isinstance(prop, (props.ForcesPropertyConfig, props.StressesPropertyConfig)) and prop.conservative:
+                return True
         return False
 
     @override
@@ -90,31 +112,51 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
             from fairchem.core import pretrained_mlip
 
         predictor = pretrained_mlip.get_predict_unit(self.hparams.model_name)
+        pretrained_module = predictor.model.module
         # type: ignore[reportGeneralTypeIssues]
-        backbone: eSCNMDMoeBackbone = predictor.model.module.backbone
+        backbone: eSCNMDMoeBackbone = pretrained_module.backbone
         self.backbone = backbone.float()
+        if not hasattr(self.backbone, "direct_stress"):
+            self.backbone.direct_stress = False
 
         self.output_heads = nn.ModuleDict()
         # if any conservative forces or stresses are requested, we need to use the MLP_EFS_Head
         f_conservative = False
         s_conservative = False
+        f_direct = False
         for prop in self.hparams.properties:
             if isinstance(prop, props.ForcesPropertyConfig):
                 if prop.conservative:
                     f_conservative = True
+                else:
+                    f_direct = True
             elif isinstance(prop, props.StressesPropertyConfig):
                 if prop.conservative:
                     s_conservative = True
+        if f_direct:
+            self.backbone.regress_config = copy.deepcopy(self.backbone.regress_config)
+            self.backbone.regress_config.direct_forces = True
+            self.backbone.regress_config.direct_stress = False
+            self.backbone.regress_config.forces = False
+            self.backbone.regress_config.stress = False
         if f_conservative or s_conservative:
-            head = MLP_EFS_Head(
-                backbone=self.backbone,
-                wrap_property=False,
-            )
+            _disable_activation_checkpointing(self.backbone)
+            if not self.hparams.reset_output_heads:
+                output_heads = getattr(pretrained_module, "output_heads", None)
+                if output_heads is None or "energyandforcehead" not in output_heads:
+                    raise ValueError("Pretrained UMA model does not expose energyandforcehead.")
+                head = output_heads["energyandforcehead"]
+            else:
+                head = MLP_EFS_Head(
+                    backbone=self.backbone,
+                    wrap_property=False,
+                )
+            regress_target = getattr(head, "head", head)
             # fairchem-core now exposes regress_forces/regress_stress as read-only
             # properties backed by a mutable regress_config object.
-            head.regress_config = copy.deepcopy(head.regress_config)
-            head.regress_config.forces = f_conservative
-            head.regress_config.stress = s_conservative
+            regress_target.regress_config = copy.deepcopy(regress_target.regress_config)
+            regress_target.regress_config.forces = f_conservative
+            regress_target.regress_config.stress = s_conservative
             self.output_heads["efs"] = head
         # for other properties, we can use the specific heads
         for prop in self.hparams.properties:
@@ -168,9 +210,17 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
 
         predicted_properties: dict[str, torch.Tensor] = {}
         for prop in self.hparams.properties:
-            predicted_properties[prop.name] = output_pred[
-                HARDCODED_NAMES[type(prop)]
-            ].to(dtype=target_dtype)
+            canonical_name = HARDCODED_NAMES[type(prop)]
+            task_key = (
+                f"{self.hparams.task_name}_{canonical_name}"
+                if self.hparams.task_name is not None
+                else None
+            )
+            if task_key is not None and task_key in output_pred:
+                value = _unwrap_head_value(output_pred[task_key], canonical_name)
+            else:
+                value = _unwrap_head_value(output_pred[canonical_name], canonical_name)
+            predicted_properties[prop.name] = value.to(dtype=target_dtype)
 
         if mode == "predict":
             self.train()

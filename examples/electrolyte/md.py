@@ -4,6 +4,7 @@ import argparse
 import copy
 import csv
 import json
+import math
 import sys
 import time
 from contextlib import contextmanager
@@ -16,6 +17,7 @@ from ase import Atoms
 from ase.build import bulk
 from ase.io import read, write
 from ase.md.langevin import Langevin
+from ase.md.verlet import VelocityVerlet
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
 
 from mattertune import load_pretrained_model
@@ -67,6 +69,57 @@ def tee_output(log_path: Path):
         finally:
             sys.stdout = stdout_original
             sys.stderr = stderr_original
+
+
+class ZeroStartBussi(VelocityVerlet):
+    """Bussi CSVR thermostat that can start from zero initial kinetic energy."""
+
+    def __init__(
+        self,
+        atoms,
+        timestep,
+        temperature_K,
+        taut,
+        rng=None,
+        **kwargs,
+    ):
+        super().__init__(atoms, timestep, **kwargs)
+        self.temp = temperature_K * units.kB
+        self.taut = taut
+        self.rng = np.random if rng is None else rng
+        self.ndof = self.atoms.get_number_of_degrees_of_freedom()
+        self.target_kinetic_energy = 0.5 * self.temp * self.ndof
+        self._exp_term = math.exp(-self.dt / self.taut)
+        self.transferred_energy = 0.0
+
+    def calculate_alpha(self, kinetic_energy: float) -> float:
+        energy_scaling_term = (
+            (1.0 - self._exp_term)
+            * self.target_kinetic_energy
+            / kinetic_energy
+            / self.ndof
+        )
+        noisearray = self.rng.standard_normal(size=(1,))
+        self.comm.broadcast(noisearray, 0)
+        normal_noise = noisearray[0]
+        sum_of_noises = 2.0 * self.rng.standard_gamma(0.5 * (self.ndof - 1))
+        return math.sqrt(
+            self._exp_term
+            + energy_scaling_term * (sum_of_noises + normal_noise**2)
+            + 2.0 * normal_noise * math.sqrt(self._exp_term * energy_scaling_term)
+        )
+
+    def scale_velocities(self) -> None:
+        kinetic_energy = self.atoms.get_kinetic_energy()
+        if kinetic_energy <= 1.0e-12:
+            return
+        alpha = self.calculate_alpha(kinetic_energy)
+        self.atoms.set_momenta(alpha * self.atoms.get_momenta())
+        self.transferred_energy += (alpha**2 - 1.0) * kinetic_energy
+
+    def step(self, forces=None):
+        self.scale_velocities()
+        return super().step(forces)
 
 
 def lambda_mask_to_string(lambda_mask: np.ndarray) -> str:
@@ -322,6 +375,31 @@ def should_enable_uma_merge_experts(args: argparse.Namespace) -> bool:
     )
 
 
+def should_use_separate_ghost_model(args: argparse.Namespace) -> bool:
+    if not should_enable_uma_merge_experts(args):
+        return False
+    if args.ghost_endpoint_mode == "delete":
+        return True
+    return 1e-8 < args.lambda_value < 1.0 - 1e-8
+
+
+def build_pretrained_load_kwargs(args: argparse.Namespace) -> dict[str, object]:
+    load_kwargs: dict[str, object] = {}
+    if args.task_name is not None:
+        load_kwargs["task_name"] = args.task_name
+
+    if should_enable_uma_merge_experts(args):
+        from fairchem.core.units.mlip_unit.api.inference import (
+            inference_settings_default,
+        )
+
+        inference_settings = inference_settings_default()
+        inference_settings.merge_mole = True
+        load_kwargs["inference_settings"] = inference_settings
+
+    return load_kwargs
+
+
 class ASECalculatorBackedModel:
     def __init__(
         self,
@@ -420,33 +498,20 @@ def load_md_models(
         )
         return model, None
 
-    load_kwargs: dict[str, object] = {}
-    if args.task_name is not None:
-        load_kwargs["task_name"] = args.task_name
-
-    if should_enable_uma_merge_experts(args):
-        from fairchem.core.units.mlip_unit.api.inference import (
-            inference_settings_default,
-        )
-
-        inference_settings = inference_settings_default()
-        inference_settings.merge_mole = True
-        load_kwargs["inference_settings"] = inference_settings
-
     model = load_pretrained_model(
         args.model_type,
         args.model_name,
         device=args.device,
-        **load_kwargs,
+        **build_pretrained_load_kwargs(args),
     )
 
     ghost_model = None
-    if should_enable_uma_merge_experts(args) and 1e-8 < args.lambda_value < 1.0 - 1e-8:
+    if should_use_separate_ghost_model(args):
         ghost_model = load_pretrained_model(
             args.model_type,
             args.model_name,
             device=args.device,
-            **load_kwargs,
+            **build_pretrained_load_kwargs(args),
         )
 
     return model, ghost_model
@@ -484,6 +549,11 @@ def main(args: argparse.Namespace) -> None:
             f"target_indices={target_indices} lambda={args.lambda_value:.6f} "
             f"ghost_mode={args.ghost_endpoint_mode} use_d3={args.use_d3}"
         )
+        if ghost_model is not None:
+            print(
+                f"ghost_model={ghost_model.family}:{ghost_model.model_name} "
+                f"device={ghost_model.device}"
+            )
 
         calc = GhostTargetCorrectionCalculator(
             model,
@@ -519,13 +589,24 @@ def main(args: argparse.Namespace) -> None:
         else:
             print("initial velocities not assigned")
 
-        dynamics = Langevin(
-            atoms,
-            timestep=args.timestep_fs * units.fs,
-            temperature_K=args.temperature,
-            friction=args.friction_fs_inv / units.fs,
-            fixcm=False,
-        )
+        if args.thermostat == "langevin":
+            dynamics = Langevin(
+                atoms,
+                timestep=args.timestep_fs * units.fs,
+                temperature_K=args.temperature,
+                friction=args.friction_fs_inv / units.fs,
+                fixcm=False,
+            )
+        elif args.thermostat == "bussi":
+            dynamics = ZeroStartBussi(
+                atoms,
+                timestep=args.timestep_fs * units.fs,
+                temperature_K=args.temperature,
+                taut=args.thermostat_timecon_fs * units.fs,
+                rng=np.random.default_rng(args.seed),
+            )
+        else:
+            raise ValueError(f"Unsupported thermostat: {args.thermostat}")
 
         if trajectory_path.exists():
             trajectory_path.unlink()
@@ -656,7 +737,9 @@ def main(args: argparse.Namespace) -> None:
 
         print(
             f"running ghost-target MD: steps={args.steps}, timestep_fs={args.timestep_fs}, "
-            f"temperature_K={args.temperature}, log_interval={args.log_interval}, "
+            f"temperature_K={args.temperature}, thermostat={args.thermostat}, "
+            f"thermostat_timecon_fs={args.thermostat_timecon_fs}, "
+            f"friction_fs_inv={args.friction_fs_inv}, log_interval={args.log_interval}, "
             f"trajectory_interval={args.trajectory_interval}, "
             f"diagnostics_interval={args.diagnostics_interval}"
         )
@@ -774,6 +857,18 @@ def parse_args() -> argparse.Namespace:
     parser.set_defaults(uma_merge_experts=True)
     parser.add_argument("--temperature", type=float, default=300.0)
     parser.add_argument(
+        "--thermostat",
+        choices=("langevin", "bussi"),
+        default="langevin",
+        help="Thermostat for MD. `bussi` is stochastic velocity rescaling, equivalent to CSVR.",
+    )
+    parser.add_argument(
+        "--thermostat-timecon-fs",
+        type=float,
+        default=100.0,
+        help="Thermostat time constant in fs. Used by --thermostat bussi.",
+    )
+    parser.add_argument(
         "--init-velocities",
         action="store_true",
         help="Initialize Maxwell-Boltzmann velocities before MD. Disabled by default.",
@@ -820,6 +915,10 @@ def parse_args() -> argparse.Namespace:
         args.energy_log_name = None
     if args.log_interval <= 0:
         parser.error("--log-interval must be positive.")
+    if args.thermostat_timecon_fs <= 0.0:
+        parser.error("--thermostat-timecon-fs must be positive.")
+    if args.friction_fs_inv <= 0.0:
+        parser.error("--friction-fs-inv must be positive.")
     if args.trajectory_interval is None:
         args.trajectory_interval = args.log_interval
     if args.diagnostics_interval is None:
