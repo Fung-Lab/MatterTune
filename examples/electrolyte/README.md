@@ -39,7 +39,7 @@ To avoid that, the calculator adds a Lennard-Jones correction only at the fully 
 - It does not act on environment-environment pairs.
 - It does not act on target-target pairs.
 - It is derived from an explicit potential energy expression, so energy and forces remain consistent.
-- By default, the correction uses `smooth=True` so that the target can cross the cutoff without an energy or force jump.
+- No cutoff, energy shift, smoothing, or soft-core outer transform is applied.
 - The pair potential uses the classical 12-6 form
 
 `V_LJ(r) = 4 * epsilon * ((sigma / r)^12 - (sigma / r)^6)`
@@ -73,7 +73,7 @@ This lets each endpoint merge experts against its own fixed composition without 
 ## Files
 
 - [`ghost_target_calculator.py`](./ghost_target_calculator.py): the corrected ASE calculator
-- [`check_soft_core_continuity.py`](./check_soft_core_continuity.py): checks smooth-cutoff continuity and compares LJ forces against finite-difference energy gradients
+- [`check_soft_core_continuity.py`](./check_soft_core_continuity.py): checks LJ force consistency against finite-difference energy gradients
 - [`md.py`](./md.py): runs MD with the corrected calculator
 
 ## Quick Start
@@ -242,16 +242,16 @@ Important note:
 - `--epsilon`: overall strength of the LJ correction
 - `--sigma`: length scale of the LJ correction
 - `--alpha`: kept for backward compatibility in the current example interface; it is not used by the present ghost-endpoint LJ implementation
-- `--rc`: cutoff radius of the correction
-- `--ro`: onset radius for the smooth cutoff
-- `--no-smooth`: disable smooth cutoff handling; by default the example uses `smooth=True`
+- `--rc`: kept for backward compatibility; ignored by the present pure LJ implementation
+- `--ro`: kept for backward compatibility; ignored by the present pure LJ implementation
+- `--no-smooth`: kept for backward compatibility; smoothing is no longer applied
 
 Typical meaning:
 
 - Larger `epsilon` increases the overall LJ interaction strength.
 - Larger `sigma` shifts the LJ length scale outward.
 - `alpha` is currently ignored by the implemented LJ correction and is retained only to avoid breaking existing example command lines.
-- `rc` and `ro` control where the correction is turned off and how gradually it decays to zero.
+- `rc`, `ro`, and `smooth` are currently ignored by the implemented LJ correction and are retained only to avoid breaking existing example command lines.
 
 ### 4. Optional D3 dispersion parameters
 
@@ -304,7 +304,7 @@ If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is eno
 
 ## Notes
 
-- The continuity check script is useful whenever you change `epsilon`, `sigma`, `rc`, or `ro`. The current LJ implementation keeps `alpha` only for backward-compatible argument parsing.
+- The LJ check script is useful whenever you change `epsilon` or `sigma`. The current LJ implementation keeps `alpha`, `rc`, `ro`, and `smooth` only for backward-compatible argument parsing.
 - The corrected calculator only exposes `energy`, `forces`, and `free_energy`.
 - The new `--ghost-endpoint-mode dummy` path is implemented only for pretrained MACE models.
 - The pretrained-MACE dummy path was smoke-tested locally in this repository.
@@ -314,7 +314,7 @@ If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is eno
 
 The current implementation was tested on `examples/electrolyte/data/LiH2O.xyz`
 with target atom `0`, `epsilon=0.00694`, `sigma=2.337`, `alpha=0.5`,
-`rc=3.0`, `ro=1.5`, and `smooth=True`.
+`rc=3.0`, `ro=1.5`, and `smooth=True`; the latter three are ignored by the pure LJ correction.
 
 Tested models:
 

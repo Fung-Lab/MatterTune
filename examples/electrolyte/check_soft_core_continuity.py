@@ -84,7 +84,7 @@ def main(args: argparse.Namespace) -> None:
     )
 
     continuity_rows: list[tuple[float, float, float]] = []
-    print("Smooth-cutoff scan around rc")
+    print("Pure-LJ scan around the diagnostic rc value (rc is ignored by the correction)")
     for distance in sample_distances:
         energy, force_x = evaluate_pair_energy_and_force(
             distance,
@@ -108,17 +108,8 @@ def main(args: argparse.Namespace) -> None:
 
     max_cutoff_energy_jump = max(abs(left_energy - at_energy), abs(right_energy - at_energy))
     max_cutoff_force_jump = max(abs(left_force - at_force), abs(right_force - at_force))
-    print(f"max energy jump near rc: {max_cutoff_energy_jump:.12e} eV")
-    print(f"max force jump near rc: {max_cutoff_force_jump:.12e} eV/A")
-
-    if max_cutoff_energy_jump > args.cutoff_energy_tolerance:
-        raise SystemExit(
-            f"Energy is not sufficiently continuous near rc: {max_cutoff_energy_jump} > {args.cutoff_energy_tolerance}"
-        )
-    if max_cutoff_force_jump > args.cutoff_force_tolerance:
-        raise SystemExit(
-            f"Force is not sufficiently continuous near rc: {max_cutoff_force_jump} > {args.cutoff_force_tolerance}"
-        )
+    print(f"max energy change near diagnostic rc: {max_cutoff_energy_jump:.12e} eV")
+    print(f"max force change near diagnostic rc: {max_cutoff_force_jump:.12e} eV/A")
 
     gradient_rows: list[tuple[float, float, float, float]] = []
     print("\nFinite-difference force/gradient check")
@@ -154,7 +145,7 @@ def main(args: argparse.Namespace) -> None:
             f"Finite-difference force check failed: {max_gradient_error} > {args.gradient_tolerance}"
         )
 
-    continuity_path = output_dir / "smooth_cutoff_scan.csv"
+    continuity_path = output_dir / "pure_lj_scan.csv"
     with continuity_path.open("w", encoding="utf-8") as handle:
         handle.write("distance,energy,force_x\n")
         for distance, energy, force_x in continuity_rows:
@@ -175,7 +166,7 @@ def main(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     default_output_dir = Path(__file__).resolve().parent / "outputs" / "continuity"
     parser = argparse.ArgumentParser(
-        description="Check smooth-cutoff continuity and force/energy consistency for the target correction.",
+        description="Check pure LJ smoothness and force/energy consistency for the target correction.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--epsilon", type=float, default=1.0)
@@ -185,8 +176,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ro", type=float, default=2.0)
     parser.add_argument("--fd-step", type=float, default=1.0e-5)
     parser.add_argument("--num-gradient-points", type=int, default=6)
-    parser.add_argument("--cutoff-energy-tolerance", type=float, default=5.0e-8)
-    parser.add_argument("--cutoff-force-tolerance", type=float, default=5.0e-7)
     parser.add_argument("--gradient-tolerance", type=float, default=2.0e-6)
     parser.add_argument("--output-dir", default=str(default_output_dir))
     return parser.parse_args()

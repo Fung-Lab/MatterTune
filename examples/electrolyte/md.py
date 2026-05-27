@@ -838,14 +838,29 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--epsilon", type=float, default=0.00694)
     parser.add_argument("--sigma", type=float, default=2.337)
-    parser.add_argument("--alpha", type=float, default=0.5)
-    parser.add_argument("--rc", type=float, default=3.0)
-    parser.add_argument("--ro", type=float, default=1.5)
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.5,
+        help="Backward-compatible ghost-LJ argument; ignored by the pure LJ correction.",
+    )
+    parser.add_argument(
+        "--rc",
+        type=float,
+        default=3.0,
+        help="Backward-compatible ghost-LJ argument; ignored by the pure LJ correction.",
+    )
+    parser.add_argument(
+        "--ro",
+        type=float,
+        default=1.5,
+        help="Backward-compatible ghost-LJ argument; ignored by the pure LJ correction.",
+    )
     parser.add_argument(
         "--no-smooth",
         action="store_false",
         dest="smooth",
-        help="Disable the smooth cutoff for the ghost-target correction.",
+        help="Backward-compatible flag; smoothing is ignored by the pure LJ correction.",
     )
     parser.add_argument(
         "--ghost-endpoint-mode",
