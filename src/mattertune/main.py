@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, Literal, NamedTuple
 
 import nshconfig as C
@@ -132,6 +133,13 @@ class TrainerConfig(C.Config):
     ema: EMAConfig | None = None
     """The configuration for the Exponential Moving Average (EMA) callback."""
 
+    resume_checkpoint: str | Path | None = None
+    """Full Lightning checkpoint to resume training from. Default: ``None``.
+
+    This restores model weights, optimizer and scheduler state, epoch/global
+    step, and callback state through ``Trainer.fit(..., ckpt_path=...)``.
+    """
+
     loggers: Sequence[LoggerConfig] | Literal["default"] = "default"
     """The loggers to use for logging training metrics.
 
@@ -146,6 +154,15 @@ class TrainerConfig(C.Config):
     This is for advanced users who want to customize the Lightning Trainer,
     and is not recommended for beginners.
     """
+
+    def fit_ckpt_path(self) -> str | None:
+        if self.resume_checkpoint is None:
+            return None
+
+        checkpoint = Path(self.resume_checkpoint)
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        return str(checkpoint)
 
     def _to_lightning_kwargs(self):
         callbacks = []
@@ -277,7 +294,11 @@ class MatterTuner:
 
         # Create the trainer
         trainer = Trainer(**trainer_kwargs_)
-        trainer.fit(lightning_module, datamodule)
+        trainer.fit(
+            lightning_module,
+            datamodule,
+            ckpt_path=self.config.trainer.fit_ckpt_path(),
+        )
 
         # Return the trained model
         return TuneOutput(model=lightning_module, trainer=trainer)

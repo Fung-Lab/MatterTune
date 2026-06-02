@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -178,6 +177,7 @@ def build_config(args: argparse.Namespace):
     hparams.trainer.gradient_clip_algorithm = "norm"
     hparams.trainer.gradient_clip_val = args.gradient_clip_val
     hparams.trainer.precision = "32"
+    hparams.trainer.resume_checkpoint = args.resume_checkpoint
     hparams.trainer.ema = MC.EMAConfig(decay=args.ema_decay)
     hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
         monitor=args.monitor,
@@ -190,12 +190,13 @@ def build_config(args: argparse.Namespace):
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     ckpt_name = f"{model_label(args.model_type, args.model_name)}-pair100-best"
     ckpt_path = checkpoint_dir / f"{ckpt_name}.ckpt"
-    if ckpt_path.exists():
-        os.remove(ckpt_path)
+    if ckpt_path.exists() and args.resume_checkpoint is None:
+        ckpt_path.unlink()
     hparams.trainer.checkpoint = MC.ModelCheckpointConfig(
         monitor=args.monitor,
         dirpath=str(checkpoint_dir),
         filename=ckpt_name,
+        save_last=True,
         save_top_k=1,
         mode="min",
     )
@@ -439,6 +440,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--energy_reference", type=Path, required=True)
     parser.add_argument("--output_dir", type=Path, default=None)
     parser.add_argument("--checkpoint_dir", type=Path, default=None)
+    parser.add_argument("--resume_checkpoint", type=Path, default=None)
     parser.add_argument("--log_dir", type=Path, default=None)
     parser.add_argument("--devices", nargs="+", default=["0"])
     parser.add_argument("--accelerator", default="gpu")
@@ -497,7 +499,10 @@ def parse_args() -> argparse.Namespace:
     if args.log_dir is None:
         args.log_dir = Path(args.output_dir) / "logs"
 
-    for required in (args.train_file, args.test_file, args.energy_reference):
+    required_paths = [args.train_file, args.test_file, args.energy_reference]
+    if args.resume_checkpoint is not None:
+        required_paths.append(args.resume_checkpoint)
+    for required in required_paths:
         if not Path(required).is_file():
             raise FileNotFoundError(required)
     return args

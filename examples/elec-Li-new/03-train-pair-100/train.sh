@@ -12,7 +12,7 @@ Environment overrides:
   MODEL_TYPE=mattersim|mattersim-1m|mattersim-5m|orb|uma
   TRAIN_DATA_ROOT=/net/csefiles/coc-fung-cluster/lingyu/Li-electrolyte-100
   TEST_DATA_ROOT=/net/csefiles/coc-fung-cluster/lingyu/electrolyte
-  PAIR_TRAIN_FILE TRAIN_FILE TEST_FILE OUTPUT_ROOT OUTPUT_DIR INIT_CHECKPOINT
+  PAIR_TRAIN_FILE TRAIN_FILE TEST_FILE OUTPUT_ROOT OUTPUT_DIR INIT_CHECKPOINT RESUME_CHECKPOINT
   DEVICES BATCH_SIZE NUM_WORKERS LR MAX_EPOCHS TRAIN_SPLIT MAX_PARENT_FRAME
   E_LOSS_WEIGHT F_LOSS_WEIGHT DELTA_E_LOSS_WEIGHT LOGGER WANDB_PROJECT WANDB_NAME
 EOF
@@ -118,6 +118,15 @@ apply_cli_overrides() {
         ;;
       --init_checkpoint=*|--init-checkpoint=*)
         INIT_CHECKPOINT="${1#*=}"
+        shift
+        ;;
+      --resume_checkpoint|--resume-checkpoint)
+        [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 2; }
+        RESUME_CHECKPOINT="$2"
+        shift 2
+        ;;
+      --resume_checkpoint=*|--resume-checkpoint=*)
+        RESUME_CHECKPOINT="${1#*=}"
         shift
         ;;
       --output_dir|--output-dir)
@@ -416,6 +425,9 @@ OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_ROOT}/${RUN_NAME}}"
 if [[ -z "${INIT_CHECKPOINT+x}" ]]; then
   INIT_CHECKPOINT=""
 fi
+if [[ -z "${RESUME_CHECKPOINT+x}" ]]; then
+  RESUME_CHECKPOINT=""
+fi
 
 REFERENCE_MODEL="${REFERENCE_MODEL:-ridge}"
 RIDGE_ALPHA="${RIDGE_ALPHA:-1.0}"
@@ -467,6 +479,14 @@ for required_file in "${TRAIN_FILE}" "${PAIR_TRAIN_FILE}" "${TEST_FILE}"; do
 done
 if [[ -n "${INIT_CHECKPOINT}" && ! -f "${INIT_CHECKPOINT}" ]]; then
   echo "Initial checkpoint not found: ${INIT_CHECKPOINT}" >&2
+  exit 1
+fi
+if [[ -n "${INIT_CHECKPOINT}" && -n "${RESUME_CHECKPOINT}" ]]; then
+  echo "INIT_CHECKPOINT initializes weights for a new run; RESUME_CHECKPOINT restores full training state. Set only one." >&2
+  exit 1
+fi
+if [[ -n "${RESUME_CHECKPOINT}" && ! -f "${RESUME_CHECKPOINT}" ]]; then
+  echo "Resume checkpoint not found: ${RESUME_CHECKPOINT}" >&2
   exit 1
 fi
 if [[ ! -f "${CONDA_SH}" ]]; then
@@ -540,6 +560,9 @@ fi
 if [[ -n "${INIT_CHECKPOINT}" ]]; then
   TRAIN_CMD+=(--init_checkpoint "${INIT_CHECKPOINT}")
 fi
+if [[ -n "${RESUME_CHECKPOINT}" ]]; then
+  TRAIN_CMD+=(--resume_checkpoint "${RESUME_CHECKPOINT}")
+fi
 if [[ "${WANDB_OFFLINE}" == "1" ]]; then
   TRAIN_CMD+=(--wandb_offline)
 fi
@@ -575,6 +598,7 @@ echo "ENERGY_REFERENCE = ${ENERGY_REFERENCE}"
 echo "REFERENCE_SOURCE = ${REFERENCE_ENERGY_SOURCE}"
 echo "OUTPUT_DIR       = ${OUTPUT_DIR}"
 echo "INIT_CHECKPOINT  = ${INIT_CHECKPOINT:-<none>}"
+echo "RESUME_CHECKPOINT= ${RESUME_CHECKPOINT:-<none>}"
 echo "CONDA_ENV        = ${CONDA_ENV}"
 echo "PAIR_TRAIN_FILE  = ${PAIR_TRAIN_FILE}"
 echo "DEVICES          = ${DEVICES_CSV}"

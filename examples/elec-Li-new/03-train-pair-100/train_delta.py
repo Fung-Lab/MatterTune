@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -450,7 +449,7 @@ def fit_with_delta_pairs(args: argparse.Namespace) -> tuple[Any, Trainer]:
         trainer_kwargs["inference_mode"] = False
     trainer_kwargs["use_distributed_sampler"] = False
     trainer = Trainer(**trainer_kwargs)
-    trainer.fit(model, datamodule)
+    trainer.fit(model, datamodule, ckpt_path=config.trainer.fit_ckpt_path())
     return model, trainer
 
 
@@ -499,6 +498,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--init_checkpoint", type=Path, default=DEFAULT_INIT_CHECKPOINT)
     parser.add_argument("--output_dir", type=Path, default=None)
     parser.add_argument("--checkpoint_dir", type=Path, default=None)
+    parser.add_argument("--resume_checkpoint", type=Path, default=None)
     parser.add_argument("--log_dir", type=Path, default=None)
     parser.add_argument("--devices", nargs="+", default=["0"])
     parser.add_argument("--accelerator", default="gpu")
@@ -548,6 +548,11 @@ def parse_args() -> argparse.Namespace:
     args.model_name = normalize_model_name(args.model_type, args.model_name)
     if args.model_type != "mattersim" and args.init_checkpoint == DEFAULT_INIT_CHECKPOINT:
         args.init_checkpoint = None
+    if args.init_checkpoint is not None and args.resume_checkpoint is not None:
+        raise ValueError(
+            "--init_checkpoint only initializes model weights for a new run; "
+            "--resume_checkpoint restores full training state. Use only one."
+        )
     args.devices = normalize_devices(args.devices)
     args.per_atom_energy_normalize = not args.no_per_atom_energy_normalize
     if args.max_parent_frame is not None and args.max_parent_frame < 0:
@@ -567,6 +572,8 @@ def parse_args() -> argparse.Namespace:
     required_paths = [args.train_file, args.pair_train_file, args.test_file, args.energy_reference]
     if args.init_checkpoint is not None:
         required_paths.append(args.init_checkpoint)
+    if args.resume_checkpoint is not None:
+        required_paths.append(args.resume_checkpoint)
     for required in required_paths:
         if not Path(required).is_file():
             raise FileNotFoundError(required)
