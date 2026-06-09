@@ -64,9 +64,6 @@ def soft_core_lj_correction(
     target_mask: Sequence[bool] | NDArray[np.bool_] | None = None,
     epsilon: float = 1.0,
     sigma: float = 1.0,
-    alpha: float = 0.5,
-    rc: float | None = None,
-    ro: float | None = None,
     smooth: bool = False,
 ) -> tuple[float, NDArray[np.float64]]:
     """Compute a target-specific Lennard-Jones correction.
@@ -86,11 +83,10 @@ def soft_core_lj_correction(
     through endpoint interpolation.
 
     No cutoff, energy shift, smoothing, or soft-core outer transform is applied.
-    ``alpha``, ``rc``, ``ro``, and ``smooth`` are retained in the public
-    signature for backward-compatible example scripts, but they are ignored by
-    this pure 12-6 LJ implementation.
+    ``smooth`` is retained in the public signature for backward-compatible
+    example scripts, but it is ignored by this pure 12-6 LJ implementation.
     """
-    _ = (alpha, rc, ro, smooth)
+    _ = smooth
 
     natoms = len(atoms)
     resolved_target_mask = _resolve_target_mask(
@@ -156,9 +152,6 @@ def _assert_allclose(
 if __name__ == "__main__":
     sigma = 1.0
     epsilon = 1.0
-    alpha = 0.5
-    rc = 3.0
-    ro = 2.0
 
     triad = Atoms(
         "Ar3",
@@ -175,9 +168,6 @@ if __name__ == "__main__":
         triad,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
         smooth=False,
     )
     _assert_allclose(
@@ -198,9 +188,6 @@ if __name__ == "__main__":
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
         smooth=False,
     )
     target_distances2 = np.array([1.1**2, 2.0**2], dtype=np.float64)
@@ -227,9 +214,6 @@ if __name__ == "__main__":
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
         smooth=False,
     )
     if overlap_energy <= 0.0:
@@ -242,9 +226,6 @@ if __name__ == "__main__":
         target_mask=[True, True],
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
         smooth=False,
     )
     _assert_allclose(
@@ -265,22 +246,19 @@ if __name__ == "__main__":
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
         smooth=True,
     )
     _assert_allclose(
         ignored_options_energy,
         overlap_energy,
         atol=1e-12,
-        message="alpha/rc/ro/smooth should not change the pure LJ correction energy.",
+        message="smooth should not change the pure LJ correction energy.",
     )
     _assert_allclose(
         ignored_options_forces,
         overlap_forces,
         atol=1e-12,
-        message="alpha/rc/ro/smooth should not change the pure LJ correction forces.",
+        message="smooth should not change the pure LJ correction forces.",
     )
 
     print("All soft-core target correction checks passed.")

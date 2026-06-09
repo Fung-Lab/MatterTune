@@ -53,6 +53,8 @@ def build_command(args: argparse.Namespace, checkpoint: Path, output_dir: Path) 
         str(checkpoint),
         "--device",
         args.device,
+        "--endpoint-parallel",
+        args.endpoint_parallel,
         "--steps",
         str(args.steps),
         "--structure",
@@ -81,12 +83,6 @@ def build_command(args: argparse.Namespace, checkpoint: Path, output_dir: Path) 
         str(args.sigma),
         "--epsilon",
         str(args.epsilon),
-        "--alpha",
-        str(args.alpha),
-        "--rc",
-        str(args.rc),
-        "--ro",
-        str(args.ro),
         "--seed",
         str(args.seed),
         "--output-dir",
@@ -100,6 +96,8 @@ def build_command(args: argparse.Namespace, checkpoint: Path, output_dir: Path) 
         "--diagnostics-name",
         f"diagnostics_lambda_{lam}.jsonl",
     ]
+    if args.ghost_device is not None:
+        cmd.extend(["--ghost-device", args.ghost_device])
     if args.init_velocities:
         cmd.append("--init-velocities")
     if args.use_d3:
@@ -134,6 +132,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lambda-value", type=float, required=True)
     parser.add_argument("--target-indices", default="0")
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--endpoint-parallel", choices=("none", "dual-gpu"), default="none")
+    parser.add_argument("--ghost-device", default=None)
     parser.add_argument("--steps", type=int, default=100000)
     parser.add_argument("--temperature", type=float, default=298.15)
     parser.add_argument("--thermostat", choices=("langevin", "bussi"), default="bussi")
@@ -145,9 +145,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--diagnostics-interval", type=int, default=100)
     parser.add_argument("--sigma", type=float, default=2.337)
     parser.add_argument("--epsilon", type=float, default=0.00694)
-    parser.add_argument("--alpha", type=float, default=0.5)
-    parser.add_argument("--rc", type=float, default=3.0)
-    parser.add_argument("--ro", type=float, default=1.5)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--init-velocities", dest="init_velocities", action="store_true", default=False)
     parser.add_argument("--no-init-velocities", dest="init_velocities", action="store_false")
@@ -166,6 +163,10 @@ def parse_args() -> argparse.Namespace:
             parser.error(f"--{name.replace('_', '-')} must be positive.")
     if not 0.0 <= args.lambda_value <= 1.0:
         parser.error("--lambda-value must be in [0, 1].")
+    if args.endpoint_parallel == "dual-gpu" and args.ghost_device is None:
+        parser.error("--endpoint-parallel dual-gpu requires --ghost-device.")
+    if args.endpoint_parallel == "none" and args.ghost_device is not None:
+        parser.error("--ghost-device is only valid with --endpoint-parallel dual-gpu.")
     if not args.structure.is_file():
         raise FileNotFoundError(args.structure)
     if args.checkpoint is not None and not args.checkpoint.is_file():

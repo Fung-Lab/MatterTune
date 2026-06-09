@@ -205,6 +205,11 @@ class UMABackboneModule(FinetuneModuleBase["AtomicData", "AtomicData", UMABackbo
 
         output_pred: dict[str, torch.Tensor] = {}
         for name, head in self.output_heads.items():
+            if mode == "train" and not head.training:
+                # Pretrained UMA heads may be left in eval mode when reused from
+                # FAIRChem. MLP_EFS_Head gates create_graph on self.training, so
+                # conservative force training needs the head explicitly in train mode.
+                head.train()
             out = head(batch, emb)
             output_pred.update(out)
 

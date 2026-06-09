@@ -81,12 +81,6 @@ def build_command(args: argparse.Namespace, checkpoint: Path, output_dir: Path) 
         str(args.sigma),
         "--epsilon",
         str(args.epsilon),
-        "--alpha",
-        str(args.alpha),
-        "--rc",
-        str(args.rc),
-        "--ro",
-        str(args.ro),
         "--seed",
         str(args.seed),
         "--output-dir",
@@ -145,9 +139,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--diagnostics-interval", type=int, default=100)
     parser.add_argument("--sigma", type=float, default=2.337)
     parser.add_argument("--epsilon", type=float, default=0.00694)
-    parser.add_argument("--alpha", type=float, default=0.5)
-    parser.add_argument("--rc", type=float, default=3.0)
-    parser.add_argument("--ro", type=float, default=1.5)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--init-velocities", dest="init_velocities", action="store_true", default=False)
     parser.add_argument("--no-init-velocities", dest="init_velocities", action="store_false")

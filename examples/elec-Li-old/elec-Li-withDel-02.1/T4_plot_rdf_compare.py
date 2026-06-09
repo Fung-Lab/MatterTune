@@ -370,7 +370,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mlip-label", default="MLIP-MD")
     parser.add_argument("--target-indices", default="0")
     parser.add_argument("--center-species", default="Li")
-    parser.add_argument("--neighbor-species", default="C,H,F,O")
+    parser.add_argument("--neighbor-species", default="C,H,F,N,O,S")
     parser.add_argument("--cell-length-a", type=float, default=15.569)
     parser.add_argument("--last-fraction", type=float, default=0.20)
     parser.add_argument(

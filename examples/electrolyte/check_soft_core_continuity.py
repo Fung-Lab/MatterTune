@@ -14,9 +14,6 @@ def evaluate_pair_energy_and_force(
     *,
     epsilon: float,
     sigma: float,
-    alpha: float,
-    rc: float,
-    ro: float,
 ) -> tuple[float, float]:
     atoms = Atoms(
         "Ar2",
@@ -29,9 +26,6 @@ def evaluate_pair_energy_and_force(
         target_index=0,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
         smooth=True,
     )
     return float(energy), float(forces[1, 0])
@@ -43,25 +37,16 @@ def finite_difference_force(
     step: float,
     epsilon: float,
     sigma: float,
-    alpha: float,
-    rc: float,
-    ro: float,
 ) -> float:
     energy_plus, _ = evaluate_pair_energy_and_force(
         distance + step,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
     )
     energy_minus, _ = evaluate_pair_energy_and_force(
         distance - step,
         epsilon=epsilon,
         sigma=sigma,
-        alpha=alpha,
-        rc=rc,
-        ro=ro,
     )
     return -(energy_plus - energy_minus) / (2.0 * step)
 
@@ -72,27 +57,24 @@ def main(args: argparse.Namespace) -> None:
 
     sample_distances = np.array(
         [
-            args.rc - 1.0e-2,
-            args.rc - 1.0e-3,
-            args.rc - 1.0e-4,
-            args.rc,
-            args.rc + 1.0e-4,
-            args.rc + 1.0e-3,
-            args.rc + 1.0e-2,
+            args.scan_center - 1.0e-2,
+            args.scan_center - 1.0e-3,
+            args.scan_center - 1.0e-4,
+            args.scan_center,
+            args.scan_center + 1.0e-4,
+            args.scan_center + 1.0e-3,
+            args.scan_center + 1.0e-2,
         ],
         dtype=np.float64,
     )
 
     continuity_rows: list[tuple[float, float, float]] = []
-    print("Pure-LJ scan around the diagnostic rc value (rc is ignored by the correction)")
+    print("Pure-LJ scan around the diagnostic center distance")
     for distance in sample_distances:
         energy, force_x = evaluate_pair_energy_and_force(
             distance,
             epsilon=args.epsilon,
             sigma=args.sigma,
-            alpha=args.alpha,
-            rc=args.rc,
-            ro=args.ro,
         )
         continuity_rows.append((distance, energy, force_x))
         print(
@@ -108,28 +90,22 @@ def main(args: argparse.Namespace) -> None:
 
     max_cutoff_energy_jump = max(abs(left_energy - at_energy), abs(right_energy - at_energy))
     max_cutoff_force_jump = max(abs(left_force - at_force), abs(right_force - at_force))
-    print(f"max energy change near diagnostic rc: {max_cutoff_energy_jump:.12e} eV")
-    print(f"max force change near diagnostic rc: {max_cutoff_force_jump:.12e} eV/A")
+    print(f"max energy change near diagnostic center: {max_cutoff_energy_jump:.12e} eV")
+    print(f"max force change near diagnostic center: {max_cutoff_force_jump:.12e} eV/A")
 
     gradient_rows: list[tuple[float, float, float, float]] = []
     print("\nFinite-difference force/gradient check")
-    for distance in np.linspace(args.ro + 0.1, args.rc - 0.05, args.num_gradient_points):
+    for distance in np.linspace(args.gradient_min, args.gradient_max, args.num_gradient_points):
         energy, force_x = evaluate_pair_energy_and_force(
             distance,
             epsilon=args.epsilon,
             sigma=args.sigma,
-            alpha=args.alpha,
-            rc=args.rc,
-            ro=args.ro,
         )
         fd_force_x = finite_difference_force(
             distance,
             step=args.fd_step,
             epsilon=args.epsilon,
             sigma=args.sigma,
-            alpha=args.alpha,
-            rc=args.rc,
-            ro=args.ro,
         )
         abs_diff = abs(force_x - fd_force_x)
         gradient_rows.append((distance, energy, force_x, fd_force_x))
@@ -171,9 +147,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--epsilon", type=float, default=1.0)
     parser.add_argument("--sigma", type=float, default=1.0)
-    parser.add_argument("--alpha", type=float, default=0.5)
-    parser.add_argument("--rc", type=float, default=3.0)
-    parser.add_argument("--ro", type=float, default=2.0)
+    parser.add_argument("--scan-center", type=float, default=3.0)
+    parser.add_argument("--gradient-min", type=float, default=2.1)
+    parser.add_argument("--gradient-max", type=float, default=2.95)
     parser.add_argument("--fd-step", type=float, default=1.0e-5)
     parser.add_argument("--num-gradient-points", type=int, default=6)
     parser.add_argument("--gradient-tolerance", type=float, default=2.0e-6)

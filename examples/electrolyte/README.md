@@ -186,9 +186,6 @@ bash run_md.sh uma 0.25 cpu 10 0 0 pbe d3bj 0
 
 - `epsilon = 0.00694`
 - `sigma = 2.337`
-- `alpha = 0.5`
-- `rc = 3.0`
-- `ro = 1.5`
 - `smooth = True`
 
 It currently wraps only the `uma` and `orb` examples. For pretrained MACE with
@@ -241,17 +238,13 @@ Important note:
 
 - `--epsilon`: overall strength of the LJ correction
 - `--sigma`: length scale of the LJ correction
-- `--alpha`: kept for backward compatibility in the current example interface; it is not used by the present ghost-endpoint LJ implementation
-- `--rc`: kept for backward compatibility; ignored by the present pure LJ implementation
-- `--ro`: kept for backward compatibility; ignored by the present pure LJ implementation
 - `--no-smooth`: kept for backward compatibility; smoothing is no longer applied
 
 Typical meaning:
 
 - Larger `epsilon` increases the overall LJ interaction strength.
 - Larger `sigma` shifts the LJ length scale outward.
-- `alpha` is currently ignored by the implemented LJ correction and is retained only to avoid breaking existing example command lines.
-- `rc`, `ro`, and `smooth` are currently ignored by the implemented LJ correction and are retained only to avoid breaking existing example command lines.
+- `smooth` is currently ignored by the implemented LJ correction and is retained only to avoid breaking existing example command lines.
 
 ### 4. Optional D3 dispersion parameters
 
@@ -293,7 +286,7 @@ At minimum, you should decide:
 
 1. Which pretrained model to use
 2. Which atom(s) should be ghost targets
-3. The ghost-endpoint LJ correction scale (`epsilon`, `sigma`, `alpha`, `rc`, `ro`)
+3. The ghost-endpoint LJ correction scale (`epsilon`, `sigma`)
 4. Whether you want the additional D3 correction
 5. Whether to keep UMA MOE expert merging enabled
 6. Whether you want to initialize velocities
@@ -304,7 +297,7 @@ If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is eno
 
 ## Notes
 
-- The LJ check script is useful whenever you change `epsilon` or `sigma`. The current LJ implementation keeps `alpha`, `rc`, `ro`, and `smooth` only for backward-compatible argument parsing.
+- The LJ check script is useful whenever you change `epsilon` or `sigma`. The current LJ implementation keeps `smooth` only for backward-compatible argument parsing.
 - The corrected calculator only exposes `energy`, `forces`, and `free_energy`.
 - The new `--ghost-endpoint-mode dummy` path is implemented only for pretrained MACE models.
 - The pretrained-MACE dummy path was smoke-tested locally in this repository.
@@ -313,8 +306,8 @@ If you want to run from a fine-tuned MatterTune checkpoint, `--ckpt-path` is eno
 ## Validation
 
 The current implementation was tested on `examples/electrolyte/data/LiH2O.xyz`
-with target atom `0`, `epsilon=0.00694`, `sigma=2.337`, `alpha=0.5`,
-`rc=3.0`, `ro=1.5`, and `smooth=True`; the latter three are ignored by the pure LJ correction.
+with target atom `0`, `epsilon=0.00694`, `sigma=2.337`, and `smooth=True`;
+`smooth` is ignored by the pure LJ correction.
 
 Tested models:
 

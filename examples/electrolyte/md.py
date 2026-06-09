@@ -36,6 +36,7 @@ from mattertune.pretrained import PretrainedModel
 from mattertune.util import optional_import_error_message
 
 from ghost_target_calculator import GhostTargetCorrectionCalculator
+from parallel_ghost_target_calculator import ParallelGhostTargetCorrectionCalculator
 
 
 class TeeStream:
@@ -367,6 +368,46 @@ def build_lambda_mask(
     return lambda_mask
 
 
+def explicit_cuda_device_index(device: str) -> int | None:
+    try:
+        parsed = torch.device(device)
+    except (TypeError, RuntimeError):
+        return None
+    if parsed.type != "cuda" or parsed.index is None:
+        return None
+    return int(parsed.index)
+
+
+def validate_endpoint_parallel_args(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    if args.endpoint_parallel == "none":
+        if args.ghost_device is not None:
+            parser.error("--ghost-device is only valid with --endpoint-parallel dual-gpu.")
+        return
+
+    if args.ghost_device is None:
+        parser.error("--endpoint-parallel dual-gpu requires --ghost-device cuda:N.")
+    real_index = explicit_cuda_device_index(args.device)
+    ghost_index = explicit_cuda_device_index(args.ghost_device)
+    if real_index is None or ghost_index is None:
+        parser.error(
+            "--endpoint-parallel dual-gpu requires explicit CUDA devices, "
+            "for example --device cuda:7 --ghost-device cuda:6."
+        )
+    if real_index == ghost_index:
+        parser.error("--device and --ghost-device must point to different CUDA devices.")
+    if not torch.cuda.is_available():
+        parser.error("--endpoint-parallel dual-gpu requires CUDA.")
+    visible_devices = torch.cuda.device_count()
+    if real_index >= visible_devices or ghost_index >= visible_devices:
+        parser.error(
+            f"Requested CUDA devices cuda:{real_index} and cuda:{ghost_index}, "
+            f"but only {visible_devices} CUDA devices are visible."
+        )
+
+
 def should_enable_uma_merge_experts(args: argparse.Namespace) -> bool:
     return (
         args.model_type is not None
@@ -496,7 +537,14 @@ def load_md_models(
             args.ckpt_path,
             device=args.device,
         )
-        return model, None
+        ghost_model = None
+        if args.endpoint_parallel == "dual-gpu":
+            assert args.ghost_device is not None
+            ghost_model = load_finetuned_model_from_checkpoint(
+                args.ckpt_path,
+                device=args.ghost_device,
+            )
+        return model, ghost_model
 
     model = load_pretrained_model(
         args.model_type,
@@ -506,7 +554,15 @@ def load_md_models(
     )
 
     ghost_model = None
-    if should_use_separate_ghost_model(args):
+    if args.endpoint_parallel == "dual-gpu":
+        assert args.ghost_device is not None
+        ghost_model = load_pretrained_model(
+            args.model_type,
+            args.model_name,
+            device=args.ghost_device,
+            **build_pretrained_load_kwargs(args),
+        )
+    elif should_use_separate_ghost_model(args):
         ghost_model = load_pretrained_model(
             args.model_type,
             args.model_name,
@@ -547,7 +603,8 @@ def main(args: argparse.Namespace) -> None:
         print(
             f"model={model.family}:{model.model_name} device={model.device} "
             f"target_indices={target_indices} lambda={args.lambda_value:.6f} "
-            f"ghost_mode={args.ghost_endpoint_mode} use_d3={args.use_d3}"
+            f"ghost_mode={args.ghost_endpoint_mode} use_d3={args.use_d3} "
+            f"endpoint_parallel={args.endpoint_parallel}"
         )
         if ghost_model is not None:
             print(
@@ -555,22 +612,31 @@ def main(args: argparse.Namespace) -> None:
                 f"device={ghost_model.device}"
             )
 
-        calc = GhostTargetCorrectionCalculator(
-            model,
-            ghost_model=ghost_model,
-            lambda_array_name=args.lambda_array_name,
-            target_array_name=args.target_array_name,
-            epsilon=args.epsilon,
-            sigma=args.sigma,
-            alpha=args.alpha,
-            rc=args.rc,
-            ro=args.ro,
-            smooth=args.smooth,
-            ghost_endpoint_mode=args.ghost_endpoint_mode,
-            use_d3=args.use_d3,
-            d3_method=args.d3_method,
-            d3_damping=args.d3_damping,
-        )
+        calculator_kwargs = {
+            "lambda_array_name": args.lambda_array_name,
+            "target_array_name": args.target_array_name,
+            "epsilon": args.epsilon,
+            "sigma": args.sigma,
+            "smooth": args.smooth,
+            "ghost_endpoint_mode": args.ghost_endpoint_mode,
+            "use_d3": args.use_d3,
+            "d3_method": args.d3_method,
+            "d3_damping": args.d3_damping,
+        }
+        if args.endpoint_parallel == "dual-gpu":
+            if ghost_model is None:
+                raise ValueError("dual-gpu endpoint parallelism requires a ghost model.")
+            calc = ParallelGhostTargetCorrectionCalculator(
+                model,
+                ghost_model=ghost_model,
+                **calculator_kwargs,
+            )
+        else:
+            calc = GhostTargetCorrectionCalculator(
+                model,
+                ghost_model=ghost_model,
+                **calculator_kwargs,
+            )
         atoms.calc = calc
 
         _ = atoms.get_potential_energy()
@@ -784,6 +850,8 @@ def main(args: argparse.Namespace) -> None:
         if diagnostics_path is not None:
             print(f"diagnostics written to {diagnostics_path}")
         print(f"final structure written to {final_structure_path}")
+        if hasattr(calc, "close"):
+            calc.close()
 
 
 def parse_args() -> argparse.Namespace:
@@ -801,6 +869,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--task-name", default=None)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--endpoint-parallel",
+        choices=("none", "dual-gpu"),
+        default="none",
+        help="Endpoint evaluation mode. `dual-gpu` loads a separate ghost endpoint model on --ghost-device.",
+    )
+    parser.add_argument(
+        "--ghost-device",
+        default=None,
+        help="CUDA device for the ghost endpoint model when --endpoint-parallel dual-gpu is enabled.",
+    )
     parser.add_argument(
         "--no-uma-merge-experts",
         action="store_false",
@@ -838,24 +917,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--epsilon", type=float, default=0.00694)
     parser.add_argument("--sigma", type=float, default=2.337)
-    parser.add_argument(
-        "--alpha",
-        type=float,
-        default=0.5,
-        help="Backward-compatible ghost-LJ argument; ignored by the pure LJ correction.",
-    )
-    parser.add_argument(
-        "--rc",
-        type=float,
-        default=3.0,
-        help="Backward-compatible ghost-LJ argument; ignored by the pure LJ correction.",
-    )
-    parser.add_argument(
-        "--ro",
-        type=float,
-        default=1.5,
-        help="Backward-compatible ghost-LJ argument; ignored by the pure LJ correction.",
-    )
     parser.add_argument(
         "--no-smooth",
         action="store_false",
@@ -944,6 +1005,7 @@ def parse_args() -> argparse.Namespace:
         parser.error("--diagnostics-interval must be positive.")
     if args.ckpt_path is None and args.model_type is None:
         parser.error("Either --model-type or --ckpt-path must be provided.")
+    validate_endpoint_parallel_args(parser, args)
     return args
 
 

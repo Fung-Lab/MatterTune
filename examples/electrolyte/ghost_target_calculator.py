@@ -86,9 +86,6 @@ class GhostTargetCorrectionCalculator(Calculator):
         target_array_name: str = "alchemical_target",
         epsilon: float = 1.0,
         sigma: float = 1.0,
-        alpha: float = 0.5,
-        rc: float | None = None,
-        ro: float | None = None,
         smooth: bool = True,
         ghost_endpoint_mode: str = "delete",
         use_d3: bool = False,
@@ -121,9 +118,6 @@ class GhostTargetCorrectionCalculator(Calculator):
         self._correction_kwargs = {
             "epsilon": epsilon,
             "sigma": sigma,
-            "alpha": alpha,
-            "rc": rc,
-            "ro": ro,
             "smooth": smooth,
         }
         if ghost_endpoint_mode not in {"delete", "dummy"}:
@@ -414,11 +408,13 @@ class GhostTargetCorrectionCalculator(Calculator):
                 target_lambda,
             )
 
-        if "energy" in requested or "free_energy" in requested:
-            self.results["energy"] = float(endpoint.energy)
-            self.results["free_energy"] = float(endpoint.energy)
-        if "forces" in requested:
-            self.results["forces"] = endpoint.forces
+        # Each endpoint prediction already computes energy and forces together.
+        # Cache both ASE-facing properties even when ASE asked for only one of
+        # them, otherwise MD force steps followed by logging energy trigger a
+        # second full endpoint evaluation at the same geometry.
+        self.results["energy"] = float(endpoint.energy)
+        self.results["free_energy"] = float(endpoint.energy)
+        self.results["forces"] = endpoint.forces
 
 
 __all__ = ["GhostTargetCorrectionCalculator"]

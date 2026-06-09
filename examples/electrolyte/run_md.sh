@@ -61,9 +61,6 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --lambda-value "${LAMBDA_VALUE}" \
   --epsilon 0.00694 \
   --sigma 2.337 \
-  --alpha 0.5 \
-  --rc 3.0 \
-  --ro 1.5 \
   --temperature 300.0 \
   --timestep-fs 1.0 \
   --friction-fs-inv 0.02 \

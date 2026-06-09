@@ -2,7 +2,7 @@
 set -euo pipefail
 
 CONDA_SH="${CONDA_SH:-/net/csefiles/coc-fung-cluster/lingyu/miniconda3/etc/profile.d/conda.sh}"
-CONDA_ENV="${CONDA_ENV:-mattersim-elec}"
+CONDA_ENV="${CONDA_ENV:-uma-elec}"
 MATTERTUNE_DIR="${MATTERTUNE_DIR:-/nethome/lkong88/workspace/Electrolyte/MatterTune}"
 
 RUN_ROOT="${RUN_ROOT:-/net/csefiles/coc-fung-cluster/lingyu/Electrolyte/MLIP-MD}"
@@ -10,10 +10,27 @@ CONFIG_TYPE="${CONFIG_TYPE:-case1-case3-Li-FSI-FEC-1-13.0}"
 STRUCTURE="${STRUCTURE:-/net/csefiles/coc-fung-cluster/lingyu/Electrolyte/get_all_trj_aimd/Li-metal/case3-Li-FSI-FEC/case1-case3-Li-FSI-FEC-1-13.0/top.pdb}"
 AIMD_XYZ="${AIMD_XYZ:-/net/csefiles/coc-fung-cluster/lingyu/Electrolyte/get_all_trj_aimd/Li-metal/case3-Li-FSI-FEC/case1-case3-Li-FSI-FEC-1-13.0/case1-case3-Li-FSI-FEC-1-13.0_lambda_0.00.xyz}"
 
-LAMBDA_VALUE="${LAMBDA_VALUE:-1.0}"
-AIMD_DAT="${AIMD_DAT:-/nethome/lkong88/workspace/Electrolyte/MatterTune/examples/electrolyte/AIMD_results/case3-Li-FSI-FEC_case1-case3-Li-FSI-FEC-1-13.0_lambda_1.00.dat}"
+LAMBDA_VALUE="${LAMBDA_VALUE:-0.0}"
+AIMD_DAT="${AIMD_DAT:-/nethome/lkong88/workspace/Electrolyte/MatterTune/examples/electrolyte/AIMD_results/case3-Li-FSI-FEC_case1-case3-Li-FSI-FEC-1-13.0_lambda_0.00.dat}"
 TARGET_INDICES="${TARGET_INDICES:-0}"
 DEVICE="${DEVICE:-cuda:0}"
+ENDPOINT_PARALLEL="${ENDPOINT_PARALLEL:-none}"
+GHOST_DEVICE="${GHOST_DEVICE:-}"
+case "${ENDPOINT_PARALLEL}" in
+  none|dual-gpu) ;;
+  *)
+    echo "ENDPOINT_PARALLEL must be either none or dual-gpu; got ${ENDPOINT_PARALLEL}" >&2
+    exit 2
+    ;;
+esac
+if [[ "${ENDPOINT_PARALLEL}" == "dual-gpu" && -z "${GHOST_DEVICE}" ]]; then
+  echo "ENDPOINT_PARALLEL=dual-gpu requires GHOST_DEVICE, for example cuda:6" >&2
+  exit 2
+fi
+if [[ "${ENDPOINT_PARALLEL}" == "none" && -n "${GHOST_DEVICE}" ]]; then
+  echo "GHOST_DEVICE is only valid when ENDPOINT_PARALLEL=dual-gpu" >&2
+  exit 2
+fi
 
 STEPS="${STEPS:-25000}"
 TIMESTEP_FS="${TIMESTEP_FS:-1}"
@@ -29,15 +46,12 @@ INIT_VELOCITIES="${INIT_VELOCITIES:-0}"
 
 SIGMA="${SIGMA:-2.337}"
 EPSILON="${EPSILON:-0.00694}"
-ALPHA="${ALPHA:-0.5}"
-RC="${RC:-3.0}"
-RO="${RO:-1.5}"
 
 T1_BATCH_SIZE="${T1_BATCH_SIZE:-4}"
 RDF_LAST_FRACTION="${RDF_LAST_FRACTION:-0.8}"
 RDF_CELL_LENGTH_A="${RDF_CELL_LENGTH_A:-15.569}"
 RDF_TARGET_INDICES="${RDF_TARGET_INDICES:-${TARGET_INDICES}}"
-RDF_NEIGHBOR_SPECIES="${RDF_NEIGHBOR_SPECIES:-C,H,F,O}"
+RDF_NEIGHBOR_SPECIES="${RDF_NEIGHBOR_SPECIES:-C,H,F,N,O,S}"
 TOP_PDB="${TOP_PDB:-${STRUCTURE}}"
 MOL_CENTER_RESNAMES="${MOL_CENTER_RESNAMES:-Li}"
 MOL_NEIGHBOR_RESNAMES="${MOL_NEIGHBOR_RESNAMES:-FEC}"
@@ -63,7 +77,7 @@ ENERGY_MODE="${MLIP_EF_MODE}"
 
 TASKS="${TASKS:-T2,T3,T4,T5,T6,T7}"
 DRY_RUN="${DRY_RUN:-0}"
-CKPT="${CKPT:-/net/csefiles/coc-fung-cluster/lingyu/Li-electrolyte-100/local_runs/03-train-pair-100/20260525-133059-mattersim-5m-MatterSim-v1.0.0-5M-pair100-fw20-de05/checkpoints/mattersim-MatterSim-v1.0.0-5M-pair100-best.ckpt}"
+CKPT="${CKPT:-/net/csefiles/coc-fung-cluster/lingyu/Li-electrolyte-100/local_runs/03-train-pair-100/20260524-225554-uma-uma-s1.1-pair100-fw20-de05/checkpoints/uma-uma-s-1p1-pair100-best.ckpt}"
 RUN_DIR="${RUN_DIR:-}"
 RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d-%H%M%S)}"
 
@@ -81,6 +95,7 @@ Options:
 
 Environment overrides:
   RUN_ROOT CONFIG_TYPE STRUCTURE AIMD_XYZ AIMD_DAT TARGET_INDICES DEVICE
+  ENDPOINT_PARALLEL GHOST_DEVICE
   STEPS TIMESTEP_FS TEMPERATURE THERMOSTAT THERMOSTAT_TIMECON_FS INIT_VELOCITIES
   LOG_INTERVAL TRAJECTORY_INTERVAL DIAGNOSTICS_INTERVAL
   RDF_LAST_FRACTION MLIP_EF_MODE TOP_PDB MOL_CENTER_RESNAMES MOL_NEIGHBOR_RESNAMES
@@ -244,6 +259,8 @@ thermostat=${THERMOSTAT}
 thermostat_timecon_fs=${THERMOSTAT_TIMECON_FS}
 init_velocities=${INIT_VELOCITIES}
 device=${DEVICE}
+endpoint_parallel=${ENDPOINT_PARALLEL}
+ghost_device=${GHOST_DEVICE}
 mlip_ef_mode=${MLIP_EF_MODE}
 energy_mode=${ENERGY_MODE}
 rdf_last_fraction=${RDF_LAST_FRACTION}
@@ -264,6 +281,10 @@ echo "TASKS=${TASKS}"
 echo "LAMBDA_VALUE=${LAMBDA_VALUE} (${LAMBDA_TAG}; file label ${LAMBDA_FILE_LABEL})"
 echo "AIMD_DAT=${AIMD_DAT}"
 echo "AIMD_XYZ=${AIMD_XYZ}"
+echo "ENDPOINT_PARALLEL=${ENDPOINT_PARALLEL}"
+if [[ -n "${GHOST_DEVICE}" ]]; then
+  echo "GHOST_DEVICE=${GHOST_DEVICE}"
+fi
 if [[ -n "${CKPT}" ]]; then
   echo "CKPT=${CKPT}"
 fi
@@ -288,6 +309,10 @@ if task_enabled T2; then
   else
     T2_ARGS+=(--no-init-velocities)
   fi
+  T2_ARGS+=(--endpoint-parallel "${ENDPOINT_PARALLEL}")
+  if [[ -n "${GHOST_DEVICE}" ]]; then
+    T2_ARGS+=(--ghost-device "${GHOST_DEVICE}")
+  fi
   run_cmd python examples/elec-Li-new/03-train-pair-100/T2_run_lambda_md.py \
     --checkpoint "${CKPT}" \
     --config-type "${CONFIG_TYPE}" \
@@ -306,9 +331,6 @@ if task_enabled T2; then
     --friction-fs-inv "${FRICTION_FS_INV}" \
     --sigma "${SIGMA}" \
     --epsilon "${EPSILON}" \
-    --alpha "${ALPHA}" \
-    --rc "${RC}" \
-    --ro "${RO}" \
     --seed "${SEED}" \
     --out-dir "${RUN_DIR}" \
     "${T2_ARGS[@]}"

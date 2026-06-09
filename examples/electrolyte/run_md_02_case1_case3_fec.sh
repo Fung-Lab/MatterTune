@@ -30,9 +30,6 @@ TRAJECTORY_INTERVAL="${TRAJECTORY_INTERVAL:-100}"
 DIAGNOSTICS_INTERVAL="${DIAGNOSTICS_INTERVAL:-${TRAJECTORY_INTERVAL}}"
 SIGMA="${SIGMA:-2.337}"
 EPSILON="${EPSILON:-0.00694}"
-ALPHA="${ALPHA:-0.5}"
-RC="${RC:-3.0}"
-RO="${RO:-1.5}"
 FRICTION_FS_INV="${FRICTION_FS_INV:-0.02}"
 SEED="${SEED:-7}"
 INIT_VELOCITIES="${INIT_VELOCITIES:-0}"
@@ -141,9 +138,6 @@ saved_frame_interval_fs=${SAVED_FRAME_INTERVAL_FS}
 
 softcore_sigma_angstrom=${SIGMA}
 softcore_epsilon_eV=${EPSILON}
-softcore_alpha=${ALPHA}
-softcore_rc_angstrom=${RC}
-softcore_ro_angstrom=${RO}
 ghost_endpoint_mode=delete
 smooth_cutoff=true
 
@@ -187,9 +181,6 @@ PYTHONPATH=src python examples/electrolyte/md.py \
   --diagnostics-interval "${DIAGNOSTICS_INTERVAL}" \
   --sigma "${SIGMA}" \
   --epsilon "${EPSILON}" \
-  --alpha "${ALPHA}" \
-  --rc "${RC}" \
-  --ro "${RO}" \
   --seed "${SEED}" \
   --output-dir "${OUT_DIR}" \
   --trajectory-name "md_lambda_${LAMBDA_VALUE}.xyz" \
