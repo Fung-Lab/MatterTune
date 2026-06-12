@@ -17,7 +17,7 @@ Main defaults:
   OUTPUT_PREFIX=Li_electrolyte_Mix
   OUTPUT_ROOT=$MIX_DATA_ROOT/local_runs/mix_further_ft/from_$SOURCE_VARIANT/all_mix
   INIT_CHECKPOINT=<enhance-V1 best ckpt>
-  TEST_FILE=$MIX_DATA_ROOT/${OUTPUT_PREFIX}_all.xyz
+  TEST_FILE=$MIX_DATA_ROOT/${OUTPUT_PREFIX}_all.xyz only used when SKIP_EVAL=0
   SKIP_EVAL=1
   DELTA_E_LOSS_WEIGHT=0
 

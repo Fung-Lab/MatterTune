@@ -1156,7 +1156,9 @@ def parse_args() -> argparse.Namespace:
     if args.log_dir is None:
         args.log_dir = Path(args.output_dir) / "logs"
 
-    required_paths = [args.train_file, args.test_file, args.energy_reference]
+    required_paths = [args.train_file, args.energy_reference]
+    if not args.skip_eval:
+        required_paths.append(args.test_file)
     if args.training_mode == TRAIN_WITH_DELTA_E:
         required_paths.append(args.pair_train_file)
     if args.init_checkpoint is not None:

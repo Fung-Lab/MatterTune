@@ -24,6 +24,7 @@ Environment overrides:
   TRAIN_FILE PAIR_TRAIN_FILE TEST_FILE OUTPUT_ROOT OUTPUT_DIR
   E_LOSS_WEIGHT F_LOSS_WEIGHT DELTA_E_LOSS_WEIGHT
   TASK_NAME FORCE_MODE DEVICES BATCH_SIZE NUM_WORKERS LR MAX_EPOCHS
+  SKIP_EVAL=1 by default; set SKIP_EVAL=0 and TEST_FILE=... to run test evaluation.
   PREPARE_PAIRS=auto by default; integrates selected XXX.xyz / XXX_del.xyz pairs
       into OUTPUT_PREFIX_all.xyz and OUTPUT_PREFIX_pairs.xyz when needed.
       Set PREPARE_PAIRS=0 to disable automatic preparation.
@@ -323,7 +324,7 @@ WANDB_PROJECT="${WANDB_PROJECT:-MatterTune-Electrolyte-Li-enhance-V1}"
 WANDB_NAME="${WANDB_NAME:-${RUN_NAME}}"
 WANDB_OFFLINE="${WANDB_OFFLINE:-0}"
 RESET_OUTPUT_HEADS="${RESET_OUTPUT_HEADS:-0}"
-SKIP_EVAL="${SKIP_EVAL:-0}"
+SKIP_EVAL="${SKIP_EVAL:-1}"
 EVAL_DEVICE="${EVAL_DEVICE:-}"
 LIMIT_TRAIN_BATCHES="${LIMIT_TRAIN_BATCHES:-}"
 LIMIT_VAL_BATCHES="${LIMIT_VAL_BATCHES:-}"
@@ -392,7 +393,11 @@ if [[ "${NEED_PREPARE_PAIRS}" == "1" ]]; then
   fi
 fi
 
-for required_file in "${TRAIN_FILE}" "${TEST_FILE}"; do
+REQUIRED_FILES=("${TRAIN_FILE}")
+if [[ "${SKIP_EVAL}" != "1" ]]; then
+  REQUIRED_FILES+=("${TEST_FILE}")
+fi
+for required_file in "${REQUIRED_FILES[@]}"; do
   if [[ ! -f "${required_file}" ]]; then
     echo "Required file not found: ${required_file}" >&2
     exit 1
