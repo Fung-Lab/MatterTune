@@ -24,6 +24,7 @@ Main defaults:
 Training defaults:
   MODEL_TYPE=mattersim-1m
   DEVICES=0,1,2,3,4,5,6,7
+  PRECISION=32
   BATCH_SIZE=8
   NUM_WORKERS=4
   LR=8e-5
@@ -220,6 +221,7 @@ fi
 
 DEVICES="${DEVICES:-0,1,2,3,4,5}"
 DEVICES_CSV="${DEVICES// /,}"
+PRECISION="${PRECISION:-32}"
 BATCH_SIZE="${BATCH_SIZE:-2}"
 REFERENCE_BATCH_SIZE="${REFERENCE_BATCH_SIZE:-${BATCH_SIZE}}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
@@ -270,6 +272,7 @@ if [[ -n "${ORB_EDGE_METHOD:-}" ]]; then
   export ORB_EDGE_METHOD
 fi
 export DEVICES
+export PRECISION
 export BATCH_SIZE
 export REFERENCE_BATCH_SIZE
 export NUM_WORKERS
@@ -319,6 +322,7 @@ echo "MODEL_TYPE          = ${MODEL_TYPE}"
 echo "MODEL_NAME          = ${MODEL_NAME}"
 echo "FORCE_MODE          = ${FORCE_MODE}"
 echo "DEVICES             = ${DEVICES_CSV}"
+echo "PRECISION           = ${PRECISION}"
 echo "BATCH_SIZE          = ${BATCH_SIZE}"
 echo "LR                  = ${LR}"
 echo "MAX_EPOCHS          = ${MAX_EPOCHS}"

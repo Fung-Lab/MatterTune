@@ -249,7 +249,7 @@ def build_config(args: argparse.Namespace):
         hparams.trainer.strategy = "ddp"
     hparams.trainer.gradient_clip_algorithm = "norm"
     hparams.trainer.gradient_clip_val = args.gradient_clip_val
-    hparams.trainer.precision = "32"
+    hparams.trainer.precision = args.precision
     hparams.trainer.resume_checkpoint = args.resume_checkpoint
     hparams.trainer.ema = MC.EMAConfig(decay=args.ema_decay)
     hparams.trainer.early_stopping = MC.EarlyStoppingConfig(
@@ -1059,6 +1059,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--log_dir", type=Path, default=None)
     parser.add_argument("--devices", nargs="+", default=["0"])
     parser.add_argument("--accelerator", default="gpu")
+    parser.add_argument(
+        "--precision",
+        default="32",
+        help=(
+            "Lightning trainer precision, e.g. 32, 32-true, bf16, "
+            "bf16-mixed, or 16-mixed."
+        ),
+    )
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--lr", type=float, default=3.0e-5)

@@ -23,7 +23,7 @@ Environment overrides:
   OUTPUT_PREFIX=Li_electrolyte_V1 by default, or Li_electrolyte_V1_without_enhance
   TRAIN_FILE PAIR_TRAIN_FILE TEST_FILE OUTPUT_ROOT OUTPUT_DIR
   E_LOSS_WEIGHT F_LOSS_WEIGHT DELTA_E_LOSS_WEIGHT
-  TASK_NAME FORCE_MODE DEVICES BATCH_SIZE NUM_WORKERS LR MAX_EPOCHS
+  TASK_NAME FORCE_MODE PRECISION DEVICES BATCH_SIZE NUM_WORKERS LR MAX_EPOCHS
   SKIP_EVAL=1 by default; set SKIP_EVAL=0 and TEST_FILE=... to run test evaluation.
   PREPARE_PAIRS=auto by default; integrates selected XXX.xyz / XXX_del.xyz pairs
       into OUTPUT_PREFIX_all.xyz and OUTPUT_PREFIX_pairs.xyz when needed.
@@ -71,6 +71,8 @@ apply_cli_overrides() {
       --output_dir=*|--output-dir=*) OUTPUT_DIR="${1#*=}"; shift ;;
       --devices) DEVICES="$2"; shift 2 ;;
       --devices=*) DEVICES="${1#*=}"; shift ;;
+      --precision) PRECISION="$2"; shift 2 ;;
+      --precision=*) PRECISION="${1#*=}"; shift ;;
       --batch_size|--batch-size) BATCH_SIZE="$2"; shift 2 ;;
       --batch_size=*|--batch-size=*) BATCH_SIZE="${1#*=}"; shift ;;
       --num_workers|--num-workers) NUM_WORKERS="$2"; shift 2 ;;
@@ -127,10 +129,10 @@ passthrough_unknown_args() {
   PASSTHROUGH_ARGS=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --model_type|--model-type|--data_variant|--data-variant|--data_include_labels|--data-include-labels|--output_prefix|--output-prefix|--model_name|--model-name|--task_name|--task-name|--force_mode|--force-mode|--graph_radius|--graph-radius|--max_num_neighbors|--max-num-neighbors|--orb_edge_method|--orb-edge-method|--train_file|--train-file|--pair_train_file|--pair-train-file|--test_file|--test-file|--energy_reference|--energy-reference|--init_checkpoint|--init-checkpoint|--resume_checkpoint|--resume-checkpoint|--output_dir|--output-dir|--devices|--batch_size|--batch-size|--num_workers|--num-workers|--lr|--weight_decay|--weight-decay|--max_epochs|--max-epochs|--train_split|--train-split|--max_parent_frame|--max-parent-frame|--e_loss_weight|--e-loss-weight|--f_loss_weight|--f-loss-weight|--delta_e_loss_weight|--delta-e-loss-weight|--grad_norm_log_every_n_steps|--grad-norm-log-every-n-steps|--monitor|--patience|--lr_patience|--lr-patience|--logger|--wandb_project|--wandb-project|--wandb_name|--wandb-name|--eval_device|--eval-device|--max_eval_structures|--max-eval-structures|--limit_train_batches|--limit-train-batches|--limit_val_batches|--limit-val-batches)
+      --model_type|--model-type|--data_variant|--data-variant|--data_include_labels|--data-include-labels|--output_prefix|--output-prefix|--model_name|--model-name|--task_name|--task-name|--force_mode|--force-mode|--graph_radius|--graph-radius|--max_num_neighbors|--max-num-neighbors|--orb_edge_method|--orb-edge-method|--train_file|--train-file|--pair_train_file|--pair-train-file|--test_file|--test-file|--energy_reference|--energy-reference|--init_checkpoint|--init-checkpoint|--resume_checkpoint|--resume-checkpoint|--output_dir|--output-dir|--devices|--precision|--batch_size|--batch-size|--num_workers|--num-workers|--lr|--weight_decay|--weight-decay|--max_epochs|--max-epochs|--train_split|--train-split|--max_parent_frame|--max-parent-frame|--e_loss_weight|--e-loss-weight|--f_loss_weight|--f-loss-weight|--delta_e_loss_weight|--delta-e-loss-weight|--grad_norm_log_every_n_steps|--grad-norm-log-every-n-steps|--monitor|--patience|--lr_patience|--lr-patience|--logger|--wandb_project|--wandb-project|--wandb_name|--wandb-name|--eval_device|--eval-device|--max_eval_structures|--max-eval-structures|--limit_train_batches|--limit-train-batches|--limit_val_batches|--limit-val-batches)
         shift 2
         ;;
-      --model_type=*|--model-type=*|--data_variant=*|--data-variant=*|--data_include_labels=*|--data-include-labels=*|--output_prefix=*|--output-prefix=*|--model_name=*|--model-name=*|--task_name=*|--task-name=*|--force_mode=*|--force-mode=*|--graph_radius=*|--graph-radius=*|--max_num_neighbors=*|--max-num-neighbors=*|--orb_edge_method=*|--orb-edge-method=*|--train_file=*|--train-file=*|--pair_train_file=*|--pair-train-file=*|--test_file=*|--test-file=*|--energy_reference=*|--energy-reference=*|--init_checkpoint=*|--init-checkpoint=*|--resume_checkpoint=*|--resume-checkpoint=*|--output_dir=*|--output-dir=*|--devices=*|--batch_size=*|--batch-size=*|--num_workers=*|--num-workers=*|--lr=*|--weight_decay=*|--weight-decay=*|--max_epochs=*|--max-epochs=*|--train_split=*|--train-split=*|--max_parent_frame=*|--max-parent-frame=*|--e_loss_weight=*|--e-loss-weight=*|--f_loss_weight=*|--f-loss-weight=*|--delta_e_loss_weight=*|--delta-e-loss-weight=*|--grad_norm_log_every_n_steps=*|--grad-norm-log-every-n-steps=*|--monitor=*|--patience=*|--lr_patience=*|--lr-patience=*|--logger=*|--wandb_project=*|--wandb-project=*|--wandb_name=*|--wandb-name=*|--eval_device=*|--eval-device=*|--max_eval_structures=*|--max-eval-structures=*|--limit_train_batches=*|--limit-train-batches=*|--limit_val_batches=*|--limit-val-batches=*)
+      --model_type=*|--model-type=*|--data_variant=*|--data-variant=*|--data_include_labels=*|--data-include-labels=*|--output_prefix=*|--output-prefix=*|--model_name=*|--model-name=*|--task_name=*|--task-name=*|--force_mode=*|--force-mode=*|--graph_radius=*|--graph-radius=*|--max_num_neighbors=*|--max-num-neighbors=*|--orb_edge_method=*|--orb-edge-method=*|--train_file=*|--train-file=*|--pair_train_file=*|--pair-train-file=*|--test_file=*|--test-file=*|--energy_reference=*|--energy-reference=*|--init_checkpoint=*|--init-checkpoint=*|--resume_checkpoint=*|--resume-checkpoint=*|--output_dir=*|--output-dir=*|--devices=*|--precision=*|--batch_size=*|--batch-size=*|--num_workers=*|--num-workers=*|--lr=*|--weight_decay=*|--weight-decay=*|--max_epochs=*|--max-epochs=*|--train_split=*|--train-split=*|--max_parent_frame=*|--max-parent-frame=*|--e_loss_weight=*|--e-loss-weight=*|--f_loss_weight=*|--f-loss-weight=*|--delta_e_loss_weight=*|--delta-e-loss-weight=*|--grad_norm_log_every_n_steps=*|--grad-norm-log-every-n-steps=*|--monitor=*|--patience=*|--lr_patience=*|--lr-patience=*|--logger=*|--wandb_project=*|--wandb-project=*|--wandb_name=*|--wandb-name=*|--eval_device=*|--eval-device=*|--max_eval_structures=*|--max-eval-structures=*|--limit_train_batches=*|--limit-train-batches=*|--limit_val_batches=*|--limit-val-batches=*)
         shift
         ;;
       --log_loss_grad_norms|--log-loss-grad-norms|--wandb_offline|--wandb-offline|--reset_output_heads|--reset-output-heads|--skip_eval|--skip-eval|--no_per_atom_energy_normalize|--no-per-atom-energy-normalize)
@@ -308,6 +310,7 @@ REFERENCE_DEVICE="${REFERENCE_DEVICE:-cuda:0}"
 
 DEVICES="${DEVICES:-0,1,2,3,4,5,6,7}"
 DEVICES_CSV="${DEVICES// /,}"
+PRECISION="${PRECISION:-32}"
 BATCH_SIZE="${BATCH_SIZE:-8}"
 REFERENCE_BATCH_SIZE="${REFERENCE_BATCH_SIZE:-${BATCH_SIZE}}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
@@ -460,6 +463,7 @@ TRAIN_CMD=(
   --energy_reference "${ENERGY_REFERENCE}"
   --output_dir "${OUTPUT_DIR}"
   --devices "${DEVICES_CSV}"
+  --precision "${PRECISION}"
   --batch_size "${BATCH_SIZE}"
   --num_workers "${NUM_WORKERS}"
   --lr "${LR}"
@@ -533,6 +537,7 @@ echo "REFERENCE_SOURCE    = ${REFERENCE_ENERGY_SOURCE}"
 echo "OUTPUT_DIR          = ${OUTPUT_DIR}"
 echo "CONDA_ENV           = ${CONDA_ENV}"
 echo "DEVICES             = ${DEVICES_CSV}"
+echo "PRECISION           = ${PRECISION}"
 echo "BATCH_SIZE          = ${BATCH_SIZE}"
 echo "LR                  = ${LR}"
 echo "GRAPH_RADIUS        = ${GRAPH_RADIUS}"
