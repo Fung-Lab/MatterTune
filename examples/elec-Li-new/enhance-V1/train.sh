@@ -17,11 +17,14 @@ Main switches:
 Environment overrides:
   MODEL_TYPE=uma|orb|mattersim|mattersim-1m|mattersim-5m
   DATA_ROOT=/net/csefiles/coc-fung-cluster/lingyu/Li-electrolyte-V1
-  OUTPUT_PREFIX=Li_electrolyte_V1
+  DATA_VARIANT=with_enhance|without_enhance
+      with_enhance uses all discovered XXX.xyz / XXX_del.xyz pairs.
+      without_enhance uses Li_system_lambda0 and Li_system_lambda1 only.
+  OUTPUT_PREFIX=Li_electrolyte_V1 by default, or Li_electrolyte_V1_without_enhance
   TRAIN_FILE PAIR_TRAIN_FILE TEST_FILE OUTPUT_ROOT OUTPUT_DIR
   E_LOSS_WEIGHT F_LOSS_WEIGHT DELTA_E_LOSS_WEIGHT
   TASK_NAME FORCE_MODE DEVICES BATCH_SIZE NUM_WORKERS LR MAX_EPOCHS
-  PREPARE_PAIRS=auto by default; integrates all XXX.xyz / XXX_del.xyz pairs
+  PREPARE_PAIRS=auto by default; integrates selected XXX.xyz / XXX_del.xyz pairs
       into OUTPUT_PREFIX_all.xyz and OUTPUT_PREFIX_pairs.xyz when needed.
       Set PREPARE_PAIRS=0 to disable automatic preparation.
   LOG_LOSS_GRAD_NORMS=1 to log per-loss weighted gradient norms.
@@ -33,6 +36,12 @@ apply_cli_overrides() {
     case "$1" in
       --model_type|--model-type) MODEL_TYPE="$2"; shift 2 ;;
       --model_type=*|--model-type=*) MODEL_TYPE="${1#*=}"; shift ;;
+      --data_variant|--data-variant) DATA_VARIANT="$2"; shift 2 ;;
+      --data_variant=*|--data-variant=*) DATA_VARIANT="${1#*=}"; shift ;;
+      --data_include_labels|--data-include-labels) DATA_INCLUDE_LABELS="$2"; shift 2 ;;
+      --data_include_labels=*|--data-include-labels=*) DATA_INCLUDE_LABELS="${1#*=}"; shift ;;
+      --output_prefix|--output-prefix) OUTPUT_PREFIX="$2"; shift 2 ;;
+      --output_prefix=*|--output-prefix=*) OUTPUT_PREFIX="${1#*=}"; shift ;;
       --model_name|--model-name) MODEL_NAME="$2"; shift 2 ;;
       --model_name=*|--model-name=*) MODEL_NAME="${1#*=}"; shift ;;
       --task_name|--task-name) TASK_NAME="$2"; shift 2 ;;
@@ -117,10 +126,10 @@ passthrough_unknown_args() {
   PASSTHROUGH_ARGS=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --model_type|--model-type|--model_name|--model-name|--task_name|--task-name|--force_mode|--force-mode|--graph_radius|--graph-radius|--max_num_neighbors|--max-num-neighbors|--orb_edge_method|--orb-edge-method|--train_file|--train-file|--pair_train_file|--pair-train-file|--test_file|--test-file|--energy_reference|--energy-reference|--init_checkpoint|--init-checkpoint|--resume_checkpoint|--resume-checkpoint|--output_dir|--output-dir|--devices|--batch_size|--batch-size|--num_workers|--num-workers|--lr|--weight_decay|--weight-decay|--max_epochs|--max-epochs|--train_split|--train-split|--max_parent_frame|--max-parent-frame|--e_loss_weight|--e-loss-weight|--f_loss_weight|--f-loss-weight|--delta_e_loss_weight|--delta-e-loss-weight|--grad_norm_log_every_n_steps|--grad-norm-log-every-n-steps|--monitor|--patience|--lr_patience|--lr-patience|--logger|--wandb_project|--wandb-project|--wandb_name|--wandb-name|--eval_device|--eval-device|--max_eval_structures|--max-eval-structures|--limit_train_batches|--limit-train-batches|--limit_val_batches|--limit-val-batches)
+      --model_type|--model-type|--data_variant|--data-variant|--data_include_labels|--data-include-labels|--output_prefix|--output-prefix|--model_name|--model-name|--task_name|--task-name|--force_mode|--force-mode|--graph_radius|--graph-radius|--max_num_neighbors|--max-num-neighbors|--orb_edge_method|--orb-edge-method|--train_file|--train-file|--pair_train_file|--pair-train-file|--test_file|--test-file|--energy_reference|--energy-reference|--init_checkpoint|--init-checkpoint|--resume_checkpoint|--resume-checkpoint|--output_dir|--output-dir|--devices|--batch_size|--batch-size|--num_workers|--num-workers|--lr|--weight_decay|--weight-decay|--max_epochs|--max-epochs|--train_split|--train-split|--max_parent_frame|--max-parent-frame|--e_loss_weight|--e-loss-weight|--f_loss_weight|--f-loss-weight|--delta_e_loss_weight|--delta-e-loss-weight|--grad_norm_log_every_n_steps|--grad-norm-log-every-n-steps|--monitor|--patience|--lr_patience|--lr-patience|--logger|--wandb_project|--wandb-project|--wandb_name|--wandb-name|--eval_device|--eval-device|--max_eval_structures|--max-eval-structures|--limit_train_batches|--limit-train-batches|--limit_val_batches|--limit-val-batches)
         shift 2
         ;;
-      --model_type=*|--model-type=*|--model_name=*|--model-name=*|--task_name=*|--task-name=*|--force_mode=*|--force-mode=*|--graph_radius=*|--graph-radius=*|--max_num_neighbors=*|--max-num-neighbors=*|--orb_edge_method=*|--orb-edge-method=*|--train_file=*|--train-file=*|--pair_train_file=*|--pair-train-file=*|--test_file=*|--test-file=*|--energy_reference=*|--energy-reference=*|--init_checkpoint=*|--init-checkpoint=*|--resume_checkpoint=*|--resume-checkpoint=*|--output_dir=*|--output-dir=*|--devices=*|--batch_size=*|--batch-size=*|--num_workers=*|--num-workers=*|--lr=*|--weight_decay=*|--weight-decay=*|--max_epochs=*|--max-epochs=*|--train_split=*|--train-split=*|--max_parent_frame=*|--max-parent-frame=*|--e_loss_weight=*|--e-loss-weight=*|--f_loss_weight=*|--f-loss-weight=*|--delta_e_loss_weight=*|--delta-e-loss-weight=*|--grad_norm_log_every_n_steps=*|--grad-norm-log-every-n-steps=*|--monitor=*|--patience=*|--lr_patience=*|--lr-patience=*|--logger=*|--wandb_project=*|--wandb-project=*|--wandb_name=*|--wandb-name=*|--eval_device=*|--eval-device=*|--max_eval_structures=*|--max-eval-structures=*|--limit_train_batches=*|--limit-train-batches=*|--limit_val_batches=*|--limit-val-batches=*)
+      --model_type=*|--model-type=*|--data_variant=*|--data-variant=*|--data_include_labels=*|--data-include-labels=*|--output_prefix=*|--output-prefix=*|--model_name=*|--model-name=*|--task_name=*|--task-name=*|--force_mode=*|--force-mode=*|--graph_radius=*|--graph-radius=*|--max_num_neighbors=*|--max-num-neighbors=*|--orb_edge_method=*|--orb-edge-method=*|--train_file=*|--train-file=*|--pair_train_file=*|--pair-train-file=*|--test_file=*|--test-file=*|--energy_reference=*|--energy-reference=*|--init_checkpoint=*|--init-checkpoint=*|--resume_checkpoint=*|--resume-checkpoint=*|--output_dir=*|--output-dir=*|--devices=*|--batch_size=*|--batch-size=*|--num_workers=*|--num-workers=*|--lr=*|--weight_decay=*|--weight-decay=*|--max_epochs=*|--max-epochs=*|--train_split=*|--train-split=*|--max_parent_frame=*|--max-parent-frame=*|--e_loss_weight=*|--e-loss-weight=*|--f_loss_weight=*|--f-loss-weight=*|--delta_e_loss_weight=*|--delta-e-loss-weight=*|--grad_norm_log_every_n_steps=*|--grad-norm-log-every-n-steps=*|--monitor=*|--patience=*|--lr_patience=*|--lr-patience=*|--logger=*|--wandb_project=*|--wandb-project=*|--wandb_name=*|--wandb-name=*|--eval_device=*|--eval-device=*|--max_eval_structures=*|--max-eval-structures=*|--limit_train_batches=*|--limit-train-batches=*|--limit_val_batches=*|--limit-val-batches=*)
         shift
         ;;
       --log_loss_grad_norms|--log-loss-grad-norms|--wandb_offline|--wandb-offline|--reset_output_heads|--reset-output-heads|--skip_eval|--skip-eval|--no_per_atom_energy_normalize|--no-per-atom-energy-normalize)
@@ -150,9 +159,39 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 DATA_ROOT="${DATA_ROOT:-/net/csefiles/coc-fung-cluster/lingyu/Li-electrolyte-V1}"
 TEST_DATA_ROOT="${TEST_DATA_ROOT:-/net/csefiles/coc-fung-cluster/lingyu/electrolyte}"
-OUTPUT_PREFIX="${OUTPUT_PREFIX:-Li_electrolyte_V1}"
+if [[ -z "${OUTPUT_PREFIX+x}" ]]; then
+  OUTPUT_PREFIX_EXPLICIT=0
+else
+  OUTPUT_PREFIX_EXPLICIT=1
+fi
 
-MODEL_TYPE="${MODEL_TYPE:-mattersim-1m}"
+DATA_VARIANT_RAW="${DATA_VARIANT:-with_enhance}"
+DATA_VARIANT_NORMALIZED="${DATA_VARIANT_RAW,,}"
+DATA_VARIANT_NORMALIZED="${DATA_VARIANT_NORMALIZED//-/_}"
+case "${DATA_VARIANT_NORMALIZED}" in
+  enhance|enhanced|with_enhance)
+    DATA_VARIANT="with_enhance"
+    DATA_VARIANT_DIR="with_enhance"
+    DEFAULT_OUTPUT_PREFIX="Li_electrolyte_V1"
+    DEFAULT_DATA_INCLUDE_LABELS=""
+    ;;
+  without_enhance)
+    DATA_VARIANT="without_enhance"
+    DATA_VARIANT_DIR="without_enhance"
+    DEFAULT_OUTPUT_PREFIX="Li_electrolyte_V1_without_enhance"
+    DEFAULT_DATA_INCLUDE_LABELS="Li_system_lambda0,Li_system_lambda1"
+    ;;
+  *)
+    echo "Unsupported DATA_VARIANT=${DATA_VARIANT_RAW}; expected with_enhance or without_enhance." >&2
+    exit 2
+    ;;
+esac
+if [[ "${OUTPUT_PREFIX_EXPLICIT}" == "0" ]]; then
+  OUTPUT_PREFIX="${DEFAULT_OUTPUT_PREFIX}"
+fi
+DATA_INCLUDE_LABELS="${DATA_INCLUDE_LABELS:-${DEFAULT_DATA_INCLUDE_LABELS}}"
+
+MODEL_TYPE="${MODEL_TYPE:-uma}"
 REQUESTED_MODEL_TYPE="${MODEL_TYPE}"
 case "${MODEL_TYPE}" in
   mattersim)
@@ -224,7 +263,8 @@ else
   TRAIN_FILE_EXPLICIT=1
 fi
 TEST_FILE="${TEST_FILE:-${TEST_DATA_ROOT}/Li_system_test_with_del.xyz}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-${DATA_ROOT}/local_runs/enhance-V1}"
+# Keep training results separated by data variant under local_runs/enhance-V1.
+OUTPUT_ROOT="${OUTPUT_ROOT:-${DATA_ROOT}/local_runs/enhance-V1/${DATA_VARIANT_DIR}}"
 
 E_LOSS_WEIGHT="${E_LOSS_WEIGHT:-200.0}"
 F_LOSS_WEIGHT="${F_LOSS_WEIGHT:-20.0}"
@@ -336,6 +376,9 @@ if [[ "${NEED_PREPARE_PAIRS}" == "1" ]]; then
     --output_prefix "${OUTPUT_PREFIX}"
     --match_tolerance "${MATCH_TOLERANCE}"
   )
+  if [[ -n "${DATA_INCLUDE_LABELS}" ]]; then
+    PREP_CMD+=(--include_labels "${DATA_INCLUDE_LABELS}")
+  fi
   echo "==================== PREPARE STRUCTURE PAIRS ===================="
   printf ' %q' PYTHONPATH=src "${PREP_CMD[@]}"
   echo
@@ -474,6 +517,8 @@ echo "BACKEND_TYPE        = ${PY_MODEL_TYPE}"
 echo "MODEL_NAME          = ${MODEL_NAME}"
 echo "TASK_NAME           = ${TASK_NAME}"
 echo "FORCE_MODE          = ${FORCE_MODE}"
+echo "DATA_VARIANT        = ${DATA_VARIANT}"
+echo "DATA_INCLUDE_LABELS = ${DATA_INCLUDE_LABELS:-<all>}"
 echo "TRAINING_MODE       = ${TRAINING_MODE}"
 echo "TRAIN_FILE          = ${TRAIN_FILE}"
 echo "PAIR_TRAIN_FILE     = ${PAIR_TRAIN_FILE}"

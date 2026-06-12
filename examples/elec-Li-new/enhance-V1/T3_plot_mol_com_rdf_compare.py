@@ -107,6 +107,54 @@ def parse_cryst1_box_length(line: str) -> float | None:
     return a
 
 
+def parse_lattice_box_length(comment: str, *, tol: float = 1.0e-6) -> float | None:
+    match = re.search(r"\bLattice=(['\"])(.*?)\1", comment)
+    if match is None:
+        return None
+
+    fields = match.group(2).split()
+    if len(fields) != 9:
+        raise ValueError(f"Expected 9 values in extxyz Lattice field; got {len(fields)}: {match.group(2)!r}")
+    try:
+        lattice = np.asarray([float(value) for value in fields], dtype=float).reshape(3, 3)
+    except ValueError as exc:
+        raise ValueError(f"Could not parse extxyz Lattice field: {match.group(2)!r}") from exc
+
+    off_diagonal = lattice.copy()
+    np.fill_diagonal(off_diagonal, 0.0)
+    if np.max(np.abs(off_diagonal)) > tol:
+        raise ValueError(f"Only orthorhombic extxyz Lattice boxes are supported; got {match.group(2)!r}.")
+    lengths = np.diag(lattice)
+    if not (abs(lengths[0] - lengths[1]) <= tol and abs(lengths[0] - lengths[2]) <= tol):
+        raise ValueError(
+            "Only cubic extxyz Lattice boxes are supported; "
+            f"got {lengths[0]}, {lengths[1]}, {lengths[2]} A."
+        )
+    return float(lengths[0])
+
+
+def validate_frame_box_length(
+    comment: str,
+    *,
+    expected_box_length: float,
+    tolerance_a: float,
+    path: Path,
+    frame_idx: int,
+) -> None:
+    trajectory_box_length = parse_lattice_box_length(comment)
+    if trajectory_box_length is None:
+        return
+    delta = abs(trajectory_box_length - expected_box_length)
+    if delta > tolerance_a:
+        raise ValueError(
+            f"{path} frame {frame_idx} extxyz Lattice is {trajectory_box_length:.6f} A, "
+            f"but RDF cell length is {expected_box_length:.6f} A "
+            f"(difference {delta:.6f} A > tolerance {tolerance_a:.6f} A). "
+            "Use the matching top PDB CRYST1 record or pass the correct "
+            "--aimd-cell-length-a, --mlip-cell-length-a, or --cell-length-a."
+        )
+
+
 def load_topology(path: Path) -> tuple[list[Molecule], int, float | None]:
     grouped: dict[tuple[str, str, str, str], list[tuple[int, float, str]]] = {}
     order: list[tuple[str, str, str, str]] = []
@@ -361,6 +409,7 @@ def accumulate_mol_com_rdfs(
     neighbor_center: str,
     max_frames: int | None,
     max_time_ps: float | None,
+    cell_length_tol_a: float,
 ) -> dict[str, object]:
     natoms, selected_indices = select_frame_indices(
         path,
@@ -399,7 +448,14 @@ def accumulate_mol_com_rdfs(
             this_natoms = int(natoms_line.strip())
             if this_natoms != natoms:
                 raise ValueError(f"{path} frame {frame_idx} has {this_natoms} atoms; expected {natoms}.")
-            _comment = handle.readline()
+            comment = handle.readline()
+            validate_frame_box_length(
+                comment,
+                expected_box_length=box_length,
+                tolerance_a=cell_length_tol_a,
+                path=path,
+                frame_idx=frame_idx,
+            )
 
             if frame_idx not in retained_indices:
                 for _ in range(natoms):
@@ -465,6 +521,7 @@ def accumulate_mol_com_rdfs(
         "center_groups": center_groups,
         "neighbor_groups": neighbor_groups,
         "neighbor_center": normalize_reference_mode(neighbor_center),
+        "box_length": box_length,
     }
 
 
@@ -553,8 +610,6 @@ def write_summary(
     molecules: list[Molecule],
     path: Path,
     args: argparse.Namespace,
-    *,
-    box_length: float,
 ) -> None:
     res_counts: dict[str, int] = {}
     for molecule in molecules:
@@ -563,7 +618,8 @@ def write_summary(
         handle.write(f"AIMD trajectory: {aimd['path']}\n")
         handle.write(f"MLIP trajectory: {mlip['path']}\n")
         handle.write(f"topology PDB: {args.top_pdb}\n")
-        handle.write(f"cell: cubic {box_length:.6f} A\n")
+        handle.write(f"AIMD cell: cubic {float(aimd['box_length']):.6f} A\n")
+        handle.write(f"MLIP cell: cubic {float(mlip['box_length']):.6f} A\n")
         handle.write(f"rmax: {args.r_max_nm:.4f} nm\n")
         handle.write(f"dr: {args.dr_nm:.4f} nm\n")
         handle.write(f"last_fraction: {args.last_fraction:.3f}\n")
@@ -602,6 +658,27 @@ def parse_args() -> argparse.Namespace:
         help="Neighbor reference point: mol_com, mol_cog, or atom:<PDB atom name> such as atom:N.",
     )
     parser.add_argument("--cell-length-a", type=float, default=None)
+    parser.add_argument(
+        "--aimd-cell-length-a",
+        type=float,
+        default=None,
+        help="AIMD RDF cell length in Angstrom. Overrides --cell-length-a for AIMD only.",
+    )
+    parser.add_argument(
+        "--mlip-cell-length-a",
+        type=float,
+        default=None,
+        help="MLIP RDF cell length in Angstrom. Overrides --cell-length-a for MLIP only.",
+    )
+    parser.add_argument(
+        "--cell-length-tol-a",
+        type=float,
+        default=1.0e-3,
+        help=(
+            "Fail if an extxyz frame Lattice cell length differs from the RDF cell length "
+            "by more than this many Angstrom. Plain XYZ comments without Lattice are not checked."
+        ),
+    )
     parser.add_argument("--last-fraction", type=float, default=0.20)
     parser.add_argument(
         "--max-time-ps",
@@ -630,6 +707,12 @@ def parse_args() -> argparse.Namespace:
         parser.error("--max-time-ps must be positive.")
     if args.cell_length_a is not None and args.cell_length_a <= 0.0:
         parser.error("--cell-length-a must be positive.")
+    if args.aimd_cell_length_a is not None and args.aimd_cell_length_a <= 0.0:
+        parser.error("--aimd-cell-length-a must be positive.")
+    if args.mlip_cell_length_a is not None and args.mlip_cell_length_a <= 0.0:
+        parser.error("--mlip-cell-length-a must be positive.")
+    if args.cell_length_tol_a < 0.0:
+        parser.error("--cell-length-tol-a must be non-negative.")
     try:
         args.neighbor_center = normalize_reference_mode(args.neighbor_center)
     except ValueError as exc:
@@ -643,9 +726,14 @@ def main() -> None:
     neighbor_resnames = parse_csv_list(args.neighbor_resnames)
     target_indices = parse_indices(args.target_indices)
     molecules, topology_natoms, topology_box_length = load_topology(args.top_pdb)
-    box_length = args.cell_length_a if args.cell_length_a is not None else topology_box_length
-    if box_length is None:
-        raise ValueError("No cell length provided and no cubic CRYST1 record found in top PDB.")
+    default_box_length = args.cell_length_a if args.cell_length_a is not None else topology_box_length
+    aimd_box_length = args.aimd_cell_length_a if args.aimd_cell_length_a is not None else default_box_length
+    mlip_box_length = args.mlip_cell_length_a if args.mlip_cell_length_a is not None else default_box_length
+    if aimd_box_length is None or mlip_box_length is None:
+        raise ValueError(
+            "No cell length provided and no cubic CRYST1 record found in top PDB. "
+            "Pass --aimd-cell-length-a/--mlip-cell-length-a or --cell-length-a."
+        )
 
     out_dir = args.out_dir or args.mlip_xyz.parent / "T3_mol_com_rdf_compare"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -658,7 +746,7 @@ def main() -> None:
         dataset_name=args.aimd_label,
         molecules=molecules,
         topology_natoms=topology_natoms,
-        box_length=box_length,
+        box_length=aimd_box_length,
         last_fraction=args.last_fraction,
         edges_a=edges_a,
         center_resnames=center_resnames,
@@ -668,13 +756,14 @@ def main() -> None:
         neighbor_center=args.neighbor_center,
         max_frames=args.max_frames,
         max_time_ps=args.max_time_ps,
+        cell_length_tol_a=args.cell_length_tol_a,
     )
     mlip = accumulate_mol_com_rdfs(
         args.mlip_xyz,
         dataset_name=args.mlip_label,
         molecules=molecules,
         topology_natoms=topology_natoms,
-        box_length=box_length,
+        box_length=mlip_box_length,
         last_fraction=args.last_fraction,
         edges_a=edges_a,
         center_resnames=center_resnames,
@@ -684,6 +773,7 @@ def main() -> None:
         neighbor_center=args.neighbor_center,
         max_frames=args.max_frames,
         max_time_ps=args.max_time_ps,
+        cell_length_tol_a=args.cell_length_tol_a,
     )
 
     plot_path = out_dir / f"{args.prefix}.png"
@@ -691,7 +781,7 @@ def main() -> None:
     summary_path = out_dir / f"{args.prefix}.txt"
     plot_rdfs(aimd, mlip, r_mid_nm, plot_path, r_max_nm=args.r_max_nm)
     write_rdf_csv(aimd, mlip, r_mid_nm, csv_path)
-    write_summary(aimd, mlip, molecules, summary_path, args, box_length=box_length)
+    write_summary(aimd, mlip, molecules, summary_path, args)
     print(f"Wrote {plot_path}")
     print(f"Wrote {csv_path}")
     print(f"Wrote {summary_path}")

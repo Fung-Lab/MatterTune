@@ -234,3 +234,5 @@ notes/
 AIMD_results/
 mof-center-rdf/
 aimd_settings/
+gmx_rdf/
+random_pdb_2ns_3ns_npt/

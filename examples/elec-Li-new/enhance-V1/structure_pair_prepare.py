@@ -574,6 +574,11 @@ def discover_specs(
     return specs, missing_parent_rows
 
 
+def parse_label_filter(raw: str) -> set[str] | None:
+    labels = {piece.strip() for piece in raw.replace(",", " ").split() if piece.strip()}
+    return labels or None
+
+
 def output_prefix(args: argparse.Namespace) -> str:
     if args.output_prefix:
         return args.output_prefix
@@ -586,6 +591,18 @@ def pair_all(args: argparse.Namespace) -> dict[str, Any]:
         deleted_suffix=args.deleted_suffix,
         allow_missing_parent=args.allow_missing_parent,
     )
+    include_labels = parse_label_filter(args.include_labels)
+    if include_labels is not None:
+        discovered_labels = {spec.label for spec in specs}
+        missing_labels = sorted(include_labels - discovered_labels)
+        if missing_labels:
+            available = ", ".join(sorted(discovered_labels)) or "<none>"
+            missing = ", ".join(missing_labels)
+            raise ValueError(
+                f"--include_labels requested labels not found: {missing}. "
+                f"Available labels: {available}."
+            )
+        specs = [spec for spec in specs if spec.label in include_labels]
     if not specs:
         raise ValueError(
             f"No parent/deleted xyz pairs found in {args.data_root} with suffix "
@@ -654,6 +671,7 @@ def pair_all(args: argparse.Namespace) -> dict[str, Any]:
         "output_missing_parent_files": str(missing_parent_file),
         "data_root": str(args.data_root),
         "deleted_suffix": args.deleted_suffix,
+        "include_labels": None if include_labels is None else sorted(include_labels),
         "removed_atom_index": args.removed_atom_index,
         "removed_symbol": args.removed_symbol,
         "match_tolerance_A": args.match_tolerance,
@@ -686,6 +704,14 @@ def parse_args() -> argparse.Namespace:
         "--deleted_suffix",
         default="_del",
         help="Filename stem suffix used by deleted structures, e.g. XXX_del.xyz.",
+    )
+    parser.add_argument(
+        "--include_labels",
+        default="",
+        help=(
+            "Optional comma- or space-separated parent stems to include, "
+            "e.g. Li_system_lambda0,Li_system_lambda1."
+        ),
     )
     parser.add_argument("--removed_atom_index", type=int, default=0)
     parser.add_argument(

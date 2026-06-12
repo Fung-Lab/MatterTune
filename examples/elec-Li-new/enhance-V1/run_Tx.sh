@@ -12,8 +12,8 @@ CONFIG_TYPE="${CONFIG_TYPE:-case1-case3-Li-FSI-FEC-1-13.0}"
 STRUCTURE="${STRUCTURE:-/net/csefiles/coc-fung-cluster/lingyu/Electrolyte/get_all_trj_aimd/Li-metal/case3-Li-FSI-FEC/case1-case3-Li-FSI-FEC-1-13.0/top.pdb}"
 AIMD_XYZ="${AIMD_XYZ:-/net/csefiles/coc-fung-cluster/lingyu/Electrolyte/get_all_trj_aimd/Li-metal/case3-Li-FSI-FEC/case1-case3-Li-FSI-FEC-1-13.0/case1-case3-Li-FSI-FEC-1-13.0_lambda_0.00.xyz}"
 
-LAMBDA_VALUE="${LAMBDA_VALUE:-1.0}"
-AIMD_DAT="${AIMD_DAT:-/nethome/lkong88/workspace/Electrolyte/MatterTune/examples/electrolyte/AIMD_results/case3-Li-FSI-FEC_case1-case3-Li-FSI-FEC-1-13.0_lambda_1.00.dat}"
+LAMBDA_VALUE="${LAMBDA_VALUE:-0.0}"
+AIMD_DAT="${AIMD_DAT:-/nethome/lkong88/workspace/Electrolyte/MatterTune/examples/electrolyte/AIMD_results/case3-Li-FSI-FEC_case1-case3-Li-FSI-FEC-1-13.0_lambda_0.00.dat}"
 TARGET_INDICES="${TARGET_INDICES:-0}"
 DEVICE="${DEVICE:-cuda:0}"
 ENDPOINT_PARALLEL="${ENDPOINT_PARALLEL:-none}"
@@ -50,7 +50,10 @@ SIGMA="${SIGMA:-2.337}"
 EPSILON="${EPSILON:-0.00694}"
 
 RDF_LAST_FRACTION="${RDF_LAST_FRACTION:-0.8}"
-RDF_CELL_LENGTH_A="${RDF_CELL_LENGTH_A:-15.569}"
+RDF_CELL_LENGTH_A="${RDF_CELL_LENGTH_A:-}"
+RDF_AIMD_CELL_LENGTH_A="${RDF_AIMD_CELL_LENGTH_A:-15.569}"
+RDF_MLIP_CELL_LENGTH_A="${RDF_MLIP_CELL_LENGTH_A:-}"
+RDF_CELL_LENGTH_TOL_A="${RDF_CELL_LENGTH_TOL_A:-0.001}"
 RDF_TARGET_INDICES="${RDF_TARGET_INDICES:-${TARGET_INDICES}}"
 TOP_PDB="${TOP_PDB:-${STRUCTURE}}"
 MOL_CENTER_RESNAMES="${MOL_CENTER_RESNAMES:-Li}"
@@ -102,6 +105,7 @@ Environment overrides:
   LOG_INTERVAL TRAJECTORY_INTERVAL DIAGNOSTICS_INTERVAL
   RDF_LAST_FRACTION MLIP_EF_MODE TOP_PDB MOL_CENTER_RESNAMES MOL_NEIGHBOR_RESNAMES
   MOL_RDF_CENTER_MODE MOL_NEIGHBOR_CENTER MOL_R_MAX_NM MOL_DR_NM
+  RDF_CELL_LENGTH_A RDF_AIMD_CELL_LENGTH_A RDF_MLIP_CELL_LENGTH_A RDF_CELL_LENGTH_TOL_A
   T4_TOTAL_TIME_PS T4_WINDOW_PS T4_AIMD_DT_FS T4_MLIP_DT_FS CKPT RUN_DIR TASKS
   ENERGY_MODE is accepted as a deprecated alias for MLIP_EF_MODE.
 EOF
@@ -272,6 +276,10 @@ ghost_device=${GHOST_DEVICE}
 mlip_ef_mode=${MLIP_EF_MODE}
 energy_mode=${ENERGY_MODE}
 rdf_last_fraction=${RDF_LAST_FRACTION}
+rdf_cell_length_a=${RDF_CELL_LENGTH_A:-from_top_pdb}
+rdf_aimd_cell_length_a=${RDF_AIMD_CELL_LENGTH_A:-from_common_or_top_pdb}
+rdf_mlip_cell_length_a=${RDF_MLIP_CELL_LENGTH_A:-from_common_or_top_pdb}
+rdf_cell_length_tol_a=${RDF_CELL_LENGTH_TOL_A}
 top_pdb=${TOP_PDB}
 mol_center_resnames=${MOL_CENTER_RESNAMES}
 mol_neighbor_resnames=${MOL_NEIGHBOR_RESNAMES}
@@ -348,6 +356,17 @@ PY
 )"
 fi
 
+RDF_CELL_ARGS=(--cell-length-tol-a "${RDF_CELL_LENGTH_TOL_A}")
+if [[ -n "${RDF_CELL_LENGTH_A}" ]]; then
+  RDF_CELL_ARGS+=(--cell-length-a "${RDF_CELL_LENGTH_A}")
+fi
+if [[ -n "${RDF_AIMD_CELL_LENGTH_A}" ]]; then
+  RDF_CELL_ARGS+=(--aimd-cell-length-a "${RDF_AIMD_CELL_LENGTH_A}")
+fi
+if [[ -n "${RDF_MLIP_CELL_LENGTH_A}" ]]; then
+  RDF_CELL_ARGS+=(--mlip-cell-length-a "${RDF_MLIP_CELL_LENGTH_A}")
+fi
+
 if task_enabled T2; then
   if [[ ! -f "${ENERGY_LOG}" ]]; then
     echo "Energy log not found for T2: ${ENERGY_LOG}" >&2
@@ -394,11 +413,11 @@ if task_enabled T3; then
     --neighbor-resnames "${MOL_NEIGHBOR_RESNAMES}" \
     --center-mode "${MOL_RDF_CENTER_MODE}" \
     --neighbor-center "${MOL_NEIGHBOR_CENTER}" \
-    --cell-length-a "${RDF_CELL_LENGTH_A}" \
     --r-max-nm "${MOL_R_MAX_NM}" \
     --dr-nm "${MOL_DR_NM}" \
     --out-dir "${RUN_DIR}/T3_mol_com_rdf_compare_first_${MAX_TIME_PS}ps" \
-    --prefix "T3_mol_com_rdf_${LAMBDA_TAG}_first_${MAX_TIME_PS}ps_last${RDF_LAST_FRACTION}"
+    --prefix "T3_mol_com_rdf_${LAMBDA_TAG}_first_${MAX_TIME_PS}ps_last${RDF_LAST_FRACTION}" \
+    "${RDF_CELL_ARGS[@]}"
 fi
 
 if task_enabled T4; then
@@ -427,11 +446,11 @@ if task_enabled T4; then
     --neighbor-resnames "${MOL_NEIGHBOR_RESNAMES}" \
     --center-mode "${MOL_RDF_CENTER_MODE}" \
     --neighbor-center "${MOL_NEIGHBOR_CENTER}" \
-    --cell-length-a "${RDF_CELL_LENGTH_A}" \
     --r-max-nm "${MOL_R_MAX_NM}" \
     --dr-nm "${MOL_DR_NM}" \
     --out-dir "${RUN_DIR}/T4_mol_com_rdf_windows_${T4_TOTAL_TIME_PS}ps" \
     --prefix "T4_mol_com_rdf_${LAMBDA_TAG}_win${T4_WINDOW_PS}ps_total${T4_TOTAL_TIME_PS}ps" \
+    "${RDF_CELL_ARGS[@]}" \
     "${T4_DT_ARGS[@]}"
 fi
 

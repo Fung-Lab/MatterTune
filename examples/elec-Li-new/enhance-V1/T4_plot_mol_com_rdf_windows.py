@@ -68,6 +68,7 @@ def accumulate_windowed_mol_com_rdfs(
     target_indices: np.ndarray,
     center_mode: str,
     neighbor_center: str,
+    cell_length_tol_a: float,
 ) -> dict[str, object]:
     center_groups, neighbor_groups = t3.build_groups(
         molecules,
@@ -106,6 +107,13 @@ def accumulate_windowed_mol_com_rdfs(
                 raise ValueError(f"{path} frame {frame_idx} has {this_natoms} atoms; expected {natoms}.")
 
             comment = handle.readline()
+            t3.validate_frame_box_length(
+                comment,
+                expected_box_length=box_length,
+                tolerance_a=cell_length_tol_a,
+                path=path,
+                frame_idx=frame_idx,
+            )
             time_ps = read_frame_time_ps(comment, frame_idx=frame_idx, dt_fs=dt_fs, path=path)
             if time_ps > windows[-1][1] + 1.0e-12:
                 break
@@ -185,6 +193,7 @@ def accumulate_windowed_mol_com_rdfs(
         "center_groups": center_groups,
         "neighbor_groups": neighbor_groups,
         "neighbor_center": t3.normalize_reference_mode(neighbor_center),
+        "box_length": box_length,
     }
 
 
@@ -289,14 +298,13 @@ def write_summary(
     mlip: dict[str, object],
     path: Path,
     args: argparse.Namespace,
-    *,
-    box_length: float,
 ) -> None:
     with path.open("w", encoding="utf-8") as handle:
         handle.write(f"AIMD trajectory: {aimd['path']}\n")
         handle.write(f"MLIP trajectory: {mlip['path']}\n")
         handle.write(f"topology PDB: {args.top_pdb}\n")
-        handle.write(f"cell: cubic {box_length:.6f} A\n")
+        handle.write(f"AIMD cell: cubic {float(aimd['box_length']):.6f} A\n")
+        handle.write(f"MLIP cell: cubic {float(mlip['box_length']):.6f} A\n")
         handle.write(f"total_time_ps: {args.total_time_ps:.6f}\n")
         handle.write(f"window_ps: {args.window_ps:.6f}\n")
         handle.write(f"rmax: {args.r_max_nm:.4f} nm\n")
@@ -335,6 +343,27 @@ def parse_args() -> argparse.Namespace:
         help="Neighbor reference point: mol_com, mol_cog, or atom:<PDB atom name> such as atom:N.",
     )
     parser.add_argument("--cell-length-a", type=float, default=None)
+    parser.add_argument(
+        "--aimd-cell-length-a",
+        type=float,
+        default=None,
+        help="AIMD RDF cell length in Angstrom. Overrides --cell-length-a for AIMD only.",
+    )
+    parser.add_argument(
+        "--mlip-cell-length-a",
+        type=float,
+        default=None,
+        help="MLIP RDF cell length in Angstrom. Overrides --cell-length-a for MLIP only.",
+    )
+    parser.add_argument(
+        "--cell-length-tol-a",
+        type=float,
+        default=1.0e-3,
+        help=(
+            "Fail if an extxyz frame Lattice cell length differs from the RDF cell length "
+            "by more than this many Angstrom. Plain XYZ comments without Lattice are not checked."
+        ),
+    )
     parser.add_argument("--total-time-ps", type=float, default=50.0)
     parser.add_argument("--window-ps", type=float, default=10.0)
     parser.add_argument("--aimd-dt-fs", type=float, default=None)
@@ -356,6 +385,12 @@ def parse_args() -> argparse.Namespace:
         parser.error("--r-max-nm and --dr-nm must be positive.")
     if args.cell_length_a is not None and args.cell_length_a <= 0.0:
         parser.error("--cell-length-a must be positive.")
+    if args.aimd_cell_length_a is not None and args.aimd_cell_length_a <= 0.0:
+        parser.error("--aimd-cell-length-a must be positive.")
+    if args.mlip_cell_length_a is not None and args.mlip_cell_length_a <= 0.0:
+        parser.error("--mlip-cell-length-a must be positive.")
+    if args.cell_length_tol_a < 0.0:
+        parser.error("--cell-length-tol-a must be non-negative.")
     for name in ("aimd_dt_fs", "mlip_dt_fs"):
         value = getattr(args, name)
         if value is not None and value <= 0.0:
@@ -373,9 +408,14 @@ def main() -> None:
     neighbor_resnames = t3.parse_csv_list(args.neighbor_resnames)
     target_indices = t3.parse_indices(args.target_indices)
     molecules, topology_natoms, topology_box_length = t3.load_topology(args.top_pdb)
-    box_length = args.cell_length_a if args.cell_length_a is not None else topology_box_length
-    if box_length is None:
-        raise ValueError("No cell length provided and no cubic CRYST1 record found in top PDB.")
+    default_box_length = args.cell_length_a if args.cell_length_a is not None else topology_box_length
+    aimd_box_length = args.aimd_cell_length_a if args.aimd_cell_length_a is not None else default_box_length
+    mlip_box_length = args.mlip_cell_length_a if args.mlip_cell_length_a is not None else default_box_length
+    if aimd_box_length is None or mlip_box_length is None:
+        raise ValueError(
+            "No cell length provided and no cubic CRYST1 record found in top PDB. "
+            "Pass --aimd-cell-length-a/--mlip-cell-length-a or --cell-length-a."
+        )
 
     out_dir = args.out_dir or args.mlip_xyz.parent / "T4_mol_com_rdf_windows"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -389,7 +429,7 @@ def main() -> None:
         dataset_name=args.aimd_label,
         molecules=molecules,
         topology_natoms=topology_natoms,
-        box_length=box_length,
+        box_length=aimd_box_length,
         windows=windows,
         dt_fs=args.aimd_dt_fs,
         edges_a=edges_a,
@@ -398,13 +438,14 @@ def main() -> None:
         target_indices=target_indices,
         center_mode=args.center_mode,
         neighbor_center=args.neighbor_center,
+        cell_length_tol_a=args.cell_length_tol_a,
     )
     mlip = accumulate_windowed_mol_com_rdfs(
         args.mlip_xyz,
         dataset_name=args.mlip_label,
         molecules=molecules,
         topology_natoms=topology_natoms,
-        box_length=box_length,
+        box_length=mlip_box_length,
         windows=windows,
         dt_fs=args.mlip_dt_fs,
         edges_a=edges_a,
@@ -413,6 +454,7 @@ def main() -> None:
         target_indices=target_indices,
         center_mode=args.center_mode,
         neighbor_center=args.neighbor_center,
+        cell_length_tol_a=args.cell_length_tol_a,
     )
 
     center_groups = list(aimd["center_groups"])
@@ -429,7 +471,7 @@ def main() -> None:
         written.extend([plot_path, csv_path])
 
     summary_path = out_dir / f"{args.prefix}.txt"
-    write_summary(aimd, mlip, summary_path, args, box_length=box_length)
+    write_summary(aimd, mlip, summary_path, args)
     written.append(summary_path)
     for path in written:
         print(f"Wrote {path}")
