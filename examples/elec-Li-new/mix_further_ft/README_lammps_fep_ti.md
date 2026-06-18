@@ -7,11 +7,17 @@ with the companion `mattersim` repository.
 ## 1. Install Python packages
 
 ```bash
-conda create -n mattersim-elec python=3.10 -y
-conda activate mattersim-elec
+git clone -b electrolyte https://github.com/Lingyu-Kong/mattersim mattersim
+git clone -b electrolyte https://github.com/Lingyu-Kong/MatterTune-Elec MatterTune
 
-python -m pip install -U pip setuptools wheel
-python -m pip install torch --index-url https://download.pytorch.org/whl/cu126
+conda create -n mattersim-elec python=3.12 -y
+conda activate mattersim-elec
+export PYTHONNOUSERSITE=1
+
+conda install -c conda-forge cmake -y
+python -m pip install -U pip setuptools wheel "Cython>=0.29.32"
+python -m pip install torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cu126
 
 python -m pip install -e /path/to/mattersim
 python -m pip install -e /path/to/MatterTune
@@ -22,11 +28,16 @@ right choice.
 
 ## 2. Build patched LAMMPS
 
+The MatterSim build helper applies the bundled ML-IAP bridge patch. Pass
+`--ref stable` to build the official LAMMPS stable branch; the current tested
+stable branch resolves to `stable_22Jul2025_update4`.
+
 ```bash
 cd /path/to/mattersim
 
 bash scripts/build_lammps_mliap_kokkos.sh \
   --work-root /path/to/lammps-work \
+  --ref stable \
   --cuda-root /usr/local/cuda-12.6 \
   --kokkos-arch AMPERE86
 ```
@@ -35,8 +46,9 @@ Omit `--cuda-root` if `nvcc` is already on `PATH`. Set `--kokkos-arch` to match
 your GPU, for example `AMPERE80` for A100, `AMPERE86` for RTX A6000/A5000, and
 `HOPPER90` for H100.
 
-The script installs LAMMPS into the active conda env. Use the full path if
-another `lmp` is earlier in `PATH`:
+The script installs both the LAMMPS executable/shared library and the LAMMPS
+Python wheel into the active conda env. Use the full path if another `lmp` is
+earlier in `PATH`:
 
 ```bash
 ${CONDA_PREFIX}/bin/lmp -h
