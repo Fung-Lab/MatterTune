@@ -114,9 +114,17 @@ class MatterSimM3GNetBackboneModule(
     @override
     def create_model(self):
         with optional_import_error_message("mattersim"):
-            from mattersim.datasets.utils.convertor import (
-                GraphConvertor as MatterSimGraphConvertor,
-            )  # type: ignore[reportMissingImports] # noqa
+            if (
+                importlib.util.find_spec("mattersim.datasets.utils.converter")
+                is not None
+            ):
+                from mattersim.datasets.utils.converter import (
+                    GraphConvertor as MatterSimGraphConvertor,
+                )  # type: ignore[reportMissingImports] # noqa
+            else:
+                from mattersim.datasets.utils.convertor import (
+                    GraphConvertor as MatterSimGraphConvertor,
+                )  # type: ignore[reportMissingImports] # noqa
             from mattersim.forcefield.potential import Potential
 
         ## Load the pretrained model
@@ -192,10 +200,7 @@ class MatterSimM3GNetBackboneModule(
     def model_forward(
         self, batch: Batch, mode: str
     ):
-        with optional_import_error_message("mattersim"):
-            from mattersim.forcefield.potential import batch_to_dict
-
-        input = batch_to_dict(batch)
+        input = self._batch_to_input(batch)
         output = self.backbone(
             input,
             include_forces=self.calc_forces,
@@ -214,26 +219,51 @@ class MatterSimM3GNetBackboneModule(
     def model_forward_partition(
         self, batch: Batch, mode: str, using_partition: bool = False
     ):
-        with optional_import_error_message("mattersim"):
-            from mattersim.forcefield.potential import batch_to_dict
-
-        input = batch_to_dict(batch)
-        output = self.backbone(
-            input,
-            include_forces=self.calc_forces,
-            include_stresses=self.calc_stress,
-            root_indices_mask=getattr(batch, "root_indices_mask", None) if using_partition else None
-        )
+        input = self._batch_to_input(batch)
+        output_kwargs = {
+            "include_forces": self.calc_forces,
+            "include_stresses": self.calc_stress,
+        }
+        if using_partition:
+            output_kwargs["root_indices_mask"] = getattr(
+                batch, "root_indices_mask", None
+            )
+        try:
+            output = self.backbone(input, **output_kwargs)
+        except TypeError as exc:
+            if using_partition and "root_indices_mask" in str(exc):
+                raise NotImplementedError(
+                    "MatterSim partition inference requires the MatterSim-MT "
+                    "root_indices_mask extension and is not supported by upstream "
+                    "MatterSim."
+                ) from exc
+            raise
         output_pred = {}
         output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))
         if using_partition:
-            output_pred["energies_per_atom"] = output["total_energy_i"].reshape(-1)
+            total_energy_i = output.get("total_energy_i")
+            if total_energy_i is None:
+                raise NotImplementedError(
+                    "MatterSim partition inference requires per-atom energies "
+                    "(`total_energy_i`), which upstream MatterSim does not return."
+                )
+            output_pred["energies_per_atom"] = total_energy_i.reshape(-1)
         if self.calc_forces:
             output_pred[self.forces_prop_name] = output.get("forces")
         if self.calc_stress:
             output_pred[self.stress_prop_name] = output.get("stresses") * GPa
         pred: ModelOutput = {"predicted_properties": output_pred}
         return pred
+
+    def _batch_to_input(self, batch: Batch):
+        with optional_import_error_message("mattersim"):
+            from mattersim.forcefield.potential import batch_to_dict
+
+        atom_pos = getattr(batch, "atom_pos", None)
+        device = getattr(atom_pos, "device", None)
+        if device is None:
+            return batch_to_dict(batch)
+        return batch_to_dict(batch, device=str(device))
     
     @override
     def pretrained_backbone_parameters(self):

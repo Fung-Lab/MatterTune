@@ -1,0 +1,24 @@
+{
+    "force_mode": "conservative",
+    "frames": 25,
+    "graph_radius": 6.0,
+    "max_num_neighbors": 120,
+    "mean_baseline_energy_eV": -50.4733194732666,
+    "mean_residual_energy_eV": -29964.32625000646,
+    "mean_target_energy_eV": -30014.799569479725,
+    "model_name": "uma-s-1p1",
+    "model_type": "uma",
+    "reference_energy_source": "training_head",
+    "reference_model": "ridge",
+    "references": {
+        "1": -187.27667328691766,
+        "8": -93.63833664563431
+    },
+    "reset_output_heads": false,
+    "residual_after_reference_mae_eV": 4.971589320965286,
+    "residual_after_reference_rmse_eV": 5.794648306320921,
+    "ridge_alpha": 1.0,
+    "seed": 42,
+    "task_name": "omat",
+    "train_file": "/nethome/lkong88/workspace/Distill-New/AFMDistill-Old/examples/distill_from_md/data/h2o_1593_train_25.xyz"
+}

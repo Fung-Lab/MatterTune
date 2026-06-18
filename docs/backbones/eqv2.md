@@ -14,7 +14,7 @@ conda activate eqv2-tune
 pip install "git+https://github.com/FAIR-Chem/fairchem.git@omat24#subdirectory=packages/fairchem-core" --no-deps
 
 # Install dependencies
-pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=1.26,<2.0" orjson \
+pip install ase "e3nn>=0.5" hydra-core lmdb numba "numpy>=2.2,<3" orjson \
     "pymatgen>=2023.10.3" submitit tensorboard "torch>=2.4" wandb torch_geometric \
     h5py netcdf4 opt-einsum spglib
 ```
