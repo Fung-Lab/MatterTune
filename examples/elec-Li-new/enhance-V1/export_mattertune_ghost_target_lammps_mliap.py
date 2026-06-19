@@ -49,6 +49,27 @@ def parse_args() -> argparse.Namespace:
         help="Optional separate MatterTune MatterSim checkpoint for the ghost endpoint.",
     )
     parser.add_argument(
+        "--energy-log-path",
+        type=Path,
+        default=None,
+        help=(
+            "Optional CSV path written by the LAMMPS ML-IAP wrapper at runtime. "
+            "The file is overwritten when LAMMPS first evaluates forces."
+        ),
+    )
+    parser.add_argument(
+        "--energy-log-interval",
+        type=int,
+        default=1,
+        help="Write one FEP-TI energy CSV row every N ML-IAP force evaluations.",
+    )
+    parser.add_argument(
+        "--energy-log-timestep-fs",
+        type=float,
+        default=1.0,
+        help="Timestep in fs used to populate time_fs/time_ps in the energy CSV.",
+    )
+    parser.add_argument(
         "--device",
         default="cpu",
         help="Device used while loading checkpoint(s). The exported model is saved on CPU.",
@@ -71,6 +92,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("--sigma must be positive.")
     if args.lj_cutoff <= 0.0:
         parser.error("--lj-cutoff must be positive.")
+    if args.energy_log_interval <= 0:
+        parser.error("--energy-log-interval must be positive.")
+    if args.energy_log_timestep_fs <= 0.0:
+        parser.error("--energy-log-timestep-fs must be positive.")
     if not args.checkpoint.is_file():
         raise FileNotFoundError(args.checkpoint)
     if args.ghost_checkpoint is not None and not args.ghost_checkpoint.is_file():
@@ -90,6 +115,9 @@ def main() -> None:
         epsilon=args.epsilon,
         sigma=args.sigma,
         lj_cutoff=args.lj_cutoff,
+        energy_log_path=args.energy_log_path,
+        energy_log_interval=args.energy_log_interval,
+        energy_log_timestep_fs=args.energy_log_timestep_fs,
         device=args.device,
         strict=args.strict,
         compile=not args.no_compile,
@@ -100,6 +128,12 @@ def main() -> None:
     print(f"lambda_value={mliap.lambda_value}")
     print(f"target_types={','.join(str(t) for t in mliap.target_types)}")
     print(f"epsilon={mliap.epsilon} sigma={mliap.sigma} lj_cutoff={mliap.lj_cutoff}")
+    if mliap.energy_log_path is not None:
+        print(
+            f"energy_log_path={mliap.energy_log_path} "
+            f"energy_log_interval={mliap.energy_log_interval} "
+            f"energy_log_timestep_fs={mliap.energy_log_timestep_fs}"
+        )
     print(f"cutoff={mliap.cutoff} threebody_cutoff={mliap.threebody_cutoff}")
     print(
         f"ghost_cutoff={mliap.ghost_cutoff} "

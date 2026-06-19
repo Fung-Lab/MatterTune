@@ -29,6 +29,7 @@ TEMPERATURE="${TEMPERATURE:-298.15}"
 FRICTION_FS_INV="${FRICTION_FS_INV:-0.02}"
 THERMO_INTERVAL="${THERMO_INTERVAL:-100}"
 DUMP_INTERVAL="${DUMP_INTERVAL:-100}"
+ENERGY_LOG_INTERVAL="${ENERGY_LOG_INTERVAL:-1}"
 SEED="${SEED:-7}"
 INIT_VELOCITIES="${INIT_VELOCITIES:-1}"
 
@@ -62,6 +63,7 @@ Common options:
   --temperature K             NVT temperature. Default: 298.15.
   --timestep-fs FS            LAMMPS timestep in fs. Default: 1.0.
   --friction-fs-inv VALUE     Langevin friction in fs^-1. Default: 0.02.
+  --energy-log-interval N     Write fep-ti-energy.log every N ML-IAP force evaluations. Default: 1.
   --target-indices LIST       Zero-based PDB atom indices for ghost target. Default: 0.
   --lj-cutoff A               Requested LJ cutoff; runtime uses min(lj_cutoff, Lmin/2). Default: 10.0.
   --cuda-visible-devices IDS  Set CUDA_VISIBLE_DEVICES before export and LAMMPS.
@@ -70,7 +72,7 @@ Common options:
 
 Environment overrides:
   CONDA_ENV CONDA_SH LMP_BIN MATTERTUNE_DIR MATTERSIM_DIR RUN_ROOT RUN_DIR
-  TARGET_TYPE ELEMENT_ORDER SIGMA EPSILON THERMO_INTERVAL DUMP_INTERVAL SEED
+  TARGET_TYPE ELEMENT_ORDER SIGMA EPSILON THERMO_INTERVAL DUMP_INTERVAL ENERGY_LOG_INTERVAL SEED
   INIT_VELOCITIES KOKKOS_GPUS CUDA_VISIBLE_DEVICES_VALUE EXPORT_DEVICE STRICT NO_COMPILE FORCE_EXPORT
 EOF
 }
@@ -86,6 +88,7 @@ while [[ $# -gt 0 ]]; do
     --temperature) TEMPERATURE="$2"; shift 2 ;;
     --timestep-fs) TIMESTEP_FS="$2"; shift 2 ;;
     --friction-fs-inv) FRICTION_FS_INV="$2"; shift 2 ;;
+    --energy-log-interval) ENERGY_LOG_INTERVAL="$2"; shift 2 ;;
     --target-indices) TARGET_INDICES="$2"; shift 2 ;;
     --lj-cutoff) LJ_CUTOFF="$2"; shift 2 ;;
     --cuda-visible-devices) CUDA_VISIBLE_DEVICES_VALUE="$2"; shift 2 ;;
@@ -141,6 +144,7 @@ MODEL_PATH="${RUN_DIR}/ghost-target-${LAMBDA_TAG}-type${TARGET_TYPE}-rc${LJ_CUTO
 DATA_PATH="${RUN_DIR}/top_target_type${TARGET_TYPE}.data"
 INPUT_PATH="${RUN_DIR}/in.${LAMBDA_TAG}.lammps"
 METADATA_PATH="${RUN_DIR}/prepare_metadata.json"
+ENERGY_LOG_PATH="${RUN_DIR}/fep-ti-energy.log"
 FINAL_DATA_PATH="${RUN_DIR}/final_${LAMBDA_TAG}.data"
 DUMP_PATH="${RUN_DIR}/traj_${LAMBDA_TAG}.lammpstrj"
 LOG_PATH="${RUN_DIR}/log.${LAMBDA_TAG}.lammps"
@@ -179,12 +183,17 @@ timestep_fs=${TIMESTEP_FS}
 friction_fs_inv=${FRICTION_FS_INV}
 warmup_steps=${WARMUP_STEPS}
 steps=${STEPS}
+thermo_interval=${THERMO_INTERVAL}
+dump_interval=${DUMP_INTERVAL}
+energy_log_interval=${ENERGY_LOG_INTERVAL}
 sigma=${SIGMA}
 epsilon=${EPSILON}
 lj_cutoff=${LJ_CUTOFF}
 model_path=${MODEL_PATH}
 data_path=${DATA_PATH}
 input_path=${INPUT_PATH}
+metadata_path=${METADATA_PATH}
+energy_log_path=${ENERGY_LOG_PATH}
 log_path=${LOG_PATH}
 cuda_visible_devices=${CUDA_VISIBLE_DEVICES_VALUE}
 kokkos_gpus=${KOKKOS_GPUS}
@@ -220,6 +229,9 @@ if [[ ! -f "${MODEL_PATH}" || "${FORCE_EXPORT}" == "1" ]]; then
     --epsilon "${EPSILON}" \
     --sigma "${SIGMA}" \
     --lj-cutoff "${LJ_CUTOFF}" \
+    --energy-log-path "${ENERGY_LOG_PATH}" \
+    --energy-log-interval "${ENERGY_LOG_INTERVAL}" \
+    --energy-log-timestep-fs "${TIMESTEP_FS}" \
     --device "${EXPORT_DEVICE}" \
     "${EXPORT_ARGS[@]}"
 else
