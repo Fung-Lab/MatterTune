@@ -564,6 +564,74 @@ PYTHONNOUSERSITE=1 ${CONDA_PREFIX}/bin/lmp \
 建议第一次先把 input 里的 production `run 100000` 改成 `run 0` 或 `run 100`，确认
 `pe`、forces 和 neighbor list 都正常，再跑长 MD。
 
+### 5.5 使用 `run_lammps_mlp_md.sh` 一键跑正常 MD
+
+如果不想手动导出 `.pt` 和写 `in.lammps`，可以直接用本目录的一键脚本。它做的事情是：
+
+1. 激活 conda 环境，设置 `PYTHONNOUSERSITE=1` 和 `PYTHONPATH`。
+2. 调用 `export_mattersim_lammps_mliap.py`，从 MatterTune checkpoint 导出普通 ML-IAP `.pt`。
+3. 调用 `prepare_lammps_normal_input.py`，从 PDB 写出正常 LAMMPS data、`in.normal.lammps` 和 metadata。
+4. 调用 `${LMP_BIN}` 用 Kokkos/ML-IAP 跑 warmup 和 production MD。
+5. 保存 log、trajectory、final data 和本次运行参数。
+
+最常用命令：
+
+```bash
+cd ~/workspace/electrolyte-fep/MatterTune
+
+bash examples/elec-Li-new/mix_further_ft/run_lammps_mlp_md.sh \
+  --checkpoint /path/to/mattersim-best.ckpt \
+  --structure /path/to/top.pdb \
+  --cuda-visible-devices 0
+```
+
+常用覆盖项：
+
+```bash
+bash examples/elec-Li-new/mix_further_ft/run_lammps_mlp_md.sh \
+  --checkpoint /path/to/mattersim-best.ckpt \
+  --structure /path/to/top.pdb \
+  --run-dir /path/to/normal_md_run \
+  --steps 100000 \
+  --warmup-steps 20 \
+  --temperature 298.15 \
+  --timestep-fs 1.0 \
+  --friction-fs-inv 0.02 \
+  --thermo-interval 100 \
+  --dump-interval 100 \
+  --cuda-visible-devices 0
+```
+
+只准备 `.pt`、data 和 `in.normal.lammps`，不启动 MD：
+
+```bash
+bash examples/elec-Li-new/mix_further_ft/run_lammps_mlp_md.sh \
+  --checkpoint /path/to/mattersim-best.ckpt \
+  --structure /path/to/top.pdb \
+  --prepare-only
+```
+
+这会生成：
+
+```text
+mattertune-mattersim-normal.pt
+top_normal.data
+in.normal.lammps
+prepare_metadata.json
+run_lammps_mlp_md_config.txt
+```
+
+如果不加 `--prepare-only`，还会生成：
+
+```text
+log.normal.lammps
+traj_normal.lammpstrj
+final_normal.data
+```
+
+和 FEP-TI 脚本不同，`run_lammps_mlp_md.sh` 不会创建 target atom type，也不会写
+`fep-ti-energy.log`；正常 MD 的能量看 LAMMPS `log.normal.lammps` 里的 thermo `pe`。
+
 ## 6. 跑多个 lambda windows
 
 一个简单 loop：
