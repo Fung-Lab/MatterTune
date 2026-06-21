@@ -63,7 +63,7 @@ Common options:
   --temperature K             NVT temperature. Default: 298.15.
   --timestep-fs FS            LAMMPS timestep in fs. Default: 1.0.
   --friction-fs-inv VALUE     Langevin friction in fs^-1. Default: 0.02.
-  --energy-log-interval N     Write fep-ti-energy.log every N ML-IAP force evaluations. Default: 1.
+  --energy-log-interval N     Write/merge FEP-TI energy rows every N ML-IAP force evaluations. Default: 1.
   --target-indices LIST       Zero-based PDB atom indices for ghost target. Default: 0.
   --lj-cutoff A               Requested LJ cutoff; runtime uses min(lj_cutoff, Lmin/2). Default: 10.0.
   --cuda-visible-devices IDS  Set CUDA_VISIBLE_DEVICES before export and LAMMPS.
@@ -145,6 +145,8 @@ DATA_PATH="${RUN_DIR}/top_target_type${TARGET_TYPE}.data"
 INPUT_PATH="${RUN_DIR}/in.${LAMBDA_TAG}.lammps"
 METADATA_PATH="${RUN_DIR}/prepare_metadata.json"
 ENERGY_LOG_PATH="${RUN_DIR}/fep-ti-energy.log"
+ENERGY_LOG_RAW_PATH="${RUN_DIR}/fep-ti-energy.raw.csv"
+TEMPERATURE_LOG_PATH="${RUN_DIR}/fep-ti-temperature.csv"
 FINAL_DATA_PATH="${RUN_DIR}/final_${LAMBDA_TAG}.data"
 DUMP_PATH="${RUN_DIR}/traj_${LAMBDA_TAG}.lammpstrj"
 LOG_PATH="${RUN_DIR}/log.${LAMBDA_TAG}.lammps"
@@ -194,6 +196,8 @@ data_path=${DATA_PATH}
 input_path=${INPUT_PATH}
 metadata_path=${METADATA_PATH}
 energy_log_path=${ENERGY_LOG_PATH}
+energy_log_raw_path=${ENERGY_LOG_RAW_PATH}
+temperature_log_path=${TEMPERATURE_LOG_PATH}
 log_path=${LOG_PATH}
 cuda_visible_devices=${CUDA_VISIBLE_DEVICES_VALUE}
 kokkos_gpus=${KOKKOS_GPUS}
@@ -220,6 +224,11 @@ if [[ "${NO_COMPILE}" == "1" ]]; then
   EXPORT_ARGS+=(--no-compile)
 fi
 
+if [[ -f "${MODEL_PATH}" && "${FORCE_EXPORT}" != "1" && ! -f "${ENERGY_LOG_RAW_PATH}" ]]; then
+  echo "Existing model has no matching raw energy log; re-exporting to refresh the stored log path."
+  FORCE_EXPORT=1
+fi
+
 if [[ ! -f "${MODEL_PATH}" || "${FORCE_EXPORT}" == "1" ]]; then
   run_cmd python "${MATTERTUNE_DIR}/examples/elec-Li-new/enhance-V1/export_mattertune_ghost_target_lammps_mliap.py" \
     --checkpoint "${CKPT}" \
@@ -229,7 +238,7 @@ if [[ ! -f "${MODEL_PATH}" || "${FORCE_EXPORT}" == "1" ]]; then
     --epsilon "${EPSILON}" \
     --sigma "${SIGMA}" \
     --lj-cutoff "${LJ_CUTOFF}" \
-    --energy-log-path "${ENERGY_LOG_PATH}" \
+    --energy-log-path "${ENERGY_LOG_RAW_PATH}" \
     --energy-log-interval "${ENERGY_LOG_INTERVAL}" \
     --energy-log-timestep-fs "${TIMESTEP_FS}" \
     --device "${EXPORT_DEVICE}" \
@@ -264,6 +273,8 @@ run_cmd python "${SCRIPT_DIR}/prepare_lammps_ghost_target_input.py" \
   --seed "${SEED}" \
   --final-data "${FINAL_DATA_PATH}" \
   --dump "${DUMP_PATH}" \
+  --temperature-log "${TEMPERATURE_LOG_PATH}" \
+  --temperature-log-interval "${ENERGY_LOG_INTERVAL}" \
   "${INIT_ARGS[@]}"
 
 if [[ "${RUN_MD}" != "1" ]]; then
@@ -282,6 +293,13 @@ run_cmd "${LMP_BIN}" \
   -pk kokkos newton on neigh half \
   -in "${INPUT_PATH}" \
   -log "${LOG_PATH}"
+
+if [[ "${DRY_RUN}" != "1" && -f "${ENERGY_LOG_RAW_PATH}" ]]; then
+  run_cmd python "${SCRIPT_DIR}/merge_lammps_fep_ti_energy_log.py" \
+    --energy-log-raw "${ENERGY_LOG_RAW_PATH}" \
+    --temperature-log "${TEMPERATURE_LOG_PATH}" \
+    --output "${ENERGY_LOG_PATH}"
+fi
 
 if [[ "${DRY_RUN}" != "1" && -f "${LOG_PATH}" ]]; then
   python - "${LOG_PATH}" <<'PY'

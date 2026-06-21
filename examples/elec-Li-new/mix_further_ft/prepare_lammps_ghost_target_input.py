@@ -208,6 +208,8 @@ def write_lammps_input(
     init_velocities: bool,
     final_data_path: Path,
     dump_path: Path,
+    temperature_log_path: Path | None = None,
+    temperature_log_interval: int = 1,
 ) -> None:
     if timestep_fs <= 0.0:
         raise ValueError("timestep_fs must be positive")
@@ -217,6 +219,8 @@ def write_lammps_input(
         raise ValueError("warmup_steps and steps must be non-negative")
     if thermo_interval <= 0 or dump_interval <= 0:
         raise ValueError("thermo_interval and dump_interval must be positive")
+    if temperature_log_path is not None and temperature_log_interval <= 0:
+        raise ValueError("temperature_log_interval must be positive")
 
     timestep_ps = timestep_fs * 0.001
     damping_ps = 1.0 / friction_fs_inv * 0.001
@@ -246,6 +250,14 @@ def write_lammps_input(
         )
         handle.write("neighbor        2.0 bin\n")
         handle.write("neigh_modify    every 1 delay 0 check yes\n\n")
+        if temperature_log_path is not None:
+            handle.write("variable        fep_ti_log_step equal step\n")
+            handle.write("variable        fep_ti_log_temp equal temp\n")
+            handle.write(
+                f"fix             fep_ti_temp_log all print {temperature_log_interval} "
+                f"\"${{fep_ti_log_step}},${{fep_ti_log_temp}}\" "
+                f"file {temperature_log_path} screen no title \"step,temperature_K\"\n\n"
+            )
         handle.write(f"thermo          {thermo_interval}\n")
         handle.write("thermo_style    custom step temp pe ke etotal press\n")
         handle.write("thermo_modify   flush yes\n\n")
@@ -292,10 +304,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-init-velocities", dest="init_velocities", action="store_false")
     parser.add_argument("--final-data", type=Path, required=True)
     parser.add_argument("--dump", type=Path, required=True)
+    parser.add_argument("--temperature-log", type=Path, default=None)
+    parser.add_argument("--temperature-log-interval", type=int, default=1)
     args = parser.parse_args()
 
     if args.target_type <= 0:
         parser.error("--target-type must be positive")
+    if args.temperature_log_interval <= 0:
+        parser.error("--temperature-log-interval must be positive")
     return args
 
 
@@ -326,6 +342,10 @@ def main() -> None:
         init_velocities=args.init_velocities,
         final_data_path=args.final_data.resolve(),
         dump_path=args.dump.resolve(),
+        temperature_log_path=(
+            None if args.temperature_log is None else args.temperature_log.resolve()
+        ),
+        temperature_log_interval=args.temperature_log_interval,
     )
 
     payload = {
@@ -342,6 +362,8 @@ def main() -> None:
         "dump_interval": args.dump_interval,
         "seed": args.seed,
         "init_velocities": args.init_velocities,
+        "temperature_log": None if args.temperature_log is None else str(args.temperature_log),
+        "temperature_log_interval": args.temperature_log_interval,
         **metadata,
     }
     args.metadata.parent.mkdir(parents=True, exist_ok=True)

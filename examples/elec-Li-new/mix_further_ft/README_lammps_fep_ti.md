@@ -134,7 +134,7 @@ python examples/elec-Li-new/enhance-V1/export_mattertune_ghost_target_lammps_mli
   --epsilon 0.00694 \
   --sigma 2.337 \
   --lj-cutoff 10.0 \
-  --energy-log-path "${RUN_DIR}/fep-ti-energy.log" \
+  --energy-log-path "${RUN_DIR}/fep-ti-energy.raw.csv" \
   --energy-log-interval 1 \
   --energy-log-timestep-fs 1.0 \
   --device cpu
@@ -150,8 +150,10 @@ python examples/elec-Li-new/enhance-V1/export_mattertune_ghost_target_lammps_mli
 - FEP-TI energy log 的输出路径、输出频率和 timestep。
 
 所以不同 lambda window 要导出不同 `.pt`，例如 lambda 0.0、0.5、1.0 各一个。
-LAMMPS 运行时会由 ML-IAP wrapper 写出 `${RUN_DIR}/fep-ti-energy.log`，每次 force evaluation
-append 一行 CSV，并立刻 flush。字段和 ASE `examples/electrolyte/md.py` 的 energy log 保持一致：
+LAMMPS 运行时会由 ML-IAP wrapper 写出 `${RUN_DIR}/fep-ti-energy.raw.csv`，每次 force
+evaluation append 一行 CSV，并立刻 flush。这个 raw 文件包含 endpoint energy，但
+`temperature_K` 只是占位；最终给后处理使用的是合并后的 `${RUN_DIR}/fep-ti-energy.log`。
+字段和 ASE `examples/electrolyte/md.py` 的 energy log 保持一致：
 
 ```text
 step,time_fs,time_ps,temperature_K,mixed_energy_eV,E_I_eV,E_F_with_LJ_eV,E_F_without_LJ_eV,E_LJ_eV,deltaE_with_LJ_eV,deltaE_without_LJ_eV
@@ -159,8 +161,8 @@ step,time_fs,time_ps,temperature_K,mixed_energy_eV,E_I_eV,E_F_with_LJ_eV,E_F_wit
 
 其中 `E_I_eV` 是 real endpoint，`E_F_without_LJ_eV` 是 delete ghost MatterSim base endpoint，
 `E_LJ_eV` 是 ghost endpoint 的 LJ correction，`E_F_with_LJ_eV` 是 ghost base + LJ，
-`mixed_energy_eV` 是 LAMMPS 实际使用的 lambda 插值能量。`temperature_K` 在这个文件里写
-`nan`，瞬时温度看 LAMMPS thermo log。
+`mixed_energy_eV` 是 LAMMPS 实际使用的 lambda 插值能量。`temperature_K` 来自 LAMMPS
+`fix print ... screen no` 写出的 sidecar，再由 merge 脚本填回最终 CSV。
 
 注意这个日志路径保存在导出的 `.pt` 里。如果你之前已经导出过旧 `.pt`，需要重新导出；使用
 `run_lammps_fep_ti.sh` 时可以加 `--force-export`。通常每个 MD step 对应一次 force evaluation；
@@ -221,7 +223,9 @@ python examples/elec-Li-new/mix_further_ft/prepare_lammps_ghost_target_input.py 
   --dump-interval 100 \
   --seed 7 \
   --final-data "${RUN_DIR}/final_lambda050.data" \
-  --dump "${RUN_DIR}/traj_lambda050.lammpstrj"
+  --dump "${RUN_DIR}/traj_lambda050.lammpstrj" \
+  --temperature-log "${RUN_DIR}/fep-ti-temperature.csv" \
+  --temperature-log-interval 1
 ```
 
 这里的 `--target-indices` 是 PDB/ASE 的 zero-based atom index。比如 `0` 表示 PDB 里第一个原子。
@@ -285,6 +289,15 @@ PYTHONNOUSERSITE=1 ${CONDA_PREFIX}/bin/lmp \
   -log "${RUN_DIR}/log.lambda050.lammps"
 ```
 
+如果手动跑而不是用 `run_lammps_fep_ti.sh`，LAMMPS 完成后再合并正式 energy log：
+
+```bash
+python examples/elec-Li-new/mix_further_ft/merge_lammps_fep_ti_energy_log.py \
+  --energy-log-raw "${RUN_DIR}/fep-ti-energy.raw.csv" \
+  --temperature-log "${RUN_DIR}/fep-ti-temperature.csv" \
+  --output "${RUN_DIR}/fep-ti-energy.log"
+```
+
 `pair_mliap` 需要 `newton on`，Kokkos 路径建议使用 half neighbor list：
 `-pk kokkos newton on neigh half`。
 
@@ -295,10 +308,13 @@ PYTHONNOUSERSITE=1 ${CONDA_PREFIX}/bin/lmp \
 1. 激活 conda 环境，设置 `PYTHONNOUSERSITE=1` 和 `PYTHONPATH`。
 2. 根据 `lambda_value` 和时间戳创建 `RUN_DIR`。
 3. 调用 `export_mattertune_ghost_target_lammps_mliap.py`，从 checkpoint 导出 `.pt`，并把
-   `fep-ti-energy.log` 的输出路径写进 `.pt`。
-4. 调用 `prepare_lammps_ghost_target_input.py`，从 PDB 写出 LAMMPS data、`in.lammps` 和 metadata。
+   raw energy CSV 的输出路径写进 `.pt`。
+4. 调用 `prepare_lammps_ghost_target_input.py`，从 PDB 写出 LAMMPS data、`in.lammps`、metadata
+   和每步 temperature sidecar 配置。
 5. 调用 `${LMP_BIN}` 用 Kokkos/ML-IAP 跑 warmup 和 production MD。
-6. 保存 log、trajectory、final data 和本次运行参数。
+6. 调用 `merge_lammps_fep_ti_energy_log.py`，把 raw energy 和 temperature sidecar 合并成
+   `fep-ti-energy.log`。
+7. 保存 log、trajectory、final data 和本次运行参数。
 
 最常用命令：
 
@@ -357,6 +373,8 @@ run_lammps_fep_ti_config.txt
 
 ```text
 fep-ti-energy.log
+fep-ti-energy.raw.csv
+fep-ti-temperature.csv
 log.lambdaXXX.lammps
 traj_lambdaXXX.lammpstrj
 final_lambdaXXX.data
