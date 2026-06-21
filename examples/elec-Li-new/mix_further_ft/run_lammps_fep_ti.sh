@@ -29,6 +29,7 @@ TEMPERATURE="${TEMPERATURE:-298.15}"
 FRICTION_FS_INV="${FRICTION_FS_INV:-0.02}"
 THERMO_INTERVAL="${THERMO_INTERVAL:-100}"
 DUMP_INTERVAL="${DUMP_INTERVAL:-100}"
+XTC_DUMP_INTERVAL="${XTC_DUMP_INTERVAL:-500}"
 ENERGY_LOG_INTERVAL="${ENERGY_LOG_INTERVAL:-1}"
 SEED="${SEED:-7}"
 INIT_VELOCITIES="${INIT_VELOCITIES:-1}"
@@ -72,7 +73,7 @@ Common options:
 
 Environment overrides:
   CONDA_ENV CONDA_SH LMP_BIN MATTERTUNE_DIR MATTERSIM_DIR RUN_ROOT RUN_DIR
-  TARGET_TYPE ELEMENT_ORDER SIGMA EPSILON THERMO_INTERVAL DUMP_INTERVAL ENERGY_LOG_INTERVAL SEED
+  TARGET_TYPE ELEMENT_ORDER SIGMA EPSILON THERMO_INTERVAL DUMP_INTERVAL XTC_DUMP_INTERVAL ENERGY_LOG_INTERVAL SEED
   INIT_VELOCITIES KOKKOS_GPUS CUDA_VISIBLE_DEVICES_VALUE EXPORT_DEVICE STRICT NO_COMPILE FORCE_EXPORT
 EOF
 }
@@ -106,18 +107,22 @@ if [[ -z "${LAMBDA_VALUE}" ]]; then
   usage >&2
   exit 2
 fi
+
 if [[ ! -f "${CONDA_SH}" ]]; then
   echo "Conda setup script not found: ${CONDA_SH}" >&2
   exit 1
 fi
+
 if [[ ! -f "${CKPT}" ]]; then
   echo "Checkpoint not found: ${CKPT}" >&2
   exit 1
 fi
+
 if [[ ! -f "${STRUCTURE}" ]]; then
   echo "Structure PDB not found: ${STRUCTURE}" >&2
   exit 1
 fi
+
 if [[ ! -f "${SCRIPT_DIR}/prepare_lammps_ghost_target_input.py" ]]; then
   echo "Prepare script not found under ${SCRIPT_DIR}" >&2
   exit 1
@@ -130,6 +135,7 @@ if not 0.0 <= value <= 1.0:
 print(f"lambda{int(round(value * 1000)):03d}")
 PY
 )"
+
 LAMBDA_FILE_LABEL="$(python - <<PY
 value = float("${LAMBDA_VALUE}")
 print(f"{value:.6g}".replace(".", "p"))
@@ -149,6 +155,7 @@ ENERGY_LOG_RAW_PATH="${RUN_DIR}/fep-ti-energy.raw.csv"
 TEMPERATURE_LOG_PATH="${RUN_DIR}/fep-ti-temperature.csv"
 FINAL_DATA_PATH="${RUN_DIR}/final_${LAMBDA_TAG}.data"
 DUMP_PATH="${RUN_DIR}/traj_${LAMBDA_TAG}.lammpstrj"
+XTC_PATH="${RUN_DIR}/traj_${LAMBDA_TAG}.xtc"
 LOG_PATH="${RUN_DIR}/log.${LAMBDA_TAG}.lammps"
 CONFIG_PATH="${RUN_DIR}/run_lammps_fep_ti_config.txt"
 
@@ -165,6 +172,7 @@ source "${CONDA_SH}"
 conda activate "${CONDA_ENV}"
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="${MATTERSIM_DIR}/src:${MATTERTUNE_DIR}/src:${PYTHONPATH:-}"
+
 if [[ -n "${CUDA_VISIBLE_DEVICES_VALUE}" ]]; then
   export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES_VALUE}"
 fi
@@ -187,6 +195,7 @@ warmup_steps=${WARMUP_STEPS}
 steps=${STEPS}
 thermo_interval=${THERMO_INTERVAL}
 dump_interval=${DUMP_INTERVAL}
+xtc_dump_interval=${XTC_DUMP_INTERVAL}
 energy_log_interval=${ENERGY_LOG_INTERVAL}
 sigma=${SIGMA}
 epsilon=${EPSILON}
@@ -196,6 +205,8 @@ data_path=${DATA_PATH}
 input_path=${INPUT_PATH}
 metadata_path=${METADATA_PATH}
 energy_log_path=${ENERGY_LOG_PATH}
+dump_path=${DUMP_PATH}
+xtc_path=${XTC_PATH}
 energy_log_raw_path=${ENERGY_LOG_RAW_PATH}
 temperature_log_path=${TEMPERATURE_LOG_PATH}
 log_path=${LOG_PATH}
@@ -210,16 +221,23 @@ echo "RUN_DIR=${RUN_DIR}"
 echo "LAMBDA_VALUE=${LAMBDA_VALUE}"
 echo "TARGET_INDICES=${TARGET_INDICES} (zero-based PDB/ASE indices)"
 echo "TARGET_TYPE=${TARGET_TYPE}"
+
 if [[ -n "${CUDA_VISIBLE_DEVICES_VALUE}" ]]; then
   echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_VALUE}"
 fi
+
 echo "CKPT=${CKPT}"
 echo "STRUCTURE=${STRUCTURE}"
+echo "DUMP_PATH=${DUMP_PATH}"
+echo "XTC_PATH=${XTC_PATH}"
+echo "XTC_DUMP_INTERVAL=${XTC_DUMP_INTERVAL}"
 
 EXPORT_ARGS=()
+
 if [[ "${STRICT}" == "1" ]]; then
   EXPORT_ARGS+=(--strict)
 fi
+
 if [[ "${NO_COMPILE}" == "1" ]]; then
   EXPORT_ARGS+=(--no-compile)
 fi
@@ -248,6 +266,7 @@ else
 fi
 
 INIT_ARGS=()
+
 if [[ "${INIT_VELOCITIES}" == "1" ]]; then
   INIT_ARGS+=(--init-velocities)
 else
@@ -270,9 +289,11 @@ run_cmd python "${SCRIPT_DIR}/prepare_lammps_ghost_target_input.py" \
   --steps "${STEPS}" \
   --thermo-interval "${THERMO_INTERVAL}" \
   --dump-interval "${DUMP_INTERVAL}" \
+  --xtc-dump-interval "${XTC_DUMP_INTERVAL}" \
   --seed "${SEED}" \
   --final-data "${FINAL_DATA_PATH}" \
   --dump "${DUMP_PATH}" \
+  --xtc-dump "${XTC_PATH}" \
   --temperature-log "${TEMPERATURE_LOG_PATH}" \
   --temperature-log-interval "${ENERGY_LOG_INTERVAL}" \
   "${INIT_ARGS[@]}"

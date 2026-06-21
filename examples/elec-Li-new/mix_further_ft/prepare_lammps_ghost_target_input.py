@@ -68,7 +68,7 @@ def parse_cryst1(line: str) -> tuple[float, float, float, float, float, float]:
     fields = line.split()
     if len(fields) < 7:
         raise ValueError(f"Malformed CRYST1 record: {line.rstrip()}")
-    return tuple(float(value) for value in fields[1:7])  # type: ignore[return-value]
+    return tuple(float(value) for value in fields[1:7])
 
 
 def parse_pdb(path: Path) -> tuple[list[PDBAtom], tuple[float, float, float]]:
@@ -131,21 +131,17 @@ def write_lammps_data(
     n_atom_types = max(len(element_order), target_type)
 
     if target_type in base_types.values():
-        raise ValueError(
-            f"target_type={target_type} overlaps with base element types {base_types}."
-        )
+        raise ValueError(f"target_type={target_type} overlaps with base element types {base_types}.")
+
     for atom in atoms:
         if atom.element not in base_types:
-            raise ValueError(
-                f"Atom index {atom.index} has element {atom.element}, not in {element_order}."
-            )
+            raise ValueError(f"Atom index {atom.index} has element {atom.element}, not in {element_order}.")
+
     for target_index in target_indices:
         if target_index < 0 or target_index >= len(atoms):
             raise ValueError(f"Target index {target_index} is outside [0, {len(atoms) - 1}]")
         if atoms[target_index].element != "Li":
-            raise ValueError(
-                f"Target index {target_index} is {atoms[target_index].element}, expected Li."
-            )
+            raise ValueError(f"Target index {target_index} is {atoms[target_index].element}, expected Li.")
 
     type_elements: list[str] = []
     for atom_type in range(1, n_atom_types + 1):
@@ -157,6 +153,7 @@ def write_lammps_data(
             raise ValueError(f"No element mapping for LAMMPS atom type {atom_type}")
 
     path.parent.mkdir(parents=True, exist_ok=True)
+
     with path.open("w", encoding="utf-8") as handle:
         handle.write("LAMMPS data generated from PDB for MatterSim ghost-target FEP-TI\n\n")
         handle.write(f"{len(atoms)} atoms\n")
@@ -165,9 +162,12 @@ def write_lammps_data(
         handle.write(f"0.0 {cell[1]:.10f} ylo yhi\n")
         handle.write(f"0.0 {cell[2]:.10f} zlo zhi\n\n")
         handle.write("Masses\n\n")
+
         for atom_type, element in enumerate(type_elements, start=1):
             handle.write(f"{atom_type} {DEFAULT_MASSES[element]:.12g} # {element}\n")
+
         handle.write("\nAtoms # atomic\n\n")
+
         for atom in atoms:
             atom_type = target_type if atom.index in target_set else base_types[atom.element]
             x = wrap_position(atom.x, cell[0])
@@ -204,10 +204,12 @@ def write_lammps_input(
     steps: int,
     thermo_interval: int,
     dump_interval: int,
+    xtc_dump_interval: int,
     seed: int,
     init_velocities: bool,
     final_data_path: Path,
     dump_path: Path,
+    xtc_path: Path,
     temperature_log_path: Path | None = None,
     temperature_log_interval: int = 1,
 ) -> None:
@@ -217,6 +219,8 @@ def write_lammps_input(
         raise ValueError("friction_fs_inv must be positive")
     if warmup_steps < 0 or steps < 0:
         raise ValueError("warmup_steps and steps must be non-negative")
+    if thermo_interval <= 0 or dump_interval <= 0 or xtc_dump_interval <= 0:
+        raise ValueError("thermo_interval, dump_interval, and xtc_dump_interval must be positive")
     if thermo_interval <= 0 or dump_interval <= 0:
         raise ValueError("thermo_interval and dump_interval must be positive")
     if temperature_log_path is not None and temperature_log_interval <= 0:
@@ -227,6 +231,7 @@ def write_lammps_input(
     pair_coeff = " ".join(pair_coeff_elements)
 
     path.parent.mkdir(parents=True, exist_ok=True)
+
     with path.open("w", encoding="utf-8") as handle:
         handle.write("units           metal\n")
         handle.write("atom_style      atomic\n")
@@ -237,11 +242,10 @@ def write_lammps_input(
         handle.write("read_data       ${DATA_PATH}\n\n")
         handle.write("pair_style      mliap unified ${MODEL_PATH}\n")
         handle.write(f"pair_coeff      * * {pair_coeff}\n\n")
+
         if init_velocities:
-            handle.write(
-                f"velocity        all create {temperature:.12g} {seed} "
-                "mom yes rot yes dist gaussian\n"
-            )
+            handle.write(f"velocity        all create {temperature:.12g} {seed} mom yes rot yes dist gaussian\n")
+
         handle.write(f"timestep        {timestep_ps:.12g}\n")
         handle.write("fix             int all nve\n")
         handle.write(
@@ -261,28 +265,28 @@ def write_lammps_input(
         handle.write(f"thermo          {thermo_interval}\n")
         handle.write("thermo_style    custom step temp pe ke etotal press\n")
         handle.write("thermo_modify   flush yes\n\n")
+
         if warmup_steps > 0:
             handle.write(f"run             {warmup_steps}\n")
             handle.write("reset_timestep  0\n\n")
+
         if steps > 0:
-            handle.write(
-                f"dump            traj all custom {dump_interval} {dump_path} "
-                "id type element x y z vx vy vz fx fy fz\n"
-            )
-            handle.write(f"dump_modify     traj element {pair_coeff} sort id\n")
+            handle.write(f"dump            traj all custom {dump_interval} {dump_path} id type x y z\n")
+            handle.write("dump_modify     traj sort id\n")
+            handle.write(f"dump            xtc_traj all xtc {xtc_dump_interval} {xtc_path}\n")
+            handle.write("dump_modify     xtc_traj sort id\n")
             handle.write(f"run             {steps}\n")
             handle.write("undump          traj\n")
+            handle.write("undump          xtc_traj\n")
         else:
             handle.write("run             0\n")
+
         handle.write(f"write_data      {final_data_path}\n")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Prepare LAMMPS atomic data and input for MatterSim ghost-target "
-            "FEP-TI from an electrolyte PDB."
-        )
+        description="Prepare LAMMPS atomic data and input for MatterSim ghost-target FEP-TI from an electrolyte PDB."
     )
     parser.add_argument("--pdb", type=Path, required=True)
     parser.add_argument("--data", type=Path, required=True)
@@ -293,12 +297,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-type", type=int, default=8)
     parser.add_argument("--element-order", type=parse_element_order, default=DEFAULT_ELEMENT_ORDER)
     parser.add_argument("--temperature", type=float, default=298.15)
-    parser.add_argument("--timestep-fs", type=float, default=1.0)
+    parser.add_argument("--timestep-fs", type=float, default=0.5)
     parser.add_argument("--friction-fs-inv", type=float, default=0.02)
     parser.add_argument("--warmup-steps", type=int, default=20)
-    parser.add_argument("--steps", type=int, default=100000)
+    parser.add_argument("--steps", type=int, default=2000000)
     parser.add_argument("--thermo-interval", type=int, default=100)
-    parser.add_argument("--dump-interval", type=int, default=100)
+    parser.add_argument("--dump-interval", type=int, default=2000)
+    parser.add_argument("--xtc-dump-interval", type=int, default=500)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--init-velocities", dest="init_velocities", action="store_true", default=True)
     parser.add_argument("--no-init-velocities", dest="init_velocities", action="store_false")
@@ -306,10 +311,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dump", type=Path, required=True)
     parser.add_argument("--temperature-log", type=Path, default=None)
     parser.add_argument("--temperature-log-interval", type=int, default=1)
+    parser.add_argument("--xtc-dump", type=Path, required=True)
+
     args = parser.parse_args()
 
     if args.target_type <= 0:
         parser.error("--target-type must be positive")
+
     if args.temperature_log_interval <= 0:
         parser.error("--temperature-log-interval must be positive")
     return args
@@ -317,7 +325,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+
     atoms, cell = parse_pdb(args.pdb)
+
     metadata = write_lammps_data(
         path=args.data,
         atoms=atoms,
@@ -326,6 +336,7 @@ def main() -> None:
         target_indices=args.target_indices,
         target_type=args.target_type,
     )
+
     write_lammps_input(
         path=args.input,
         data_path=args.data.resolve(),
@@ -338,10 +349,12 @@ def main() -> None:
         steps=args.steps,
         thermo_interval=args.thermo_interval,
         dump_interval=args.dump_interval,
+        xtc_dump_interval=args.xtc_dump_interval,
         seed=args.seed,
         init_velocities=args.init_velocities,
         final_data_path=args.final_data.resolve(),
         dump_path=args.dump.resolve(),
+        xtc_path=args.xtc_dump.resolve(),
         temperature_log_path=(
             None if args.temperature_log is None else args.temperature_log.resolve()
         ),
@@ -360,14 +373,19 @@ def main() -> None:
         "steps": args.steps,
         "thermo_interval": args.thermo_interval,
         "dump_interval": args.dump_interval,
+        "xtc_dump_interval": args.xtc_dump_interval,
         "seed": args.seed,
         "init_velocities": args.init_velocities,
+        "dump": str(args.dump),
+        "xtc_dump": str(args.xtc_dump),
         "temperature_log": None if args.temperature_log is None else str(args.temperature_log),
         "temperature_log_interval": args.temperature_log_interval,
         **metadata,
     }
+
     args.metadata.parent.mkdir(parents=True, exist_ok=True)
     args.metadata.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
     print(f"wrote {args.data}")
     print(f"wrote {args.input}")
     print(f"wrote {args.metadata}")
