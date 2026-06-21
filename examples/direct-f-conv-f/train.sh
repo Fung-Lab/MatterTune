@@ -16,6 +16,8 @@ Common environment overrides:
   LOGGER=csv|wandb                      default: csv
   SKIP_EVAL=1                           skip test-set evaluation
   REFIT_REFERENCE=1                     refit residual atomic reference
+  DYNAMICS=0                             disable dynamics artifacts/logging
+  DYNAMICS_INTERVAL=10                   periodic ckpt/probe/snapshot interval
 
 Examples:
   FORCE_MODE=conservative bash MatterTune/examples/direct-f-conv-f/train.sh
@@ -82,6 +84,14 @@ SEED="${SEED:-42}"
 MAX_EVAL_STRUCTURES="${MAX_EVAL_STRUCTURES:-}"
 LIMIT_TRAIN_BATCHES="${LIMIT_TRAIN_BATCHES:-}"
 LIMIT_VAL_BATCHES="${LIMIT_VAL_BATCHES:-}"
+DYNAMICS="${DYNAMICS:-1}"
+DYNAMICS_INTERVAL="${DYNAMICS_INTERVAL:-10}"
+DYNAMICS_DIR="${DYNAMICS_DIR:-}"
+DYNAMICS_GRADIENT_PROBE_STRUCTURES="${DYNAMICS_GRADIENT_PROBE_STRUCTURES:-1}"
+DYNAMICS_REPR_PROBE_STRUCTURES="${DYNAMICS_REPR_PROBE_STRUCTURES:-5}"
+DYNAMICS_PROBE_BATCH_SIZE="${DYNAMICS_PROBE_BATCH_SIZE:-1}"
+DYNAMICS_MAX_REPR_ROWS="${DYNAMICS_MAX_REPR_ROWS:-128}"
+DYNAMICS_MAX_REPR_TENSOR_ELEMENTS="${DYNAMICS_MAX_REPR_TENSOR_ELEMENTS:-200000}"
 
 default_reference_device() {
   local normalized first
@@ -186,6 +196,21 @@ run_one_mode() {
   if [[ -n "${LIMIT_VAL_BATCHES}" ]]; then
     TRAIN_CMD+=(--limit_val_batches "${LIMIT_VAL_BATCHES}")
   fi
+  if [[ "${DYNAMICS}" == "1" ]]; then
+    TRAIN_CMD+=(
+      --dynamics_interval "${DYNAMICS_INTERVAL}"
+      --dynamics_gradient_probe_structures "${DYNAMICS_GRADIENT_PROBE_STRUCTURES}"
+      --dynamics_repr_probe_structures "${DYNAMICS_REPR_PROBE_STRUCTURES}"
+      --dynamics_probe_batch_size "${DYNAMICS_PROBE_BATCH_SIZE}"
+      --dynamics_max_repr_rows "${DYNAMICS_MAX_REPR_ROWS}"
+      --dynamics_max_repr_tensor_elements "${DYNAMICS_MAX_REPR_TENSOR_ELEMENTS}"
+    )
+    if [[ -n "${DYNAMICS_DIR}" ]]; then
+      TRAIN_CMD+=(--dynamics_dir "${DYNAMICS_DIR}")
+    fi
+  else
+    TRAIN_CMD+=(--no_dynamics)
+  fi
   TRAIN_CMD+=("$@")
 
   echo "==================== TRAIN H2O UMA ===================="
@@ -204,6 +229,8 @@ run_one_mode() {
   echo "MAX_EPOCHS       = ${MAX_EPOCHS}"
   echo "LOGGER           = ${LOGGER}"
   echo "SKIP_EVAL        = ${SKIP_EVAL}"
+  echo "DYNAMICS         = ${DYNAMICS}"
+  echo "DYNAMICS_INTERVAL= ${DYNAMICS_INTERVAL}"
   echo "======================================================="
   printf ' %q' "PYTHONPATH=${MATTERTUNE_ROOT}/src\${PYTHONPATH:+:\${PYTHONPATH}}" "${TRAIN_CMD[@]}"
   echo

@@ -3,14 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import subprocess
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from lightning.pytorch.callbacks import Callback
 import matplotlib.pyplot as plt
 import numpy as np
 import rich
@@ -18,10 +20,12 @@ import torch
 from ase import Atoms
 from ase.io import iread, read
 from rich.progress import track
+from typing_extensions import override
 
 import mattertune.configs as MC
 from mattertune import MatterTuner
 from mattertune.configs import WandbLoggerConfig
+from mattertune.finetune.loss import compute_loss
 from mattertune.main import load_finetuned_checkpoint
 from mattertune.util import set_global_random_seed
 
@@ -169,11 +173,17 @@ def reference_label(args: argparse.Namespace) -> str:
             f"n{args.max_num_neighbors}",
             f"seed{args.seed}",
             f"reset{int(args.reset_output_heads)}",
-            "training-head-residual",
+            reference_scheme(args),
             args.reference_model,
             f"alpha{safe_label(args.ridge_alpha)}",
         ]
     )
+
+
+def reference_scheme(args: argparse.Namespace) -> str:
+    if args.force_mode == "direct":
+        return "target-energy"
+    return "training-head-residual"
 
 
 def _json_sanitize(obj: object) -> object:
@@ -212,16 +222,16 @@ def composition_matrix(atoms_list: list[Atoms]) -> np.ndarray:
 
 def fit_references(
     compositions: np.ndarray,
-    residual_energies: np.ndarray,
+    fit_target_energies: np.ndarray,
     *,
     reference_model: str,
     ridge_alpha: float,
 ) -> dict[int, float]:
     if reference_model == "linear":
-        coeffs = np.linalg.lstsq(compositions, residual_energies, rcond=None)[0]
+        coeffs = np.linalg.lstsq(compositions, fit_target_energies, rcond=None)[0]
     elif reference_model == "ridge":
         lhs = compositions.T @ compositions
-        rhs = compositions.T @ residual_energies
+        rhs = compositions.T @ fit_target_energies
         coeffs = np.linalg.solve(lhs + ridge_alpha * np.eye(lhs.shape[0]), rhs)
     else:
         raise ValueError(f"Unsupported reference model: {reference_model}")
@@ -243,6 +253,651 @@ def _move_to_device(value: Any, device: torch.device):
     if isinstance(value, list):
         return [_move_to_device(item, device) for item in value]
     return value
+
+
+class DynamicsLoggerCallback(Callback):
+    """Small experiment logger for force-mode training dynamics."""
+
+    def __init__(self, args: argparse.Namespace):
+        super().__init__()
+        self.root = Path(args.dynamics_dir)
+        self.interval = int(args.dynamics_interval)
+        self.probe_batch_size = max(1, int(args.dynamics_probe_batch_size))
+        self.max_repr_rows = max(1, int(args.dynamics_max_repr_rows))
+        self.max_repr_tensor_elements = max(
+            0, int(args.dynamics_max_repr_tensor_elements)
+        )
+
+        self.gradient_probe_atoms = self._load_atoms(
+            args.train_file, int(args.dynamics_gradient_probe_structures)
+        )
+        self.repr_probe_atoms = {
+            "train": self._load_atoms(
+                args.train_file, int(args.dynamics_repr_probe_structures)
+            ),
+            "val": self._load_atoms(
+                args.val_file, int(args.dynamics_repr_probe_structures)
+            ),
+        }
+
+        self.epoch_metrics_path = self.root / "epoch_metrics.jsonl"
+        self.objective_gradients_path = self.root / "objective_gradients.jsonl"
+        self.errors_path = self.root / "errors.jsonl"
+        self.manifest_path = self.root / "manifest.json"
+        self.checkpoint_dir = self.root / "checkpoints"
+        self.representation_dir = self.root / "representations"
+
+        self._epoch_grad_stats: list[dict[str, float]] = []
+        self._epoch_train_metric_records: list[dict[str, float | int]] = []
+        self._fit_start_time = time.time()
+        self._saved_repr_epochs: set[int] = set()
+
+        self.manifest = {
+            "run_name": args.run_name,
+            "force_mode": args.force_mode,
+            "model_name": args.model_name,
+            "task_name": args.task_name,
+            "train_file": str(args.train_file),
+            "val_file": str(args.val_file),
+            "test_file": str(args.test_file),
+            "dynamics_interval": self.interval,
+            "gradient_probe_structures": len(self.gradient_probe_atoms),
+            "representation_probe_structures": {
+                split: len(atoms) for split, atoms in self.repr_probe_atoms.items()
+            },
+            "records": {
+                "epoch_metrics": str(self.epoch_metrics_path),
+                "objective_gradients": str(self.objective_gradients_path),
+                "periodic_checkpoints": str(self.checkpoint_dir),
+                "representation_snapshots": str(self.representation_dir),
+            },
+            "notes": {
+                "epoch_metrics": (
+                    "Per-validation-epoch scalar metrics, optimizer LR, parameter "
+                    "norms, and averaged gradient norms from normal training."
+                ),
+                "objective_gradients": (
+                    "Scheduled fixed-probe energy-vs-forces loss values, gradient "
+                    "norms, and energy/forces gradient cosine similarities."
+                ),
+                "representations": (
+                    "Scheduled fixed-probe backbone embedding summaries and sampled "
+                    "rows for representation-space drift analysis."
+                ),
+            },
+        }
+
+    @staticmethod
+    def _load_atoms(path: Path, count: int) -> list[Atoms]:
+        if count <= 0:
+            return []
+        atoms = read(path, index=":")
+        if not isinstance(atoms, list):
+            atoms = [atoms]
+        return atoms[:count]
+
+    @staticmethod
+    def _scalar(value: Any) -> float | int | None:
+        if isinstance(value, torch.Tensor):
+            value = value.detach()
+            if value.numel() != 1:
+                return None
+            return float(value.cpu().item())
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return value
+        return None
+
+    @staticmethod
+    def _parameter_group(name: str) -> str:
+        if name.startswith("backbone."):
+            return "backbone"
+        if name.startswith("output_heads."):
+            pieces = name.split(".")
+            if len(pieces) >= 2:
+                return f"head/{pieces[1]}"
+            return "head"
+        return "other"
+
+    @staticmethod
+    def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            json.dump(_json_sanitize(payload), handle, sort_keys=True)
+            handle.write("\n")
+
+    @staticmethod
+    def _mean_records(records: list[dict[str, Any]]) -> dict[str, float | int]:
+        if not records:
+            return {"n_records": 0}
+        keys = sorted({key for record in records for key in record})
+        summary: dict[str, float | int] = {"n_records": len(records)}
+        for key in keys:
+            values = [
+                float(value)
+                for record in records
+                if isinstance((value := record.get(key)), (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(float(value))
+            ]
+            if values:
+                summary[f"{key}/mean"] = float(np.mean(values))
+                summary[f"{key}/max"] = float(np.max(values))
+        return summary
+
+    @classmethod
+    def _metric_payload(cls, trainer) -> dict[str, float | int]:
+        metrics: dict[str, float | int] = {}
+        for key, value in trainer.callback_metrics.items():
+            scalar = cls._scalar(value)
+            if scalar is not None:
+                metrics[str(key)] = scalar
+        return metrics
+
+    @classmethod
+    def _logged_train_metrics(cls, trainer) -> dict[str, float | int]:
+        metrics: dict[str, float | int] = {}
+        for source_name in ("logged_metrics", "callback_metrics"):
+            source = getattr(trainer, source_name, {})
+            for key, value in source.items():
+                key = str(key)
+                if not (key.startswith("train/") or key == "lr"):
+                    continue
+                scalar = cls._scalar(value)
+                if scalar is not None:
+                    metrics[key] = scalar
+        return metrics
+
+    @staticmethod
+    def _flatten_numeric(
+        prefix: str, payload: dict[str, Any]
+    ) -> dict[str, float | int]:
+        flat: dict[str, float | int] = {}
+
+        def visit(path: str, value: Any) -> None:
+            if isinstance(value, dict):
+                for child_key, child_value in value.items():
+                    visit(f"{path}/{child_key}", child_value)
+                return
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                if math.isfinite(float(value)):
+                    flat[path] = value
+
+        visit(prefix, payload)
+        return flat
+
+    def _scheduled(self, epoch: int) -> bool:
+        return self.interval > 0 and epoch > 0 and epoch % self.interval == 0
+
+    def _atoms_to_batch(self, pl_module, atoms_list: list[Atoms], *, has_labels: bool):
+        data_list = [
+            pl_module.cpu_data_transform(
+                pl_module.atoms_to_data(atoms, has_labels=has_labels)
+            )
+            for atoms in atoms_list
+        ]
+        batch = pl_module.collate_fn(data_list)
+        return _move_to_device(batch, pl_module.device)
+
+    def _iter_probe_batches(self, atoms_list: list[Atoms]):
+        for start in range(0, len(atoms_list), self.probe_batch_size):
+            yield atoms_list[start : start + self.probe_batch_size]
+
+    @staticmethod
+    def _named_trainable_parameters(pl_module) -> list[tuple[str, torch.nn.Parameter]]:
+        return [
+            (name, param)
+            for name, param in pl_module.named_parameters()
+            if param.requires_grad
+        ]
+
+    def _parameter_norms(self, pl_module) -> dict[str, float | int]:
+        sums: dict[str, float] = defaultdict(float)
+        counts: dict[str, int] = defaultdict(int)
+        with torch.no_grad():
+            for name, param in self._named_trainable_parameters(pl_module):
+                groups = ("all", self._parameter_group(name))
+                param_float = param.detach().float()
+                sq = float(torch.sum(param_float * param_float).cpu().item())
+                numel = int(param.numel())
+                for group in groups:
+                    sums[group] += sq
+                    counts[group] += numel
+        payload: dict[str, float | int] = {}
+        for group, sq in sums.items():
+            payload[f"param_norm/{group}"] = math.sqrt(sq)
+            payload[f"param_count/{group}"] = counts[group]
+        return payload
+
+    def _current_gradient_stats(self, pl_module) -> dict[str, float | int]:
+        sums: dict[str, float] = defaultdict(float)
+        max_abs: dict[str, float] = defaultdict(float)
+        counts: dict[str, int] = defaultdict(int)
+        for name, param in self._named_trainable_parameters(pl_module):
+            if param.grad is None:
+                continue
+            groups = ("all", self._parameter_group(name))
+            grad = param.grad.detach().float()
+            sq = float(torch.sum(grad * grad).cpu().item())
+            grad_max = float(torch.max(torch.abs(grad)).cpu().item())
+            numel = int(grad.numel())
+            for group in groups:
+                sums[group] += sq
+                max_abs[group] = max(max_abs[group], grad_max)
+                counts[group] += numel
+
+        payload: dict[str, float | int] = {}
+        for group, sq in sums.items():
+            payload[f"grad_norm/{group}"] = math.sqrt(sq)
+            payload[f"grad_max_abs/{group}"] = max_abs[group]
+            payload[f"grad_count/{group}"] = counts[group]
+        return payload
+
+    def _losses_for_batch(
+        self, pl_module, batch
+    ) -> dict[str, torch.Tensor]:
+        labels = pl_module.batch_to_labels(batch)
+        output = pl_module(
+            batch,
+            mode="train",
+            ignore_gpu_batch_transform_error=False,
+        )
+        predictions = output["predicted_properties"]
+
+        if len(pl_module.normalizers) > 0:
+            normalization_ctx = pl_module.create_normalization_context_from_batch(batch)
+            predictions, labels = pl_module.normalize(
+                predictions, labels, normalization_ctx
+            )
+
+        for key, value in labels.items():
+            labels[key] = value.contiguous()
+
+        losses: dict[str, torch.Tensor] = {}
+        for prop in pl_module.hparams.properties:
+            losses[prop.name] = (
+                compute_loss(prop.loss, predictions[prop.name], labels[prop.name])
+                * prop.loss_coefficient
+            )
+        return losses
+
+    def _summarize_objective_grads(
+        self,
+        named_params: list[tuple[str, torch.nn.Parameter]],
+        grads_by_prop: dict[str, tuple[torch.Tensor | None, ...]],
+    ) -> dict[str, float | int]:
+        payload: dict[str, float | int] = {}
+
+        for prop_name, grads in grads_by_prop.items():
+            sums: dict[str, float] = defaultdict(float)
+            counts: dict[str, int] = defaultdict(int)
+            for (name, _), grad in zip(named_params, grads):
+                if grad is None:
+                    continue
+                groups = ("all", self._parameter_group(name))
+                grad_float = grad.detach().float()
+                sq = float(torch.sum(grad_float * grad_float).cpu().item())
+                numel = int(grad.numel())
+                for group in groups:
+                    sums[group] += sq
+                    counts[group] += numel
+            for group, sq in sums.items():
+                payload[f"grad_norm/{prop_name}/{group}"] = math.sqrt(sq)
+                payload[f"grad_count/{prop_name}/{group}"] = counts[group]
+
+        if "energy" in grads_by_prop and "forces" in grads_by_prop:
+            pair_sums: dict[str, dict[str, float]] = defaultdict(
+                lambda: {"dot": 0.0, "energy_sq": 0.0, "forces_sq": 0.0}
+            )
+            for (name, _), e_grad, f_grad in zip(
+                named_params, grads_by_prop["energy"], grads_by_prop["forces"]
+            ):
+                groups = ("all", self._parameter_group(name))
+                e_float = e_grad.detach().float() if e_grad is not None else None
+                f_float = f_grad.detach().float() if f_grad is not None else None
+                e_sq = (
+                    float(torch.sum(e_float * e_float).cpu().item())
+                    if e_float is not None
+                    else 0.0
+                )
+                f_sq = (
+                    float(torch.sum(f_float * f_float).cpu().item())
+                    if f_float is not None
+                    else 0.0
+                )
+                dot = (
+                    float(torch.sum(e_float * f_float).cpu().item())
+                    if e_float is not None and f_float is not None
+                    else 0.0
+                )
+                for group in groups:
+                    pair_sums[group]["dot"] += dot
+                    pair_sums[group]["energy_sq"] += e_sq
+                    pair_sums[group]["forces_sq"] += f_sq
+
+            for group, stats in pair_sums.items():
+                denom = math.sqrt(stats["energy_sq"] * stats["forces_sq"])
+                payload[f"grad_dot/energy_forces/{group}"] = stats["dot"]
+                payload[f"grad_cosine/energy_forces/{group}"] = (
+                    stats["dot"] / denom if denom > 0.0 else 0.0
+                )
+
+        return payload
+
+    def _collect_objective_gradient_probe(
+        self, trainer, pl_module, epoch: int
+    ) -> dict[str, Any] | None:
+        if not self.gradient_probe_atoms:
+            return None
+
+        was_training = pl_module.training
+        named_params = self._named_trainable_parameters(pl_module)
+        batch_records: list[dict[str, Any]] = []
+
+        try:
+            pl_module.train()
+            for atoms_chunk in self._iter_probe_batches(self.gradient_probe_atoms):
+                batch = self._atoms_to_batch(pl_module, atoms_chunk, has_labels=True)
+                with torch.enable_grad():
+                    losses = self._losses_for_batch(pl_module, batch)
+                    grads_by_prop: dict[str, tuple[torch.Tensor | None, ...]] = {}
+                    params = [param for _, param in named_params]
+                    for prop_name, loss in losses.items():
+                        grads_by_prop[prop_name] = torch.autograd.grad(
+                            loss,
+                            params,
+                            retain_graph=True,
+                            allow_unused=True,
+                        )
+
+                record: dict[str, Any] = {
+                    f"loss/{name}": float(loss.detach().cpu().item())
+                    for name, loss in losses.items()
+                }
+                record.update(
+                    self._summarize_objective_grads(named_params, grads_by_prop)
+                )
+                batch_records.append(record)
+                pl_module.zero_grad(set_to_none=True)
+        finally:
+            pl_module.zero_grad(set_to_none=True)
+            pl_module.train(was_training)
+
+        return {
+            "epoch": epoch,
+            "global_step": trainer.global_step,
+            "probe_split": "train",
+            "n_structures": len(self.gradient_probe_atoms),
+            "probe_batch_size": self.probe_batch_size,
+            "batches": batch_records,
+            "summary": self._mean_records(batch_records),
+        }
+
+    def _iter_tensors(self, prefix: str, value: Any):
+        if isinstance(value, torch.Tensor):
+            yield prefix, value
+        elif isinstance(value, dict):
+            for key, child in value.items():
+                child_prefix = f"{prefix}.{key}" if prefix else str(key)
+                yield from self._iter_tensors(child_prefix, child)
+        elif isinstance(value, (list, tuple)):
+            for idx, child in enumerate(value):
+                child_prefix = f"{prefix}.{idx}" if prefix else str(idx)
+                yield from self._iter_tensors(child_prefix, child)
+
+    def _pack_embedding_snapshot(
+        self, emb: Any, num_atoms: list[int]
+    ) -> dict[str, Any]:
+        total_atoms = int(sum(num_atoms))
+        offsets = np.cumsum([0, *num_atoms]).tolist()
+        packed: dict[str, Any] = {
+            "num_atoms": num_atoms,
+            "total_atoms": total_atoms,
+            "tensors": {},
+        }
+
+        for key, tensor in self._iter_tensors("", emb):
+            if not tensor.is_floating_point():
+                continue
+            tensor_float = tensor.detach().float()
+            flat = tensor_float.reshape(-1)
+            item: dict[str, Any] = {
+                "shape": list(tensor.shape),
+                "dtype": str(tensor.dtype),
+                "mean": float(flat.mean().cpu().item()),
+                "std": float(flat.std(unbiased=False).cpu().item()),
+                "l2": float(torch.linalg.vector_norm(flat).cpu().item()),
+            }
+
+            if tensor_float.ndim >= 2 and tensor_float.shape[0] == total_atoms:
+                reshaped = tensor_float.reshape(total_atoms, -1)
+                per_structure_mean = []
+                per_structure_std = []
+                for start, end in zip(offsets[:-1], offsets[1:]):
+                    chunk = reshaped[start:end]
+                    per_structure_mean.append(chunk.mean(dim=0).cpu())
+                    per_structure_std.append(chunk.std(dim=0, unbiased=False).cpu())
+                item["per_structure_mean"] = torch.stack(per_structure_mean)
+                item["per_structure_std"] = torch.stack(per_structure_std)
+                item["row_sample"] = reshaped[: self.max_repr_rows].cpu()
+            elif tensor.numel() <= self.max_repr_tensor_elements:
+                item["value"] = tensor.detach().cpu()
+            elif tensor_float.ndim >= 1:
+                item["row_sample"] = tensor_float.reshape(tensor_float.shape[0], -1)[
+                    : self.max_repr_rows
+                ].cpu()
+
+            packed["tensors"][key] = item
+
+        return packed
+
+    def _save_representation_snapshot(
+        self, trainer, pl_module, epoch: int, *, stage: str
+    ) -> Path | None:
+        if epoch in self._saved_repr_epochs:
+            return None
+        if not any(self.repr_probe_atoms.values()):
+            return None
+
+        was_training = pl_module.training
+        payload: dict[str, Any] = {
+            "epoch": epoch,
+            "global_step": trainer.global_step,
+            "stage": stage,
+            "splits": {},
+        }
+        path = self.representation_dir / f"epoch-{epoch:04d}.pt"
+
+        try:
+            pl_module.eval()
+            with torch.no_grad():
+                for split, atoms_list in self.repr_probe_atoms.items():
+                    if not atoms_list:
+                        continue
+                    batch = self._atoms_to_batch(
+                        pl_module, atoms_list, has_labels=True
+                    )
+                    batch = pl_module.gpu_batch_transform(batch)
+                    ctx = pl_module.create_normalization_context_from_batch(batch)
+                    emb = pl_module.backbone(batch)
+                    num_atoms = [int(value) for value in ctx.num_atoms.detach().cpu()]
+                    payload["splits"][split] = self._pack_embedding_snapshot(
+                        emb, num_atoms
+                    )
+        finally:
+            pl_module.train(was_training)
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(payload, path)
+        self._saved_repr_epochs.add(epoch)
+        return path
+
+    def _record_error(self, epoch: int, stage: str, exc: Exception) -> None:
+        payload = {
+            "epoch": epoch,
+            "stage": stage,
+            "error_type": type(exc).__name__,
+            "message": str(exc),
+        }
+        self._append_jsonl(self.errors_path, payload)
+        rich.print(f"[yellow]Dynamics logger skipped {stage}: {exc}[/yellow]")
+
+    def _log_to_lightning(self, trainer, payload: dict[str, Any]) -> None:
+        flat = self._flatten_numeric("dynamics", payload)
+        if not flat:
+            return
+        for logger in trainer.loggers:
+            logger.log_metrics(flat, step=trainer.global_step)
+
+    @override
+    def on_fit_start(self, trainer, pl_module) -> None:
+        if not trainer.is_global_zero:
+            return
+        self.root.mkdir(parents=True, exist_ok=True)
+        with self.manifest_path.open("w", encoding="utf-8") as handle:
+            json.dump(_json_sanitize(self.manifest), handle, indent=4, sort_keys=True)
+        try:
+            path = self._save_representation_snapshot(
+                trainer, pl_module, 0, stage="fit_start"
+            )
+            if path is not None:
+                rich.print(f"Saved initial representation snapshot to {path}")
+        except Exception as exc:  # pragma: no cover - diagnostic path
+            self._record_error(0, "initial_representation", exc)
+
+    @override
+    def on_train_epoch_start(self, trainer, pl_module) -> None:
+        self._epoch_grad_stats.clear()
+        self._epoch_train_metric_records.clear()
+
+    @override
+    def on_train_batch_end(
+        self, trainer, pl_module, outputs, batch, batch_idx, *args, **kwargs
+    ) -> None:
+        metrics = self._logged_train_metrics(trainer)
+        if metrics:
+            metrics["global_step"] = trainer.global_step
+            self._epoch_train_metric_records.append(metrics)
+
+    @override
+    def on_before_optimizer_step(
+        self, trainer, pl_module, optimizer, *args, **kwargs
+    ) -> None:
+        stats = self._current_gradient_stats(pl_module)
+        if stats:
+            stats["global_step"] = trainer.global_step
+            self._epoch_grad_stats.append(stats)
+
+    @override
+    def on_validation_epoch_end(self, trainer, pl_module) -> None:
+        if getattr(trainer, "sanity_checking", False):
+            return
+
+        epoch = int(trainer.current_epoch) + 1
+        checkpoint_path: Path | None = None
+        if self._scheduled(epoch):
+            checkpoint_path = self.checkpoint_dir / f"epoch-{epoch:04d}.ckpt"
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            trainer.save_checkpoint(str(checkpoint_path))
+
+        objective_payload: dict[str, Any] | None = None
+        if self._scheduled(epoch):
+            try:
+                objective_payload = self._collect_objective_gradient_probe(
+                    trainer, pl_module, epoch
+                )
+            except Exception as exc:  # pragma: no cover - diagnostic path
+                if trainer.is_global_zero:
+                    self._record_error(epoch, "objective_gradient_probe", exc)
+
+        if not trainer.is_global_zero:
+            self._epoch_grad_stats.clear()
+            self._epoch_train_metric_records.clear()
+            return
+
+        representation_path: Path | None = None
+        if self._scheduled(epoch):
+            if objective_payload is not None:
+                self._append_jsonl(self.objective_gradients_path, objective_payload)
+                self._log_to_lightning(
+                    trainer, {"objective_gradient_probe": objective_payload["summary"]}
+                )
+
+            try:
+                representation_path = self._save_representation_snapshot(
+                    trainer, pl_module, epoch, stage="validation_epoch_end"
+                )
+            except Exception as exc:  # pragma: no cover - diagnostic path
+                self._record_error(epoch, "representation_snapshot", exc)
+
+        payload: dict[str, Any] = {
+            "epoch": epoch,
+            "global_step": trainer.global_step,
+            "elapsed_s": time.time() - self._fit_start_time,
+            "metrics": self._metric_payload(trainer),
+            "train_batch_metric_summary": self._mean_records(
+                self._epoch_train_metric_records
+            ),
+            "gradient_epoch_summary": self._mean_records(self._epoch_grad_stats),
+            "parameter_norms": self._parameter_norms(pl_module),
+        }
+        if checkpoint_path is not None:
+            payload["checkpoint_path"] = str(checkpoint_path)
+        if representation_path is not None:
+            payload["representation_path"] = str(representation_path)
+        if objective_payload is not None:
+            payload["objective_gradient_probe_summary"] = objective_payload["summary"]
+
+        self._append_jsonl(self.epoch_metrics_path, payload)
+        self._log_to_lightning(
+            trainer,
+            {
+                "train_batch_metric_summary": payload["train_batch_metric_summary"],
+                "gradient_epoch_summary": payload["gradient_epoch_summary"],
+                "parameter_norms": payload["parameter_norms"],
+            },
+        )
+        self._epoch_grad_stats.clear()
+        self._epoch_train_metric_records.clear()
+
+    @override
+    def on_fit_end(self, trainer, pl_module) -> None:
+        epoch = max(0, int(trainer.current_epoch))
+        objective_payload: dict[str, Any] | None = None
+        if epoch > 0 and self.interval > 0 and not self._scheduled(epoch):
+            try:
+                objective_payload = self._collect_objective_gradient_probe(
+                    trainer, pl_module, epoch
+                )
+            except Exception as exc:  # pragma: no cover - diagnostic path
+                if trainer.is_global_zero:
+                    self._record_error(epoch, "final_objective_gradient_probe", exc)
+
+        if not trainer.is_global_zero:
+            return
+        if objective_payload is not None:
+            self._append_jsonl(self.objective_gradients_path, objective_payload)
+            self._log_to_lightning(
+                trainer, {"objective_gradient_probe": objective_payload["summary"]}
+            )
+        if epoch <= 0 or epoch in self._saved_repr_epochs:
+            return
+        try:
+            path = self._save_representation_snapshot(
+                trainer, pl_module, epoch, stage="fit_end"
+            )
+            if path is not None:
+                self._append_jsonl(
+                    self.epoch_metrics_path,
+                    {
+                        "epoch": epoch,
+                        "global_step": trainer.global_step,
+                        "final_representation_path": str(path),
+                    },
+                )
+        except Exception as exc:  # pragma: no cover - diagnostic path
+            self._record_error(epoch, "final_representation", exc)
 
 
 def create_training_energy_model(args: argparse.Namespace):
@@ -299,7 +954,7 @@ def training_head_energies(atoms_list: list[Atoms], args: argparse.Namespace) ->
     return np.asarray(energies, dtype=np.float64)
 
 
-def fit_residual_energy_reference(args: argparse.Namespace) -> dict[int, float]:
+def fit_energy_reference(args: argparse.Namespace) -> dict[int, float]:
     atoms_list = read(args.train_file, index=":")
     if not isinstance(atoms_list, list):
         atoms_list = [atoms_list]
@@ -310,13 +965,20 @@ def fit_residual_energy_reference(args: argparse.Namespace) -> dict[int, float]:
         [float(atoms.get_potential_energy()) for atoms in atoms_list],
         dtype=np.float64,
     )
-    baseline_energies = training_head_energies(atoms_list, args)
-    residual = dft_energies - baseline_energies
+    baseline_energies: np.ndarray | None = None
+    if args.force_mode == "direct":
+        fit_targets = dft_energies
+        reference_energy_source = "target_energy"
+    else:
+        baseline_energies = training_head_energies(atoms_list, args)
+        fit_targets = dft_energies - baseline_energies
+        reference_energy_source = "training_head_residual"
+
     compositions = composition_matrix(atoms_list)
 
     references = fit_references(
         compositions,
-        residual,
+        fit_targets,
         reference_model=args.reference_model,
         ridge_alpha=args.ridge_alpha,
     )
@@ -324,8 +986,8 @@ def fit_residual_energy_reference(args: argparse.Namespace) -> dict[int, float]:
     ref_vector = np.zeros(compositions.shape[1], dtype=np.float64)
     for z, value in references.items():
         ref_vector[z] = value
-    fitted_residual = compositions @ ref_vector
-    residual_after_ref = residual - fitted_residual
+    fitted_reference = compositions @ ref_vector
+    fit_target_after_ref = fit_targets - fitted_reference
 
     args.energy_reference.parent.mkdir(parents=True, exist_ok=True)
     with args.energy_reference.open("w", encoding="utf-8") as handle:
@@ -338,7 +1000,8 @@ def fit_residual_energy_reference(args: argparse.Namespace) -> dict[int, float]:
         "model_name": args.model_name,
         "task_name": args.task_name,
         "force_mode": args.force_mode,
-        "reference_energy_source": "training_head",
+        "reference_scheme": reference_scheme(args),
+        "reference_energy_source": reference_energy_source,
         "graph_radius": args.graph_radius,
         "max_num_neighbors": args.max_num_neighbors,
         "seed": args.seed,
@@ -346,22 +1009,41 @@ def fit_residual_energy_reference(args: argparse.Namespace) -> dict[int, float]:
         "reference_model": args.reference_model,
         "ridge_alpha": args.ridge_alpha,
         "mean_target_energy_eV": float(dft_energies.mean()),
-        "mean_baseline_energy_eV": float(baseline_energies.mean()),
-        "mean_residual_energy_eV": float(residual.mean()),
-        "residual_after_reference_mae_eV": float(np.abs(residual_after_ref).mean()),
-        "residual_after_reference_rmse_eV": float(np.sqrt(np.mean(residual_after_ref**2))),
+        "mean_fit_target_energy_eV": float(fit_targets.mean()),
+        "fit_target_after_reference_mae_eV": float(np.abs(fit_target_after_ref).mean()),
+        "fit_target_after_reference_rmse_eV": float(
+            np.sqrt(np.mean(fit_target_after_ref**2))
+        ),
         "references": references,
     }
+    if baseline_energies is not None:
+        summary.update(
+            {
+                "mean_baseline_energy_eV": float(baseline_energies.mean()),
+                "mean_residual_energy_eV": float(fit_targets.mean()),
+                "residual_after_reference_mae_eV": summary[
+                    "fit_target_after_reference_mae_eV"
+                ],
+                "residual_after_reference_rmse_eV": summary[
+                    "fit_target_after_reference_rmse_eV"
+                ],
+            }
+        )
     summary_path = args.energy_reference.with_suffix(".summary.json")
     with summary_path.open("w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=4, sort_keys=True)
 
-    rich.print(f"Saved residual energy reference to {args.energy_reference}")
-    rich.print(f"Saved residual energy reference summary to {summary_path}")
+    rich.print(f"Saved energy reference to {args.energy_reference}")
+    rich.print(f"Saved energy reference summary to {summary_path}")
+    metric_label = (
+        "Energy-after-reference"
+        if args.force_mode == "direct"
+        else "Residual-after-reference"
+    )
     rich.print(
-        "Residual-after-reference MAE/RMSE: "
-        f"{summary['residual_after_reference_mae_eV']:.8e} / "
-        f"{summary['residual_after_reference_rmse_eV']:.8e} eV"
+        f"{metric_label} MAE/RMSE: "
+        f"{summary['fit_target_after_reference_mae_eV']:.8e} / "
+        f"{summary['fit_target_after_reference_rmse_eV']:.8e} eV"
     )
     return references
 
@@ -369,8 +1051,8 @@ def fit_residual_energy_reference(args: argparse.Namespace) -> dict[int, float]:
 def ensure_energy_reference(args: argparse.Namespace) -> None:
     rank = os.environ.get("RANK") or os.environ.get("LOCAL_RANK")
     if rank is not None:
-        if int(rank) == 0 and not args.energy_reference.is_file():
-            fit_residual_energy_reference(args)
+        if int(rank) == 0 and (args.refit_reference or not args.energy_reference.is_file()):
+            fit_energy_reference(args)
             return
 
         deadline = time.time() + args.reference_wait_timeout
@@ -381,9 +1063,12 @@ def ensure_energy_reference(args: argparse.Namespace) -> None:
         return
 
     if args.refit_reference or not args.energy_reference.is_file():
-        fit_residual_energy_reference(args)
+        fit_energy_reference(args)
     else:
-        rich.print(f"Using existing residual energy reference: {args.energy_reference}")
+        rich.print(
+            f"Using existing {reference_scheme(args)} energy reference: "
+            f"{args.energy_reference}"
+        )
 
 
 def build_config(args: argparse.Namespace):
@@ -660,6 +1345,19 @@ def write_run_config(args: argparse.Namespace, config: MC.MatterTunerConfig) -> 
         json.dump(payload, handle, indent=4, sort_keys=True)
 
 
+def build_extra_callbacks(
+    args: argparse.Namespace, config: MC.MatterTunerConfig
+) -> list[Callback]:
+    callbacks: list[Callback] = []
+    if config.trainer.checkpoint is not None:
+        callbacks.append(config.trainer.checkpoint.create_callback())
+    if config.trainer.early_stopping is not None:
+        callbacks.append(config.trainer.early_stopping.create_callback())
+    if not args.no_dynamics:
+        callbacks.append(DynamicsLoggerCallback(args))
+    return callbacks
+
+
 def main(args: argparse.Namespace) -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     set_global_random_seed(args.seed)
@@ -668,7 +1366,10 @@ def main(args: argparse.Namespace) -> None:
     config = build_config(args)
     write_run_config(args, config)
 
-    _, trainer = MatterTuner(config).tune()
+    trainer_kwargs = None
+    if not args.no_dynamics:
+        trainer_kwargs = {"callbacks": build_extra_callbacks(args, config)}
+    _, trainer = MatterTuner(config).tune(trainer_kwargs=trainer_kwargs)
     if not trainer.is_global_zero:
         return
 
@@ -751,6 +1452,55 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit_val_batches", type=float, default=None)
     parser.add_argument("--skip_eval", action="store_true")
     parser.add_argument(
+        "--no_dynamics",
+        action="store_true",
+        help="Disable extra training-dynamics logging and periodic artifacts.",
+    )
+    parser.add_argument("--dynamics_dir", type=Path, default=None)
+    parser.add_argument(
+        "--dynamics_interval",
+        type=int,
+        default=10,
+        help=(
+            "Epoch interval for periodic dynamics checkpoints, objective-gradient "
+            "probes, and representation snapshots. Set 0 to keep only light "
+            "per-epoch metric/gradient summaries."
+        ),
+    )
+    parser.add_argument(
+        "--dynamics_gradient_probe_structures",
+        type=int,
+        default=1,
+        help=(
+            "Number of fixed train structures used to measure energy/forces "
+            "objective gradient norms and cosine similarity."
+        ),
+    )
+    parser.add_argument(
+        "--dynamics_repr_probe_structures",
+        type=int,
+        default=5,
+        help="Number of fixed train/validation structures used for representation snapshots.",
+    )
+    parser.add_argument(
+        "--dynamics_probe_batch_size",
+        type=int,
+        default=1,
+        help="Batch size for dynamics probes. Keep small for conservative-force second derivatives.",
+    )
+    parser.add_argument(
+        "--dynamics_max_repr_rows",
+        type=int,
+        default=128,
+        help="Maximum raw embedding rows sampled per representation tensor.",
+    )
+    parser.add_argument(
+        "--dynamics_max_repr_tensor_elements",
+        type=int,
+        default=200000,
+        help="Maximum elements for saving a whole non-atom-aligned representation tensor.",
+    )
+    parser.add_argument(
         "--reset_output_heads",
         action="store_true",
         help=(
@@ -793,8 +1543,24 @@ def parse_args() -> argparse.Namespace:
         args.checkpoint_dir = args.output_dir / "checkpoints"
     if args.log_dir is None:
         args.log_dir = args.output_dir / "logs"
+    if args.dynamics_dir is None:
+        args.dynamics_dir = args.output_dir / "dynamics"
     if args.energy_reference is None:
         args.energy_reference = args.reference_root / f"{reference_label(args)}.json"
+
+    nonnegative_fields = (
+        "dynamics_interval",
+        "dynamics_gradient_probe_structures",
+        "dynamics_repr_probe_structures",
+        "dynamics_max_repr_tensor_elements",
+    )
+    for field in nonnegative_fields:
+        if getattr(args, field) < 0:
+            raise ValueError(f"{field} must be non-negative.")
+    positive_fields = ("dynamics_probe_batch_size", "dynamics_max_repr_rows")
+    for field in positive_fields:
+        if getattr(args, field) <= 0:
+            raise ValueError(f"{field} must be positive.")
     return args
 
 
