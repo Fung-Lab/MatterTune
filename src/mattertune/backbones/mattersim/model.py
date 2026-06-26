@@ -114,8 +114,11 @@ class MatterSimM3GNetBackboneModule(
     @override
     def create_model(self):
         with optional_import_error_message("mattersim"):
-            from mattersim.datasets.utils.convertor import (
-                GraphConvertor as MatterSimGraphConvertor,
+            # mattersim upstream main renamed datasets.utils.convertor.GraphConvertor
+            # -> datasets.utils.converter.GraphConverter (the fork used the older
+            # spelling). Constructor signature is unchanged.
+            from mattersim.datasets.utils.converter import (
+                GraphConverter as MatterSimGraphConvertor,
             )  # type: ignore[reportMissingImports] # noqa
             from mattersim.forcefield.potential import Potential
 
