@@ -218,11 +218,14 @@ class MatterSimM3GNetBackboneModule(
             from mattersim.forcefield.potential import batch_to_dict
 
         input = batch_to_dict(batch)
+        # NOTE: official mattersim `Potential.forward` signature is
+        # (input, include_forces, include_stresses, dataset_idx) and does not
+        # accept `root_indices_mask`. The partition path is off by default and
+        # not on fastmlip's critical path, so we call the supported signature.
         output = self.backbone(
             input,
             include_forces=self.calc_forces,
             include_stresses=self.calc_stress,
-            root_indices_mask=getattr(batch, "root_indices_mask", None) if using_partition else None
         )
         output_pred = {}
         output_pred[self.energy_prop_name] = output.get("total_energy", torch.zeros(1))

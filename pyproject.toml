@@ -5,27 +5,34 @@ description = ""
 authors = [{ name = "Nima Shoghi", email = "nimashoghi@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10"
+# Core: the minimal set required to `import mattertune` and run inference with a
+# backbone. Heavier/optional capabilities are split into extras below so the slim
+# core stays light for open-source consumers. Install extras as needed, e.g.
+#   pip install -e ".[train,data]"
 dependencies = [
     "torch",
     "ase",
-    "pymatgen",
-    "vesin",
-    "matscipy",
-    "scikit-learn",
-    "lightning",
     "numpy",
-    "torchmetrics",
-    "nshconfig[extra]",
-    "nshconfig-extra[extra]",
+    "nshconfig",
+    "nshconfig-extra",
     "rich",
-    "wandb",
-    "tensorboardX",
-    "nshutils",
-    "watchdog",
+    # lightning + torchmetrics are import-required: FinetuneModuleBase subclasses
+    # lightning.pytorch.LightningModule and the package __init__ pulls torchmetrics.
+    "lightning",
+    "torchmetrics",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pre-commit", "ruff"]
+# Extra training utilities (normalizers); the core trainer deps are in [dependencies].
+train = ["scikit-learn"]
+# Experiment logging backends
+logging = ["wandb", "tensorboardX"]
+# Materials data IO / structure handling
+data = ["pymatgen", "nshconfig-extra[extra]", "nshutils"]
+# Neighbor-list providers used by some backbones
+neighborlist = ["vesin", "matscipy"]
+# Development tooling
+dev = ["pytest", "pre-commit", "ruff", "watchdog"]
 
 [build-system]
 requires = [
