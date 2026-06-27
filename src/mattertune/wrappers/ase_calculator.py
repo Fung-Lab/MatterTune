@@ -60,8 +60,15 @@ class MatterTuneCalculator(Calculator):
         properties: list[str] | None = None,
         system_changes: list[str] | None = None,
     ):
-        if properties is None:
-            properties = copy.deepcopy(self.implemented_properties)
+        # Always compute and cache ALL implemented properties in a single forward,
+        # regardless of which single property ASE requested. ASE calls
+        # get_potential_energy() and get_forces() separately, each with
+        # properties=[that one]; honoring that filter would rebuild the neighbor
+        # graph and re-run the network once per property (~2x work in any MD loop
+        # that reads both energy and forces). Computing everything once and
+        # caching all of it makes the second access a cache hit — matching the
+        # native MatterSim calculator contract.
+        properties = copy.deepcopy(self.implemented_properties)
 
         # Call the parent class to set `self.atoms`.
         Calculator.calculate(self, atoms)
