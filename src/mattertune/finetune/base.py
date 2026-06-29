@@ -374,6 +374,7 @@ class FinetuneModuleBase(
         self.create_model()
         
         if self.hparams.pruning_message_passing is not None:
+            print(f"Applying pruning message passing with {self.hparams.pruning_message_passing} steps.")
             self.apply_pruning_message_passing(self.hparams.pruning_message_passing)
         
         if self.hparams.reset_backbone:
