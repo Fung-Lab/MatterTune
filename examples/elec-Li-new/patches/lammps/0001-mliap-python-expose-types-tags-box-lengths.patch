@@ -1,0 +1,381 @@
+diff --git a/src/KOKKOS/mliap_data_kokkos.cpp b/src/KOKKOS/mliap_data_kokkos.cpp
+index 06c133dcf7..703eb1ba12 100644
+--- a/src/KOKKOS/mliap_data_kokkos.cpp
++++ b/src/KOKKOS/mliap_data_kokkos.cpp
+@@ -19,6 +19,7 @@
+ #include "mliap_data_kokkos.h"
+ 
+ #include "atom_kokkos.h"
++#include "domain.h"
+ #include "kokkos_type.h"
+ #include "pair_mliap_kokkos.h"
+ #include "atom_masks.h"
+@@ -57,6 +58,8 @@ MLIAPDataKokkos<DeviceType>::~MLIAPDataKokkos() {
+   memoryKK->destroy_kokkos(k_pair_i,pair_i);
+   memoryKK->destroy_kokkos(k_jelems,jelems);
+   memoryKK->destroy_kokkos(k_elems,elems);
++  memoryKK->destroy_kokkos(k_types,types);
++  memoryKK->destroy_kokkos(k_tags,tags);
+   memoryKK->destroy_kokkos(k_rij,rij);
+   memoryKK->destroy_kokkos(k_graddesc,graddesc);
+ }
+@@ -76,19 +79,31 @@ void MLIAPDataKokkos<DeviceType>::generate_neighdata(class NeighList *list_in, i
+       memoryKK->create_kokkos(k_gradforce, gradforce, nmax, size_gradforce, "mliap_data:gradforce");
+     }
+     memoryKK->destroy_kokkos(k_elems,elems);
+-    memoryKK->create_kokkos(k_elems, elems, nmax, "mliap_data:elems");  }
++    memoryKK->create_kokkos(k_elems, elems, nmax, "mliap_data:elems");
++    memoryKK->destroy_kokkos(k_types,types);
++    memoryKK->create_kokkos(k_types, types, nmax, "mliap_data:types");
++    memoryKK->destroy_kokkos(k_tags,tags);
++    memoryKK->create_kokkos(k_tags, tags, nmax, "mliap_data:tags");
++  }
+ 
+   // clear gradforce and elems arrays
+ 
+   int nall = atom->nlocal + atom->nghost;
+   nlocal = atom->nlocal;
+   ntotal = nall;
++  box_lengths[0] = domain->xprd;
++  box_lengths[1] = domain->yprd;
++  box_lengths[2] = domain->zprd;
+   if (gradgradflag > -1){
+     auto d_gradforce = k_gradforce.template view<DeviceType>();
+     Kokkos::deep_copy(d_gradforce, 0.);
+   }
+   auto d_elems = k_elems.template view<DeviceType>();
++  auto d_types = k_types.template view<DeviceType>();
++  auto d_tags = k_tags.template view<DeviceType>();
+   Kokkos::deep_copy(d_elems, 0.);
++  Kokkos::deep_copy(d_types, 0);
++  Kokkos::deep_copy(d_tags, 0);
+ 
+   // grow arrays if necessary
+ 
+@@ -116,7 +131,7 @@ void MLIAPDataKokkos<DeviceType>::generate_neighdata(class NeighList *list_in, i
+       natomgamma_max = nlistatoms;
+     }
+   }
+-  atomKK->sync(execution_space,X_MASK | V_MASK | F_MASK | TYPE_MASK);
++  atomKK->sync(execution_space,X_MASK | V_MASK | F_MASK | TYPE_MASK | TAG_MASK);
+   k_pairmliap->x = atomKK->k_x.view<DeviceType>();
+   k_pairmliap->v = atomKK->k_v.view<DeviceType>();
+   k_pairmliap->f = atomKK->k_f.view<DeviceType>();
+@@ -143,6 +158,7 @@ void MLIAPDataKokkos<DeviceType>::generate_neighdata(class NeighList *list_in, i
+   AtomKokkos *atomKK = (AtomKokkos *) atom;
+   auto x = atomKK->k_x.view<DeviceType>();
+   auto type = atomKK->k_type.view<DeviceType>();
++  auto tag = atomKK->k_tag.view<DeviceType>();
+   auto map=k_pairmliap->k_map.template view<DeviceType>();
+ 
+   Kokkos::parallel_scan(Kokkos::RangePolicy<DeviceType>(0,natomneigh), KOKKOS_LAMBDA (int ii, int &update, const bool final) {
+@@ -186,9 +202,11 @@ void MLIAPDataKokkos<DeviceType>::generate_neighdata(class NeighList *list_in, i
+   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,nmax), KOKKOS_LAMBDA (int i)  {
+     const int itype = type(i);
+     d_elems(i) = map(itype);
++    d_types(i) = itype;
++    d_tags(i) = tag(i);
+   });
+ 
+-  modified(execution_space, NUMNEIGHS_MASK | IATOMS_MASK | IELEMS_MASK | ELEMS_MASK | JATOMS_MASK | PAIR_I_MASK | JELEMS_MASK | RIJ_MASK | IJ_MASK );
++  modified(execution_space, NUMNEIGHS_MASK | IATOMS_MASK | IELEMS_MASK | ELEMS_MASK | TYPES_MASK | TAGS_MASK | JATOMS_MASK | PAIR_I_MASK | JELEMS_MASK | RIJ_MASK | IJ_MASK );
+   eflag = eflag_in;
+   vflag = vflag_in;
+ }
+@@ -278,6 +296,8 @@ void MLIAPDataKokkos<DeviceType>::modified(ExecutionSpace space, uint64_t mask,
+     if (mask & PAIR_I_MASK      ) k_pair_i         .modify_device();
+     if (mask & JELEMS_MASK      ) k_jelems         .modify_device();
+     if (mask & ELEMS_MASK       ) k_elems          .modify_device();
++    if (mask & TYPES_MASK       ) k_types          .modify_device();
++    if (mask & TAGS_MASK        ) k_tags           .modify_device();
+     if (mask & IJ_MASK          ) k_ij             .modify_device();
+     if (mask & BETAS_MASK       ) k_betas          .modify_device();
+     if (mask & DESCRIPTORS_MASK ) k_descriptors    .modify_device();
+@@ -298,6 +318,8 @@ void MLIAPDataKokkos<DeviceType>::modified(ExecutionSpace space, uint64_t mask,
+     if (mask & PAIR_I_MASK      ) k_pair_i         .modify_host();
+     if (mask & JELEMS_MASK      ) k_jelems         .modify_host();
+     if (mask & ELEMS_MASK       ) k_elems          .modify_host();
++    if (mask & TYPES_MASK       ) k_types          .modify_host();
++    if (mask & TAGS_MASK        ) k_tags           .modify_host();
+     if (mask & IJ_MASK          ) k_ij             .modify_host();
+     if (mask & BETAS_MASK       ) k_betas          .modify_host();
+     if (mask & DESCRIPTORS_MASK ) k_descriptors    .modify_host();
+@@ -326,6 +348,8 @@ void MLIAPDataKokkos<DeviceType>::sync(ExecutionSpace space, uint64_t mask, bool
+     if (mask & PAIR_I_MASK      ) k_pair_i         .sync_device();
+     if (mask & JELEMS_MASK      ) k_jelems         .sync_device();
+     if (mask & ELEMS_MASK       ) k_elems          .sync_device();
++    if (mask & TYPES_MASK       ) k_types          .sync_device();
++    if (mask & TAGS_MASK        ) k_tags           .sync_device();
+     if (mask & IJ_MASK          ) k_ij             .sync_device();
+     if (mask & BETAS_MASK       ) k_betas          .sync_device();
+     if (mask & DESCRIPTORS_MASK ) k_descriptors    .sync_device();
+@@ -345,6 +369,8 @@ void MLIAPDataKokkos<DeviceType>::sync(ExecutionSpace space, uint64_t mask, bool
+     if (mask & PAIR_I_MASK      ) k_pair_i         .sync_host();
+     if (mask & JELEMS_MASK      ) k_jelems         .sync_host();
+     if (mask & ELEMS_MASK       ) k_elems          .sync_host();
++    if (mask & TYPES_MASK       ) k_types          .sync_host();
++    if (mask & TAGS_MASK        ) k_tags           .sync_host();
+     if (mask & IJ_MASK          ) k_ij             .sync_host();
+     if (mask & BETAS_MASK       ) k_betas          .sync_host();
+     if (mask & DESCRIPTORS_MASK ) k_descriptors    .sync_host();
+diff --git a/src/KOKKOS/mliap_data_kokkos.h b/src/KOKKOS/mliap_data_kokkos.h
+index b34d8e099e..275ffcbc12 100644
+--- a/src/KOKKOS/mliap_data_kokkos.h
++++ b/src/KOKKOS/mliap_data_kokkos.h
+@@ -53,6 +53,8 @@ enum {
+   GAMMA_COL_MASK   = 0x00004000,
+   PAIR_I_MASK      = 0x00008000,
+   ELEMS_MASK       = 0x00010000,
++  TYPES_MASK       = 0x00020000,
++  TAGS_MASK        = 0x00040000,
+ };
+ // clang-format on
+ 
+@@ -76,6 +78,8 @@ template <class DeviceType> class MLIAPDataKokkos : public MLIAPData {
+   DAT::tdual_int_1d k_ielems;           // element of each atom
+   DAT::tdual_int_1d k_jatoms;           // index of each neighbor
+   DAT::tdual_int_1d k_elems;            // element of each atom in or not in the neighborlist
++  DAT::tdual_int_1d k_types;            // LAMMPS type of each atom in or not in the neighborlist
++  DAT::tdual_tagint_1d k_tags;          // LAMMPS atom ID of each atom in or not in the neighborlist
+   DAT::tdual_int_1d k_pair_i;           // index of each i atom for each ij pair
+   DAT::tdual_int_1d k_jelems;           // element of each neighbor
+   DAT::tdual_int_1d k_ij;               // Start location for each particle
+@@ -119,6 +123,7 @@ public:
+     ndescriptors(base.ndescriptors),
+     nparams(base.nparams),
+     nelements(base.nelements),
++    box_lengths{base.box_lengths[0], base.box_lengths[1], base.box_lengths[2]},
+     gamma_nnz(base.gamma_nnz),
+     gamma(base.k_gamma.view_device().data()),
+     gamma_row_index(base.k_gamma_row_index.view_device().data()),
+@@ -137,6 +142,8 @@ public:
+     jatoms(base.k_jatoms.view_device().data()),
+     jelems(base.k_jelems.view_device().data()),
+     elems(base.k_elems.view_device().data()),
++    types(base.k_types.view_device().data()),
++    tags(base.k_tags.view_device().data()),
+     rij(base.k_rij.view_device().data()),
+     graddesc(base.k_graddesc.view_device().data()),
+     eflag(base.eflag),
+@@ -169,6 +176,7 @@ public:
+   const int ndescriptors;
+   const int nparams;
+   const int nelements;
++  double box_lengths[3];
+ 
+   //Ignored for now
+   int gamma_nnz;
+@@ -191,6 +199,8 @@ public:
+   int *jatoms;
+   int *jelems;
+   int *elems;
++  int *types;
++  tagint *tags;
+   double *rij;
+   double *graddesc;
+   int eflag;
+diff --git a/src/KOKKOS/mliap_unified_couple_kokkos.pyx b/src/KOKKOS/mliap_unified_couple_kokkos.pyx
+index 91dce645ac..5c87948eac 100644
+--- a/src/KOKKOS/mliap_unified_couple_kokkos.pyx
++++ b/src/KOKKOS/mliap_unified_couple_kokkos.pyx
+@@ -48,6 +48,7 @@ cdef extern from "mliap_data_kokkos.h" namespace "LAMMPS_NS":
+         int ndescriptors        # number of descriptors
+         int nparams             # number of model parameters per element
+         int nelements           # number of elements
++        double box_lengths[3]   # current periodic box lengths
+ 
+         # data structures for grad-grad list (gamma)
+ 
+@@ -75,6 +76,8 @@ cdef extern from "mliap_data_kokkos.h" namespace "LAMMPS_NS":
+         int * jatoms            # index of each neighbor
+         int * jelems            # element of each neighbor
+         int * elems             # element of each atom in or not in the neighborlist
++        int * types             # LAMMPS type of each atom in or not in the neighborlist
++        int * tags              # LAMMPS atom ID of each atom in or not in the neighborlist
+         double * rij           # distance vector of each neighbor
+         # ----- write only -----
+         double * graddesc     # descriptor gradient w.r.t. each neighbor
+@@ -316,6 +319,17 @@ cdef class MLIAPDataPy:
+     def nelements(self):
+         return self.data.nelements
+ 
++    @property
++    def box_lengths(self):
++        return np.asarray(
++            [
++                self.data.box_lengths[0],
++                self.data.box_lengths[1],
++                self.data.box_lengths[2],
++            ],
++            dtype=np.float64,
++        )
++
+     # data structures for grad-grad list (gamma)
+ 
+     @property
+@@ -359,6 +373,18 @@ cdef class MLIAPDataPy:
+             return None
+         return create_array(self.data.dev, self.data.elems, [self.ntotal],True)
+ 
++    @property
++    def types(self):
++        if self.data.types is NULL:
++            return None
++        return create_array(self.data.dev, self.data.types, [self.ntotal],True)
++
++    @property
++    def tags(self):
++        if self.data.tags is NULL:
++            return None
++        return create_array(self.data.dev, self.data.tags, [self.ntotal],True)
++
+     @property
+     def nlistatoms(self):
+         return self.data.nlistatoms
+diff --git a/src/ML-IAP/mliap_data.cpp b/src/ML-IAP/mliap_data.cpp
+index 1ca57e2745..1f0b659458 100644
+--- a/src/ML-IAP/mliap_data.cpp
++++ b/src/ML-IAP/mliap_data.cpp
+@@ -18,6 +18,7 @@
+ #include "mliap_data.h"
+ 
+ #include "atom.h"
++#include "domain.h"
+ #include "error.h"
+ #include "memory.h"
+ #include "mliap_descriptor.h"
+@@ -31,8 +32,8 @@ MLIAPData::MLIAPData(LAMMPS *lmp, int gradgradflag_in, int *map_in, class MLIAPM
+     Pointers(lmp),
+     f(nullptr), gradforce(nullptr), betas(nullptr), descriptors(nullptr), eatoms(nullptr),
+     gamma(nullptr), gamma_row_index(nullptr), gamma_col_index(nullptr), egradient(nullptr),
+-    numneighs(nullptr), iatoms(nullptr), ielems(nullptr), itypes(nullptr), pair_i(nullptr),
+-    jatoms(nullptr), jelems(nullptr), elems(nullptr), lmp_firstneigh(nullptr), rij(nullptr),
++    numneighs(nullptr), iatoms(nullptr), ielems(nullptr), itypes(nullptr), types(nullptr), tags(nullptr),
++    pair_i(nullptr), jatoms(nullptr), jelems(nullptr), elems(nullptr), lmp_firstneigh(nullptr), rij(nullptr),
+     graddesc(nullptr), model(nullptr), descriptor(nullptr), list(nullptr)
+ {
+   gradgradflag = gradgradflag_in;
+@@ -85,6 +86,8 @@ MLIAPData::~MLIAPData()
+   memory->destroy(pair_i);
+   memory->destroy(ielems);
+   memory->destroy(itypes);
++  memory->destroy(types);
++  memory->destroy(tags);
+   memory->destroy(numneighs);
+   memory->destroy(jatoms);
+   memory->destroy(lmp_firstneigh);
+@@ -119,12 +122,17 @@ void MLIAPData::generate_neighdata(NeighList *list_in, int eflag_in, int vflag_i
+   int nall = atom->nlocal + atom->nghost;
+   nlocal = atom->nlocal;
+   ntotal = nall;
++  box_lengths[0] = domain->xprd;
++  box_lengths[1] = domain->yprd;
++  box_lengths[2] = domain->zprd;
+ 
+   // grow nmax gradforce, elems arrays if necessary
+ 
+   if (atom->nmax > nmax) {
+     nmax = atom->nmax;
+     memory->grow(elems, nmax, "MLIAPData:elems");
++    memory->grow(types, nmax, "MLIAPData:types");
++    memory->grow(tags, nmax, "MLIAPData:tags");
+     if (gradgradflag > -1) memory->grow(gradforce, nmax, size_gradforce, "MLIAPData:gradforce");
+   }
+ 
+@@ -207,6 +215,8 @@ void MLIAPData::generate_neighdata(NeighList *list_in, int eflag_in, int vflag_i
+   for (int i = 0; i < nall; i++) {
+     const int itype = type[i];
+     elems[i] = map[itype];
++    types[i] = itype;
++    tags[i] = atom->tag[i];
+   }
+ 
+   eflag = eflag_in;
+@@ -286,6 +296,8 @@ double MLIAPData::memory_usage()
+   bytes += (double) nelements * nparams * sizeof(double);      // egradient
+   bytes += (double) nmax * size_gradforce * sizeof(double);    // gradforce
+   bytes += (double) nmax * sizeof(int);                        // elems
++  bytes += (double) nmax * sizeof(int);                        // types
++  bytes += (double) nmax * sizeof(tagint);                     // tags
+ 
+   if (gradgradflag == 1) {
+     bytes += (double) natomgamma_max * gamma_nnz * sizeof(int);       //gamma_row_index
+diff --git a/src/ML-IAP/mliap_data.h b/src/ML-IAP/mliap_data.h
+index 3c27040bb8..8a16f6992a 100644
+--- a/src/ML-IAP/mliap_data.h
++++ b/src/ML-IAP/mliap_data.h
+@@ -45,6 +45,7 @@ class MLIAPData : protected Pointers {
+   int nparams;             // number of model parameters per element
+   int nelements;           // number of elements
+   int gradgradflag;        // 1 for graddesc, 0 for gamma, -1 for pair style
++  double box_lengths[3];    // current periodic box lengths
+ 
+   // data structures for grad-grad list (gamma)
+ 
+@@ -68,6 +69,8 @@ class MLIAPData : protected Pointers {
+   int *iatoms;                   // index of each atom
+   int *ielems;                   // element of each atom
+   int *itypes;                   // LAMMPS type of each atom for external evaluators
++  int *types;                    // LAMMPS type of each atom in or not in the neighborlist
++  tagint *tags;                  // LAMMPS atom ID of each atom in or not in the neighborlist
+   int nneigh_max;                // number of ij neighbors allocated
+   int npairs;                    // number of ij neighbor pairs
+   int *pair_i;                   // index of each i atom for each ij pair
+diff --git a/src/ML-IAP/mliap_unified_couple.pyx b/src/ML-IAP/mliap_unified_couple.pyx
+index 36c3eddda7..2ef851b3bb 100644
+--- a/src/ML-IAP/mliap_unified_couple.pyx
++++ b/src/ML-IAP/mliap_unified_couple.pyx
+@@ -39,6 +39,7 @@ cdef extern from "mliap_data.h" namespace "LAMMPS_NS":
+         int ndescriptors        # number of descriptors
+         int nparams             # number of model parameters per element
+         int nelements           # number of elements
++        double box_lengths[3]   # current periodic box lengths
+ 
+         # data structures for grad-grad list (gamma)
+ 
+@@ -66,6 +67,8 @@ cdef extern from "mliap_data.h" namespace "LAMMPS_NS":
+         int * jatoms            # index of each neighbor
+         int * jelems            # element of each neighbor
+         int * elems             # element of each atom in or not in the neighborlist
++        int * types             # LAMMPS type of each atom in or not in the neighborlist
++        int * tags              # LAMMPS atom ID of each atom in or not in the neighborlist
+         double ** rij           # distance vector of each neighbor
+         # ----- write only -----
+         double *** graddesc     # descriptor gradient w.r.t. each neighbor
+@@ -182,6 +185,17 @@ cdef class MLIAPDataPy:
+     def nelements(self):
+         return self.data.nelements
+ 
++    @property
++    def box_lengths(self):
++        return np.asarray(
++            [
++                self.data.box_lengths[0],
++                self.data.box_lengths[1],
++                self.data.box_lengths[2],
++            ],
++            dtype=np.float64,
++        )
++
+     # data structures for grad-grad list (gamma)
+ 
+     @property
+@@ -225,6 +239,18 @@ cdef class MLIAPDataPy:
+             return None
+         return np.asarray(<int[:self.ntotal]> &self.data.elems[0])
+ 
++    @property
++    def types(self):
++        if self.data.types is NULL:
++            return None
++        return np.asarray(<int[:self.ntotal]> &self.data.types[0])
++
++    @property
++    def tags(self):
++        if self.data.tags is NULL:
++            return None
++        return np.asarray(<int[:self.ntotal]> &self.data.tags[0])
++
+     @property
+     def nlistatoms(self):
+         return self.data.nlistatoms

@@ -17,7 +17,9 @@ Main defaults:
   OUTPUT_PREFIX=Li_electrolyte_Mix
   OUTPUT_ROOT=$MIX_DATA_ROOT/local_runs/mix_further_ft/from_$SOURCE_VARIANT/all_mix
   INIT_CHECKPOINT=<enhance-V1 best ckpt>
+  TRAIN_FILE=$MIX_DATA_ROOT/train_mlpmd_all.xyz
   TEST_FILE=$MIX_DATA_ROOT/${OUTPUT_PREFIX}_all.xyz only used when SKIP_EVAL=0
+  PREPARE_PAIRS=0
   SKIP_EVAL=1
   DELTA_E_LOSS_WEIGHT=0
 
@@ -41,6 +43,7 @@ Useful overrides:
   INIT_CHECKPOINT=/path/to/enhance-V1-best.ckpt
   SOURCE_VARIANT=with_enhance|without_enhance
   DATA_INCLUDE_LABELS=Li_system_lambda0_mix
+  TRAIN_FILE=/path/to/train.xyz
   DELTA_E_LOSS_WEIGHT>0 to enable train_with_delta_e
   SKIP_EVAL=0 TEST_FILE=/path/to/independent_mix_test.xyz
 
@@ -194,6 +197,7 @@ fi
 REFERENCE_ROOT="${REFERENCE_ROOT:-${MIX_DATA_ROOT}/references/mix_further_ft/from_${SOURCE_VARIANT}/${DATA_SCOPE}}"
 
 OUTPUT_ROOT="${OUTPUT_ROOT:-${MIX_DATA_ROOT}/local_runs/mix_further_ft/from_${SOURCE_VARIANT}/${DATA_SCOPE}}"
+TRAIN_FILE="${TRAIN_FILE:-${MIX_DATA_ROOT}/train_mlpmd_all.xyz}"
 TEST_FILE="${TEST_FILE:-${MIX_DATA_ROOT}/${OUTPUT_PREFIX}_all.xyz}"
 
 MODEL_TYPE="${MODEL_TYPE:-mattersim-1m}"
@@ -249,7 +253,7 @@ MAX_EVAL_STRUCTURES="${MAX_EVAL_STRUCTURES:-}"
 LOG_LOSS_GRAD_NORMS="${LOG_LOSS_GRAD_NORMS:-1}"
 GRAD_NORM_LOG_EVERY_N_STEPS="${GRAD_NORM_LOG_EVERY_N_STEPS:-50}"
 NO_PER_ATOM_ENERGY_NORMALIZE="${NO_PER_ATOM_ENERGY_NORMALIZE:-0}"
-PREPARE_PAIRS="${PREPARE_PAIRS:-auto}"
+PREPARE_PAIRS="${PREPARE_PAIRS:-0}"
 MATCH_TOLERANCE="${MATCH_TOLERANCE:-1e-4}"
 
 export DATA_ROOT="${MIX_DATA_ROOT}"
@@ -258,6 +262,7 @@ export OUTPUT_PREFIX
 export DATA_VARIANT="with_enhance"
 export DATA_INCLUDE_LABELS
 export OUTPUT_ROOT
+export TRAIN_FILE
 export INIT_CHECKPOINT
 export REFERENCE_ROOT
 export TEST_FILE
@@ -315,7 +320,9 @@ echo "DATA_INCLUDE_LABELS = ${DATA_INCLUDE_LABELS:-<all mix pairs>}"
 echo "DATA_SCOPE          = ${DATA_SCOPE}"
 echo "OUTPUT_PREFIX       = ${OUTPUT_PREFIX}"
 echo "OUTPUT_ROOT         = ${OUTPUT_ROOT}"
+echo "TRAIN_FILE          = ${TRAIN_FILE}"
 echo "TEST_FILE           = ${TEST_FILE}"
+echo "PREPARE_PAIRS       = ${PREPARE_PAIRS}"
 echo "SKIP_EVAL           = ${SKIP_EVAL}"
 echo "ENERGY_REFERENCE    = ${ENERGY_REFERENCE:-<fit mix reference if needed>}"
 echo "MODEL_TYPE          = ${MODEL_TYPE}"
