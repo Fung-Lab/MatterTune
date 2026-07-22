@@ -26,6 +26,8 @@ TEMPERATURE="${TEMPERATURE:-298.15}"
 FRICTION_FS_INV="${FRICTION_FS_INV:-0.02}"
 THERMO_INTERVAL="${THERMO_INTERVAL:-100}"
 DUMP_INTERVAL="${DUMP_INTERVAL:-100}"
+XTC_DUMP_INTERVAL="${XTC_DUMP_INTERVAL:-500}"
+XTC_PATH="${XTC_PATH:-}"
 SEED="${SEED:-7}"
 INIT_VELOCITIES="${INIT_VELOCITIES:-1}"
 
@@ -42,30 +44,32 @@ RUN_MD="${RUN_MD:-1}"
 usage() {
   cat <<'EOF'
 Usage:
-  bash examples/elec-Li-new/mix_further_ft/run_lammps_mlp_md.sh [options]
+  bash run_lammps_mlp_md.sh [options]
 
-Common options:
-  --checkpoint PATH           MatterTune MatterSim checkpoint.
-  --structure PATH            Initial PDB. Default is the case6-case2 298K top.pdb.
-  --run-dir PATH              Output directory. Default is RUN_ROOT/CONFIG_TYPE/timestamp-normal-lammps.
-  --steps N                   Production MD steps. Default: 100000.
-  --warmup-steps N            Warmup steps before production dump. Default: 20.
-  --temperature K             NVT temperature. Default: 298.15.
-  --timestep-fs FS            LAMMPS timestep in fs. Default: 1.0.
-  --friction-fs-inv VALUE     Langevin friction in fs^-1. Default: 0.02.
-  --thermo-interval N         LAMMPS thermo interval. Default: 100.
-  --dump-interval N           Trajectory dump interval. Default: 100.
-  --element-order LIST        Comma-separated element order. Default: Li,F,S,N,O,C,H.
-  --cuda-visible-devices IDS  Set CUDA_VISIBLE_DEVICES before export and LAMMPS.
-  --prepare-only              Export/prepare files but do not launch LAMMPS.
-  --force-export              Re-export .pt even if MODEL_PATH already exists.
-  --no-compile                Disable torch.compile at LAMMPS runtime.
-  --dry-run                   Print commands without executing them.
-
-Environment overrides:
-  CONDA_ENV CONDA_SH LMP_BIN MATTERTUNE_DIR MATTERSIM_DIR RUN_ROOT RUN_DIR
-  ELEMENT_ORDER THERMO_INTERVAL DUMP_INTERVAL SEED INIT_VELOCITIES KOKKOS_GPUS
-  CUDA_VISIBLE_DEVICES_VALUE EXPORT_DEVICE STRICT NO_COMPILE FORCE_EXPORT
+Options:
+  --checkpoint PATH
+  --ckpt PATH
+  --structure PATH
+  --pdb PATH
+  --run-dir PATH
+  --steps N
+  --warmup-steps N
+  --temperature K
+  --timestep-fs FS
+  --friction-fs-inv VALUE
+  --thermo-interval N
+  --dump-interval N
+  --xtc-dump-interval N
+  --xtc-path PATH
+  --element-order LIST
+  --cuda-visible-devices IDS
+  --prepare-only
+  --no-run
+  --force-export
+  --no-compile
+  --dry-run
+  -h
+  --help
 EOF
 }
 
@@ -81,6 +85,8 @@ while [[ $# -gt 0 ]]; do
     --friction-fs-inv) FRICTION_FS_INV="$2"; shift 2 ;;
     --thermo-interval) THERMO_INTERVAL="$2"; shift 2 ;;
     --dump-interval) DUMP_INTERVAL="$2"; shift 2 ;;
+    --xtc-dump-interval) XTC_DUMP_INTERVAL="$2"; shift 2 ;;
+    --xtc-path) XTC_PATH="$2"; shift 2 ;;
     --element-order) ELEMENT_ORDER="$2"; shift 2 ;;
     --cuda-visible-devices) CUDA_VISIBLE_DEVICES_VALUE="$2"; shift 2 ;;
     --prepare-only|--no-run) RUN_MD=0; shift ;;
@@ -96,16 +102,19 @@ if [[ ! -f "${CONDA_SH}" ]]; then
   echo "Conda setup script not found: ${CONDA_SH}" >&2
   exit 1
 fi
+
 if [[ ! -f "${CKPT}" ]]; then
   echo "Checkpoint not found: ${CKPT}" >&2
   exit 1
 fi
+
 if [[ ! -f "${STRUCTURE}" ]]; then
   echo "Structure PDB not found: ${STRUCTURE}" >&2
   exit 1
 fi
+
 if [[ ! -f "${SCRIPT_DIR}/prepare_lammps_normal_input.py" ]]; then
-  echo "Prepare script not found under ${SCRIPT_DIR}" >&2
+  echo "Prepare script not found: ${SCRIPT_DIR}/prepare_lammps_normal_input.py" >&2
   exit 1
 fi
 
@@ -122,6 +131,10 @@ DUMP_PATH="${RUN_DIR}/traj_normal.lammpstrj"
 LOG_PATH="${RUN_DIR}/log.normal.lammps"
 CONFIG_PATH="${RUN_DIR}/run_lammps_mlp_md_config.txt"
 
+if [[ -z "${XTC_PATH}" ]]; then
+  XTC_PATH="${RUN_DIR}/traj.xtc"
+fi
+
 run_cmd() {
   printf '+'
   printf ' %q' "$@"
@@ -133,14 +146,17 @@ run_cmd() {
 
 source "${CONDA_SH}"
 conda activate "${CONDA_ENV}"
+
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="${MATTERSIM_DIR}/src:${MATTERTUNE_DIR}/src:${PYTHONPATH:-}"
+
 if [[ -n "${CUDA_VISIBLE_DEVICES_VALUE}" ]]; then
   export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES_VALUE}"
 fi
 
 if [[ "${DRY_RUN}" != "1" ]]; then
   mkdir -p "${RUN_DIR}"
+
   cat > "${CONFIG_PATH}" <<EOF
 created_at=$(date --iso-8601=seconds)
 checkpoint=${CKPT}
@@ -154,10 +170,14 @@ warmup_steps=${WARMUP_STEPS}
 steps=${STEPS}
 thermo_interval=${THERMO_INTERVAL}
 dump_interval=${DUMP_INTERVAL}
+xtc_dump_interval=${XTC_DUMP_INTERVAL}
+xtc_path=${XTC_PATH}
 model_path=${MODEL_PATH}
 data_path=${DATA_PATH}
 input_path=${INPUT_PATH}
 metadata_path=${METADATA_PATH}
+final_data_path=${FINAL_DATA_PATH}
+dump_path=${DUMP_PATH}
 log_path=${LOG_PATH}
 cuda_visible_devices=${CUDA_VISIBLE_DEVICES_VALUE}
 kokkos_gpus=${KOKKOS_GPUS}
@@ -167,16 +187,30 @@ else
 fi
 
 echo "RUN_DIR=${RUN_DIR}"
+echo "CKPT=${CKPT}"
+echo "STRUCTURE=${STRUCTURE}"
+echo "MODEL_PATH=${MODEL_PATH}"
+echo "DATA_PATH=${DATA_PATH}"
+echo "INPUT_PATH=${INPUT_PATH}"
+echo "DUMP_PATH=${DUMP_PATH}"
+echo "XTC_PATH=${XTC_PATH}"
+echo "STEPS=${STEPS}"
+echo "WARMUP_STEPS=${WARMUP_STEPS}"
+echo "THERMO_INTERVAL=${THERMO_INTERVAL}"
+echo "DUMP_INTERVAL=${DUMP_INTERVAL}"
+echo "XTC_DUMP_INTERVAL=${XTC_DUMP_INTERVAL}"
+echo "KOKKOS_GPUS=${KOKKOS_GPUS}"
+
 if [[ -n "${CUDA_VISIBLE_DEVICES_VALUE}" ]]; then
   echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES_VALUE}"
 fi
-echo "CKPT=${CKPT}"
-echo "STRUCTURE=${STRUCTURE}"
 
 EXPORT_ARGS=()
+
 if [[ "${STRICT}" == "1" ]]; then
   EXPORT_ARGS+=(--strict)
 fi
+
 if [[ "${NO_COMPILE}" == "1" ]]; then
   EXPORT_ARGS+=(--no-compile)
 fi
@@ -192,6 +226,7 @@ else
 fi
 
 INIT_ARGS=()
+
 if [[ "${INIT_VELOCITIES}" == "1" ]]; then
   INIT_ARGS+=(--init-velocities)
 else
@@ -212,6 +247,8 @@ run_cmd python "${SCRIPT_DIR}/prepare_lammps_normal_input.py" \
   --steps "${STEPS}" \
   --thermo-interval "${THERMO_INTERVAL}" \
   --dump-interval "${DUMP_INTERVAL}" \
+  --xtc-dump-interval "${XTC_DUMP_INTERVAL}" \
+  --xtc-path "${XTC_PATH}" \
   --seed "${SEED}" \
   --final-data "${FINAL_DATA_PATH}" \
   --dump "${DUMP_PATH}" \
@@ -242,6 +279,7 @@ import sys
 log_path = sys.argv[1]
 matches = []
 pattern = re.compile(r"Loop time of ([0-9.eE+-]+) on .* for (\d+) steps")
+
 with open(log_path, encoding="utf-8", errors="replace") as handle:
     for line in handle:
         match = pattern.search(line)
@@ -250,6 +288,7 @@ with open(log_path, encoding="utf-8", errors="replace") as handle:
             steps = int(match.group(2))
             if steps > 0:
                 matches.append((seconds, steps))
+
 if matches:
     seconds, steps = matches[-1]
     print(f"production_ms_per_step={seconds * 1000.0 / steps:.6g}")
