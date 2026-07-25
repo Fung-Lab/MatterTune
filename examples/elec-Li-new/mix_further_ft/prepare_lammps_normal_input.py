@@ -31,6 +31,7 @@ def write_lammps_data(
             )
 
     path.parent.mkdir(parents=True, exist_ok=True)
+
     with path.open("w", encoding="utf-8") as handle:
         handle.write("LAMMPS data generated from PDB for normal MatterTune-MatterSim MD\n\n")
         handle.write(f"{len(atoms)} atoms\n")
@@ -39,9 +40,12 @@ def write_lammps_data(
         handle.write(f"0.0 {cell[1]:.10f} ylo yhi\n")
         handle.write(f"0.0 {cell[2]:.10f} zlo zhi\n\n")
         handle.write("Masses\n\n")
+
         for atom_type, element in enumerate(element_order, start=1):
             handle.write(f"{atom_type} {DEFAULT_MASSES[element]:.12g} # {element}\n")
+
         handle.write("\nAtoms # atomic\n\n")
+
         for atom in atoms:
             x = wrap_position(atom.x, cell[0])
             y = wrap_position(atom.y, cell[1])
@@ -69,6 +73,7 @@ def parse_args() -> argparse.Namespace:
             "ML-IAP MD from an electrolyte PDB."
         )
     )
+
     parser.add_argument("--pdb", type=Path, required=True)
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--input", type=Path, required=True)
@@ -82,23 +87,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--steps", type=int, default=100000)
     parser.add_argument("--thermo-interval", type=int, default=100)
     parser.add_argument("--dump-interval", type=int, default=100)
+    parser.add_argument("--xtc-dump-interval", type=int, default=500)
+    parser.add_argument("--xtc-path", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--init-velocities", dest="init_velocities", action="store_true", default=True)
     parser.add_argument("--no-init-velocities", dest="init_velocities", action="store_false")
     parser.add_argument("--final-data", type=Path, required=True)
     parser.add_argument("--dump", type=Path, required=True)
+
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
     atoms, cell = parse_pdb(args.pdb)
+
     metadata = write_lammps_data(
         path=args.data,
         atoms=atoms,
         cell=cell,
         element_order=args.element_order,
     )
+
     write_lammps_input(
         path=args.input,
         data_path=args.data.resolve(),
@@ -111,6 +122,8 @@ def main() -> None:
         steps=args.steps,
         thermo_interval=args.thermo_interval,
         dump_interval=args.dump_interval,
+        xtc_dump_interval=args.xtc_dump_interval,
+        xtc_path=args.xtc_path.resolve(),
         seed=args.seed,
         init_velocities=args.init_velocities,
         final_data_path=args.final_data.resolve(),
@@ -129,15 +142,21 @@ def main() -> None:
         "steps": args.steps,
         "thermo_interval": args.thermo_interval,
         "dump_interval": args.dump_interval,
+        "xtc_dump_interval": args.xtc_dump_interval,
+        "xtc_path": str(args.xtc_path),
         "seed": args.seed,
         "init_velocities": args.init_velocities,
         **metadata,
     }
+
     args.metadata.parent.mkdir(parents=True, exist_ok=True)
     args.metadata.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
     print(f"wrote {args.data}")
     print(f"wrote {args.input}")
     print(f"wrote {args.metadata}")
+    print(f"xtc_dump_interval={args.xtc_dump_interval}")
+    print(f"xtc_path={args.xtc_path}")
     print(f"pair_coeff * * {' '.join(metadata['pair_coeff_elements'])}")
 
 
