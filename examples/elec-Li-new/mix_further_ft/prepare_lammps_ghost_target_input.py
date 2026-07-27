@@ -244,13 +244,13 @@ def write_lammps_input(
         handle.write(f"pair_coeff      * * {pair_coeff}\n\n")
 
         if init_velocities:
-            handle.write(f"velocity        all create {temperature:.12g} {seed} mom yes rot yes dist gaussian\n")
+            handle.write(f"#velocity        all create {temperature:.12g} {seed} mom yes rot yes dist gaussian\n")
 
         handle.write(f"timestep        {timestep_ps:.12g}\n")
         handle.write("fix             int all nve\n")
         handle.write(
-            f"fix             therm all langevin {temperature:.12g} {temperature:.12g} "
-            f"{damping_ps:.12g} {seed + 7919} zero yes\n\n"
+            f"fix             therm all temp/csvr {temperature:.12g} {temperature:.12g} "
+            f"{damping_ps:.12g} {seed + 7919}\n\n"
         )
         handle.write("neighbor        2.0 bin\n")
         handle.write("neigh_modify    every 1 delay 0 check yes\n\n")
